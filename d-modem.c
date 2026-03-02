@@ -68,24 +68,16 @@ static pj_status_t dmodem_put_frame(pjmedia_port *this_port, pjmedia_frame *fram
 	struct socket_frame socket_frame = { 0 };
 	int len;
 
-	if (frame->size == 0) {
-		return PJ_SUCCESS;
-	}
+	socket_frame.type = SOCKET_FRAME_AUDIO;
 
-	if (frame->size != sizeof(socket_frame.data.audio.buf)) {
-		return PJSIP_EINVALIDMSG;
-	}
-
-	if (frame->type == PJMEDIA_FRAME_TYPE_AUDIO) {
-		//printf("dmodem:writing audio frame\n"); //super debug
+	if (frame->type == PJMEDIA_FRAME_TYPE_AUDIO &&
+	    frame->size == sizeof(socket_frame.data.audio.buf)) {
 		memcpy(socket_frame.data.audio.buf, frame->buf, frame->size);
-		socket_frame.type = SOCKET_FRAME_AUDIO;
+	}
+	/* else: zero-filled silence — keeps modem DSP clock running */
 
-		if ((len=write(sm->sock, &socket_frame, sizeof(socket_frame))) != sizeof(socket_frame)) {
-			printf("dmodem:error writing audio frame\n");
-			//error_exit("error writing frame",0);
-		}
-
+	if ((len=write(sm->sock, &socket_frame, sizeof(socket_frame))) != sizeof(socket_frame)) {
+		printf("dmodem:error writing audio frame\n");
 	}
 
 	return PJ_SUCCESS;
@@ -439,7 +431,24 @@ int main(int argc, char *argv[]) {
 			pri = 1;
 		}
 		pjsua_codec_set_priority(&codecs[i].codec_id, pri);
-//		printf("codec: %s %d\n",pj_strbuf(&codecs[i].codec_id),pri);
+	}
+
+	/* Disable PLC on G.711 codecs - PLC generates fake audio that
+	   corrupts modem signals during packet loss */
+	{
+		pjmedia_codec_param codec_param;
+		pj_str_t pcmu_id = pj_str("PCMU/8000/1");
+		pj_str_t pcma_id = pj_str("PCMA/8000/1");
+		if (pjsua_codec_get_param(&pcmu_id, &codec_param) == PJ_SUCCESS) {
+			codec_param.setting.plc = 0;
+			codec_param.setting.vad = 0;
+			pjsua_codec_set_param(&pcmu_id, &codec_param);
+		}
+		if (pjsua_codec_get_param(&pcma_id, &codec_param) == PJ_SUCCESS) {
+			codec_param.setting.plc = 0;
+			codec_param.setting.vad = 0;
+			pjsua_codec_set_param(&pcma_id, &codec_param);
+		}
 	}
 
 	/* Add UDP transport. */
