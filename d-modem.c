@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include <errno.h>
+#include <getopt.h>
 
 #include <sys/socket.h>
 
@@ -337,39 +338,54 @@ int main(int argc, char *argv[]) {
 	struct socket_frame sip_socket_frame = { 0 };
 
 	char *sip_domain = NULL;
+	char *sip_user = NULL;
 	char *sip_pass = NULL;
 	int direct_call = 1;
-	printf("dmodem begin...\n");
-	if (argc != 4) {
+
+	static struct option long_options[] = {
+		{"sip-server",   required_argument, 0, 's'},
+		{"sip-user",     required_argument, 0, 'u'},
+		{"sip-password", required_argument, 0, 'p'},
+		{0, 0, 0, 0}
+	};
+
+	int opt;
+	while ((opt = getopt_long(argc, argv, "", long_options, NULL)) != -1) {
+		switch (opt) {
+			case 's': sip_domain = optarg; break;
+			case 'u': sip_user   = optarg; break;
+			case 'p': sip_pass   = optarg; break;
+			default:
+				fprintf(stderr, "Usage: %s [--sip-server SERVER] [--sip-user USER] [--sip-password PASS] dialstr audio_sock sip_sock\n", argv[0]);
+				return -1;
+		}
+	}
+
+	if (argc - optind != 3) {
+		fprintf(stderr, "Usage: %s [--sip-server SERVER] [--sip-user USER] [--sip-password PASS] dialstr audio_sock sip_sock\n", argv[0]);
 		return -1;
 	}
+
+	char *dialstr = argv[optind];
+	int audiosocket = atoi(argv[optind + 1]);
+	sipsocket       = atoi(argv[optind + 2]);
+
+	printf("dmodem begin...\n");
+	printf("args: dialstr=%s audio_sock=%d sip_sock=%d\n", dialstr, audiosocket, sipsocket);
+
+	if (sip_user && sip_domain) {
+		if (!sip_pass) {
+			fprintf(stderr, "SIP password required when SIP user/server are specified\n");
+			exit(EXIT_FAILURE);
+		}
+		direct_call = 0;
+	} else {
+		printf("No SIP credentials, continuing with direct SIP calls.\n");
+		printf("Use `ATDTendpoint@sip.domain' for calls\n");
+	}
+
 	printf("dmodem starting..\n");
 	signal(SIGPIPE,SIG_IGN);
-
-	printf("args: %s %s %s %s\n",argv[1],argv[2],argv[3],argv[4]);
-
-	char *dialstr = argv[1];
-	sipsocket = atoi(argv[3]);
-
-	char *sip_user = getenv("SIP_LOGIN");
-	if (!sip_user) {
-		printf("No SIP_LOGIN defined, continuing with direct SIP calls.\n");
-		printf("Use `ATDTendpoint@sip.domain' for calls\n");
-	} else {
-		sip_domain = strchr(sip_user,'@');
-		if (!sip_domain) {
-			fprintf(stderr, "Can't find SIP domain in SIP_LOGN!\n");
-			exit(EXIT_FAILURE);
-		}
-		*sip_domain++ = '\0';
-		sip_pass = strchr(sip_user,':');
-		if (!sip_pass) {
-			fprintf(stderr, "Can't find SIP password in SIP_LOGN!\n");
-			exit(EXIT_FAILURE);
-		}
-		*sip_pass++ = '\0';
-		direct_call = 0;
-	}
 
 	if (strchr(dialstr, '@')) {
 		printf("Found '@' in %s, continuing with direct call\n", dialstr);
@@ -448,7 +464,7 @@ int main(int argc, char *argv[]) {
 	pj_str_t name = pj_str("dmodem");
 	
 	memset(&port,0,sizeof(port));
-	port.sock = atoi(argv[2]); // inherited from parent
+	port.sock = audiosocket; // inherited from parent
 	pjmedia_port_info_init(&port.base.info, &name, SIGNATURE, SIP_RATE, 1, 16, SIP_FRAMESIZE);
 	port.base.put_frame = dmodem_put_frame;
 	port.base.get_frame = dmodem_get_frame;
@@ -581,9 +597,9 @@ int main(int argc, char *argv[]) {
 
 		FD_ZERO(&srset);
 		FD_ZERO(&seset);
-		FD_SET(atoi(argv[3]),&srset);
-		FD_SET(atoi(argv[3]),&seset);
-		sret = select(atoi(argv[3]) + 1,&srset,NULL,&seset,&stmo);
+		FD_SET(sipsocket,&srset);
+		FD_SET(sipsocket,&seset);
+		sret = select(sipsocket + 1,&srset,NULL,&seset,&stmo);
 
         if (sret < 0) {
 			printf("dmm: sret < 0/s");
@@ -596,7 +612,7 @@ int main(int argc, char *argv[]) {
 		if (sret == 0) continue;
 
 		int len;
-		if ((len=read(atoi(argv[3]), &sip_socket_frame, sizeof(sip_socket_frame))) != sizeof(sip_socket_frame)) {
+		if ((len=read(sipsocket, &sip_socket_frame, sizeof(sip_socket_frame))) != sizeof(sip_socket_frame)) {
 			//error_exit("error reading frame",0);
 			
 			printf("dmodem_main: error reading frame %i\n",len);
@@ -656,7 +672,7 @@ int main(int argc, char *argv[]) {
 						pjsua_call_id callid;
 						//update modem of call state
 						sprintf(sip_socket_frame.data.sip.info,"CALLING");
-						if ((len=write(atoi(argv[3]), &sip_socket_frame, sizeof(sip_socket_frame))) != sizeof(sip_socket_frame)) {
+						if ((len=write(sipsocket, &sip_socket_frame, sizeof(sip_socket_frame))) != sizeof(sip_socket_frame)) {
 						printf("dmodem_main: error writing frame %i\n",len);}	
 						//call pjsua
 						status = pjsua_call_make_call(acc_id, &sipuri, 0, NULL, NULL, &callid);

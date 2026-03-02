@@ -71,6 +71,9 @@ const char *modem_dev_name = NULL;
 const char *modem_default_dev_name = "/dev/slamr0";
 const char *modem_alsa_dev_name = "modem:1";
 const char *modem_exec = NULL;
+const char *modem_sip_server = NULL;
+const char *modem_sip_user = NULL;
+const char *modem_sip_pass = NULL;
 unsigned int need_realtime = 1;
 #ifdef MODEM_CONFIG_RING_DETECTOR
 unsigned int ring_detector = 0;
@@ -98,6 +101,9 @@ enum {
 	OPT_DEBUG,
 	OPT_LOG,
 	OPT_EXEC,
+	OPT_SIP_SERVER,
+	OPT_SIP_USER,
+	OPT_SIP_PASS,
 	OPT_LAST
 };
 
@@ -126,6 +132,9 @@ static struct opt {
 	{'d',"debug","debug level (developers only, for ./sl...)",OPTIONAL,INTEGER,"0"},
 	{'l',"log","logging mode",OPTIONAL,INTEGER,"5"},
 	{'e',"exec","path to external application that transmits audio over the socket (required)",MANDATORY,STRING,""},
+	{'S' ,"sip-server","SIP server hostname",OPTIONAL,STRING,""},
+	{'U',"sip-user","SIP username",OPTIONAL,STRING,""},
+	{'P',"sip-password","SIP password",OPTIONAL,STRING,""},
 	{}
 };
 
@@ -289,6 +298,12 @@ void modem_cmdline(int argc, char *argv[])
 	} else {
 		usage(prog_name);
 	}
+	if(opt_list[OPT_SIP_SERVER].found)
+		modem_sip_server = opt_list[OPT_SIP_SERVER].arg_val;
+	if(opt_list[OPT_SIP_USER].found)
+		modem_sip_user = opt_list[OPT_SIP_USER].arg_val;
+	if(opt_list[OPT_SIP_PASS].found)
+		modem_sip_pass = opt_list[OPT_SIP_PASS].arg_val;
 	if(!modem_dev_name) {
 		modem_dev_name = use_alsa ? modem_alsa_dev_name : modem_default_dev_name;
 	}

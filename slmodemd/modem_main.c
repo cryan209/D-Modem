@@ -119,6 +119,9 @@ extern const char *modem_group;
 extern mode_t modem_perm;
 extern unsigned int use_short_buffer;
 extern const char *modem_exec;
+extern const char *modem_sip_server;
+extern const char *modem_sip_user;
+extern const char *modem_sip_pass;
 
 
 struct device_struct {
@@ -669,7 +672,26 @@ static int socket_start (struct modem *m)
 		close(sip_sockets[1]);
 		DBG("dm sipsocket %s\n",sipstr);
 		//exec -e modem_exec
-		ret = execl(modem_exec,modem_exec,m->dial_string,str,sipstr,NULL);
+		char *child_argv[16];
+		int ai = 0;
+		child_argv[ai++] = (char *)modem_exec;
+		if (modem_sip_server) {
+			child_argv[ai++] = "--sip-server";
+			child_argv[ai++] = (char *)modem_sip_server;
+		}
+		if (modem_sip_user) {
+			child_argv[ai++] = "--sip-user";
+			child_argv[ai++] = (char *)modem_sip_user;
+		}
+		if (modem_sip_pass) {
+			child_argv[ai++] = "--sip-password";
+			child_argv[ai++] = (char *)modem_sip_pass;
+		}
+		child_argv[ai++] = m->dial_string;
+		child_argv[ai++] = str;
+		child_argv[ai++] = sipstr;
+		child_argv[ai] = NULL;
+		ret = execv(modem_exec, child_argv);
 		if (ret == -1) {
 			ERR("prog: %s\n", modem_exec);
 			perror("execl");
