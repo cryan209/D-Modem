@@ -16,7 +16,7 @@ https://www.aon.com/cyber-solutions/aon_cyber_labs/introducing-d-modem-a-softwar
  - d-modem can now be called and signals the pty terminal to allow answering
 
 ## Building
-You'll need Linux and a working 32-bit development environment (gcc -m32 needs to work, Debian-based systems can install: libc6-dev-i386 gcc-multilib), along with PJSIP's dependencies (OpenSSL).  Then run 'make' from the top-level directory.
+You'll need Linux and a working 32-bit development environment (gcc -m32 needs to work, Debian-based systems can install: git gcc build-essential libc6-dev-i386 gcc-multilib pkg-config), along with PJSIP's dependencies (OpenSSL).  Then run 'make' from the top-level directory.
 
 ## How it Works
 Traditional “controller-based” modems generally used a microcontroller and a DSP to handle all aspects of modem communication on the device itself.  Later, so-called “Winmodems” were introduced that allowed for field-programmable DSPs and moved the controller and other functionality into software running on the host PC.  This was followed by “pure software” modems that moved DSP functionality to the host as well.  The physical hardware of these softmodems was only used to connect to the phone network, and all processing was done in software. 
@@ -111,6 +111,18 @@ To stop data transmission, first escape from on-line mode (+++), then hang up:
 
     +++
     ath
+
+Commands to pass modem terminal through to a VM (eg Windows) from an LXC container (running SLModem). VM will need serial device.
+
+    ;on proxmox/qemu host
+    # socat -d -d TCP-L:[TCP PORT] UNIX-CLIENT:/var/run/qemu-server/[guest id].serial0
+
+    ;on slmodem container or machine
+    # socat -d -d TCP:[IP OF QEMU]:[TCP PORT] /dev/ttySL0[1,2...],b[BAUD RATE such as 115200],raw,echo=0
+
+In the VM, open a terminal program and dial out to another modem using the serial port.
+
+![image showing Windows XP in a Proxmox VM while a SSH terminal shows D-Modem running](doc/d-modem%20xp.png?raw=true)
 
 ## Known Issues / Future Work
 - Additional logging/error handling is needed 
