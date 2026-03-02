@@ -404,10 +404,12 @@ int main(int argc, char *argv[]) {
 		med_cfg.no_vad = true;
 		med_cfg.ec_tail_len = 0;
 		med_cfg.snd_use_sw_clock = true;
-#if 0
-		med_cfg.jb_max = 2000;
-//		med_cfg.jb_init = 200;
-#endif
+		/* Fixed jitter buffer for modem traffic - adaptive mode
+		   drops/inserts frames which corrupts modem data */
+		med_cfg.jb_max = 500;
+		med_cfg.jb_min_pre = 0;
+		med_cfg.jb_max_pre = 0;
+		med_cfg.jb_init = 100;
 		med_cfg.audio_frame_ptime = 20;
 		med_cfg.has_ioqueue = true;
 		med_cfg.thread_cnt = 1;

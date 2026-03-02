@@ -876,21 +876,8 @@ static int socket_ioctl(struct modem *m, unsigned int cmd, unsigned long arg)
 		ret = 0;
 		break;
 	case MDMCTL_HOOKSTATE: // 0 = on, 1 = off
-		//sip_modem_hookstate = arg;
-		//DBG("socket:sipinfo:hookstate: %x \n",sip_modem_hookstate);
-		//if (pid) {
-		//	struct socket_frame sip_socket_frame = { 0 };
-
-//			sip_socket_frame.type = SOCKET_FRAME_SIP_INFO;
-//			sip_socket_frame.data.sipinfo.modem_hook_state = sip_modem_hookstate;
-//			ret = write(dev->sipfd, &sip_socket_frame, sizeof(sip_socket_frame));
-//			if (ret != sizeof(sip_socket_frame)) {
-//				perror("write");
-//			}
-//			
-//		}
-//		ret = 0;
-//		break;
+		ret = 0;
+		break;
 	case MDMCTL_SPEED: // sample rate (9600)
 	case MDMCTL_GETFMTS:
 	case MDMCTL_SETFMT:

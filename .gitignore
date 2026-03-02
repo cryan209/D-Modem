@@ -11,3 +11,4 @@ libc.so.6
 .gitignore
 .vscode/tasks.json
 debug.log
+CLAUDE.md
