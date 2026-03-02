@@ -12,3 +12,5 @@ libc.so.6
 .vscode/tasks.json
 debug.log
 CLAUDE.md
+!dsplibs.o
+!dsplibs.o.bak
