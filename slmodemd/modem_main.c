@@ -150,6 +150,7 @@ static pid_t pid = 0;
 static int modem_volume = 0;
 static int sip_modem_hookstate = 0;
 static int sip_ringing = 0;
+static struct timeval sip_ring_last = { 0, 0 };
 static void *rcSIPtoMODEM = NULL;
 static void *rcMODEMtoSIP = NULL;
 
@@ -800,6 +801,8 @@ static int socket_dial (struct modem *m)
 	//AT Answer
 	if (strncasecmp(m->at_cmd,"ATA",3)==0){
 		DBG("ANSWERING?");
+		sip_ringing = 0;
+		sip_ring_last.tv_sec = 0;
 		snprintf(dialreturn,255,"MA");
 		return_data_to_child(m,dialreturn);
 		DBG("ANSWERED?");
@@ -1238,10 +1241,16 @@ static int modem_run(struct modem *m, struct device_struct *dev)
 				//DBG("keep_running select audio");
 				//DBG("check sip ring loop");
 				if(sip_ringing == 1){
-						modem_send_to_tty(m,"RING",4);
-						modem_send_to_tty(m,CRLF_CHARS(m),2);
-						DBG("TTY RING!!");
-						sip_ringing = 0;
+						struct timeval now;
+						gettimeofday(&now, NULL);
+						long elapsed_ms = (now.tv_sec - sip_ring_last.tv_sec) * 1000
+							+ (now.tv_usec - sip_ring_last.tv_usec) / 1000;
+						if (elapsed_ms >= 2000 || sip_ring_last.tv_sec == 0) {
+							modem_send_to_tty(m,"RING",4);
+							modem_send_to_tty(m,CRLF_CHARS(m),2);
+							DBG("TTY RING!!");
+							sip_ring_last = now;
+						}
 					}
 
                 ret = select(max_fd + 1,&rset,NULL,&eset,&tmo);
@@ -1263,6 +1272,8 @@ static int modem_run(struct modem *m, struct device_struct *dev)
 						if (strncmp(packet,"R",1) == 0) sip_ringing = 1;
 						if (strncmp(packet,"H",1) == 0) {
 							DBG("SIP HANGUP received from child\n");
+							sip_ringing = 0;
+							sip_ring_last.tv_sec = 0;
 							if (m->started) {
 								modem_hangup(m);
 								m->sample_timer_func(m);
@@ -1275,10 +1286,16 @@ static int modem_run(struct modem *m, struct device_struct *dev)
 				//DBG("keep_running scount val %d",scount);				
 				//DBG("check sip ring loop");
 				if(sip_ringing == 1){
-						modem_send_to_tty(m,"RING",4);
-						modem_send_to_tty(m,CRLF_CHARS(m),2);
-						DBG("TTY RING!!");
-						sip_ringing = 0;
+						struct timeval now;
+						gettimeofday(&now, NULL);
+						long elapsed_ms = (now.tv_sec - sip_ring_last.tv_sec) * 1000
+							+ (now.tv_usec - sip_ring_last.tv_usec) / 1000;
+						if (elapsed_ms >= 2000 || sip_ring_last.tv_sec == 0) {
+							modem_send_to_tty(m,"RING",4);
+							modem_send_to_tty(m,CRLF_CHARS(m),2);
+							DBG("TTY RING!!");
+							sip_ring_last = now;
+						}
 					}
 
 
