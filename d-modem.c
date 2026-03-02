@@ -16,6 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA 
  */
 
+#define _GNU_SOURCE
 #include <unistd.h>
 #include <stdbool.h>
 #include <time.h>
@@ -45,7 +46,7 @@ static pj_pool_t *pool;
 
 static int volume = 0;
 static int sipsocket;
-static int answercall;
+static pjsua_call_id pending_call_id = PJSUA_INVALID_ID;
 static int sip_modem_hookstate =0;
 static char dialstring[128] = "";
 
@@ -177,9 +178,17 @@ static void on_call_state(pjsua_call_id call_id, pjsip_event *e) {
 				(int)ci.state_text.slen,
 				ci.state_text.ptr));
 
-	if (ci.state ==PJSIP_INV_STATE_DISCONNECTED) {
-		//hup modem when disconnected
-		
+	if (ci.state == PJSIP_INV_STATE_DISCONNECTED) {
+		/* Notify slmodemd of remote hangup */
+		struct socket_frame sf = { 0 };
+		sf.type = SOCKET_FRAME_SIP_INFO;
+		snprintf(sf.data.sip.info, sizeof(sf.data.sip.info), "SH");
+		int ret = write(sipsocket, &sf, sizeof(sf));
+		if (ret != sizeof(sf)) {
+			perror("on_call_state: write SH fail");
+		}
+		printf("on_call_state: sent SH (hangup) to slmodemd\n");
+		pending_call_id = PJSUA_INVALID_ID;
 	}
 
 	//if (ci.state == PJSIP_INV_STATE_DISCONNECTED) {
@@ -296,22 +305,8 @@ static void on_incoming_call(pjsua_acc_id acc_id, pjsua_call_id call_id,
 		exit(EXIT_FAILURE);
 	}
 	
-	while(inci.media_status == PJSUA_CALL_MEDIA_NONE){
-		if (answercall == 1){
-			answercall = 0;
-			pjsua_call_answer(call_id, 200, NULL, NULL);	
-			return;	
-		}
-		
-	}
-
-						 
-    /* Automatically answer incoming calls with 200/OK */
-//    pjsua_call_answer(call_id, 200, NULL, NULL);
-//	pjsua_conf_add_port(pool, &port.base, &port_id);
-//	pjsua_conf_connect(inci.conf_slot, port_id);
-//	pjsua_conf_connect(port_id, inci.conf_slot);
-
+	/* Store call_id; main loop will answer when ATA/MA is received */
+	pending_call_id = call_id;
 }
 
 
@@ -631,10 +626,10 @@ int main(int argc, char *argv[]) {
 
 					printf("dmm:packet:M:%s\n",packet);
 					if (strncmp(packet,"A",1) == 0){
-						//Answer SIP Call...
-						answercall = 1;
-						
-						//pjsua_call_answer(call_id, 200, NULL, NULL);
+						if (pending_call_id != PJSUA_INVALID_ID) {
+							pjsua_call_answer(pending_call_id, 200, NULL, NULL);
+							pending_call_id = PJSUA_INVALID_ID;
+						}
 					}
 					if (strncmp(packet,"H",1) == 0){
 						packet++;
@@ -683,15 +678,11 @@ int main(int argc, char *argv[]) {
 					}
 
 					printf("dmodem_main: finished commands\n");
-					
-					//return 0;
 				}
+				break;
 		default:
 			printf("dmodem_main: invalid frame\n");
-			//error_exit("Invalid frame received!", 0);
-			//break;
-		
-	
+			break;
 		}
 		//nanosleep(&ts,NULL);
 	}

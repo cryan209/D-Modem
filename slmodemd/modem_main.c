@@ -829,14 +829,11 @@ static int socket_stop (struct modem *m)
 
 static int socket_hangup (struct modem *m)
 {
-	struct device_struct *dev = m->dev_data;
-	char ret[256];
+	char buf[256];
 	DBG("hangup...\n");
 	sip_modem_hookstate = 0;
-	DBG("socket:sipinfo:hookstate: %x \n",sip_modem_hookstate);
-	snprintf(ret,3,"MH%i",sip_modem_hookstate);
-	DBG("return data to child process...\n");
-	//return_data_to_child(m,ret);
+	snprintf(buf, sizeof(buf), "MH%i", sip_modem_hookstate);
+	return_data_to_child(m, buf);
 	return 0;
 }
 
@@ -1244,8 +1241,6 @@ static int modem_run(struct modem *m, struct device_struct *dev)
 						modem_send_to_tty(m,"RING",4);
 						modem_send_to_tty(m,CRLF_CHARS(m),2);
 						DBG("TTY RING!!");
-						modem_send_to_tty(m,"RING",4);
-						modem_send_to_tty(m,CRLF_CHARS(m),2);
 						sip_ringing = 0;
 					}
 
@@ -1256,7 +1251,7 @@ static int modem_run(struct modem *m, struct device_struct *dev)
 				//DBG("keep_running ret val %d",ret);				
 				//DBG("keep_running sret val %d",sret);
 				//DBG("check sip ringing %d",sip_ringing);
-				if (sret == 1){
+				if (sret > 0){
 					scount = read(dev->sipfd, &sip_socket_frame, sizeof(sip_socket_frame));
 					char *packet;
 					packet = sip_socket_frame.data.sip.info;
@@ -1266,6 +1261,15 @@ static int modem_run(struct modem *m, struct device_struct *dev)
 						//DBG("SIP CMD RECEIVED");
 						packet++;
 						if (strncmp(packet,"R",1) == 0) sip_ringing = 1;
+						if (strncmp(packet,"H",1) == 0) {
+							DBG("SIP HANGUP received from child\n");
+							if (m->started) {
+								modem_hangup(m);
+								m->sample_timer_func(m);
+								m->sample_timer = 0;
+								m->sample_timer_func = NULL;
+							}
+						}
 					}
 				}
 				//DBG("keep_running scount val %d",scount);				
@@ -1274,8 +1278,6 @@ static int modem_run(struct modem *m, struct device_struct *dev)
 						modem_send_to_tty(m,"RING",4);
 						modem_send_to_tty(m,CRLF_CHARS(m),2);
 						DBG("TTY RING!!");
-						modem_send_to_tty(m,"RING",4);
-						modem_send_to_tty(m,CRLF_CHARS(m),2);
 						sip_ringing = 0;
 					}
 

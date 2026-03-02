@@ -160,12 +160,14 @@ static int process_D(struct modem *m, char *p, int *len)
 	switch (toupper(*p)) {
 	case 'T':
 		modem_set_sreg(m,SREG_TONE_OR_PULSE,1);
+		p++;
 		break;
 	case 'P':
 #ifdef NO_PULSE_DIAL
 		return -1;
 #endif
 		modem_set_sreg(m,SREG_TONE_OR_PULSE,0);
+		p++;
 		break;
 	case 'L':
 		if(m->dial_string) {
@@ -1057,7 +1059,7 @@ int process_at_command(struct modem *m, char *cmd)
 				break;
 			case 'V': /* AT&V */
 			case 'W': /* AT&W */
-				ret = -1;
+				ret = 0;
 				break;
 #if 0
 			case 'Z': /* AT&Z */
