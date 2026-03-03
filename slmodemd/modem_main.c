@@ -717,15 +717,12 @@ static int socket_start (struct modem *m)
 		socket_frame.type = SOCKET_FRAME_AUDIO;
 		sip_socket_frame.type = SOCKET_FRAME_SIP_INFO;
 
-		DBG("write audio frame..");
 		ret = write(dev->fd, &socket_frame, sizeof(socket_frame));
 		if (ret != sizeof(socket_frame)) {
 			perror("fork write audio frame\n");
 			exit(EXIT_FAILURE);
 		}
 		dev->delay = MODEM_FRAMESIZE;
-		DBG("done delay thing\n");
-		DBG("write volume frame..");
 		socket_frame.type = SOCKET_FRAME_VOLUME;
 		socket_frame.data.volume.value = modem_volume;
 		ret = write(dev->fd, &socket_frame, sizeof(socket_frame));
@@ -733,7 +730,6 @@ static int socket_start (struct modem *m)
 			perror("fork write volume frame\n");
 			exit(EXIT_FAILURE);
 		}
-		DBG("fork write info frame..");
 		//snprintf(buf,256,"MD%s",m->dial_string);
 		//return_data_to_child(m,buf);
 		//snprintf(buf,256,"MH%s",m->hook);
@@ -743,7 +739,6 @@ static int socket_start (struct modem *m)
 		char write[256];
 		snprintf(write,256,"MH%i",sip_modem_hookstate);
 		return_data_to_child(m,write);
-		DBG("write frame 1 complete..\n");
 		//snprintf(write,256,"stillhere",sip_modem_hookstate);
 		//return_data_to_child(m,write);
 		//DBG("write frame 2 complete..");
@@ -851,9 +846,6 @@ static int socket_ioctl(struct modem *m, unsigned int cmd, unsigned long arg)
 		break;
 	case MDMCTL_SPEAKERVOL:
 		modem_volume = arg;
-		if (pid) {
-			DBG("adjust volume frame needed\n");
-		}
 		ret = 0;
 		break;
 	case MDMCTL_HOOKSTATE: // 0 = on, 1 = off
