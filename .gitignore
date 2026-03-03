@@ -4,7 +4,7 @@ pjsip.install
 slmodemd/.build_profile
 d-modem
 /slmodemd/slmodemd
-modem_test
+/slmodemd/modem_test
 .vscode/launch.json
 libc.so.6
 .vscode/settings.json
