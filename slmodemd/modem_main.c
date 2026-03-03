@@ -104,6 +104,7 @@ extern void dp_sinus_exit(void);
 extern int  prop_dp_init(void);
 extern void prop_dp_exit(void);
 extern int  dp_v8_shim_init(void);
+extern int  dp_vpcm_shim_init(void);
 extern int datafile_load_info(char *name,struct dsp_info *info);
 extern int datafile_save_info(char *name,struct dsp_info *info);
 extern int modem_ring_detector_start(struct modem *m);
@@ -1493,6 +1494,9 @@ int modem_main(const char *dev_name)
 	prop_dp_init();
 	if (dp_v8_shim_init() < 0) {
 		DBG("dp_v8_shim_init failed.\n");
+	}
+	if (dp_vpcm_shim_init() < 0) {
+		DBG("dp_vpcm_shim_init failed.\n");
 	}
 	modem_timer_init();
 
