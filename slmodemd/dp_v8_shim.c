@@ -202,6 +202,7 @@ static void v8_shim_fill_open_caps(struct v8_open_create_cfg *cfg,
 				   const struct v8_runtime_partial *dp_runtime)
 {
 	unsigned char flags2;
+	int default_pcm;
 	int default_v92;
 	int default_v90;
 	int default_v34;
@@ -221,6 +222,7 @@ static void v8_shim_fill_open_caps(struct v8_open_create_cfg *cfg,
 		target_dp_id == DP_V32BIS;
 	default_v22 = target_dp_id == DP_V22 ||
 		target_dp_id == DP_V22BIS;
+	default_pcm = default_v90;
 
 	memset(&cfg->advertise, 0, sizeof(cfg->advertise));
 	cfg->advertise.data = (unsigned)v8_shim_env_enabled("SLMODEMD_V8_REPORT_DATA", 1);
@@ -233,6 +235,18 @@ static void v8_shim_fill_open_caps(struct v8_open_create_cfg *cfg,
 							(flags2 & 0x10U) != 0);
 	cfg->advertise.lapm = (unsigned)v8_shim_env_enabled("SLMODEMD_V8_REPORT_LAPM",
 					      (flags2 & 0x40U) != 0);
+	cfg->advertise.access_call_cellular = (unsigned)v8_shim_env_enabled(
+		"SLMODEMD_V8_ACCESS_CALL_CELLULAR", 0);
+	cfg->advertise.access_answer_cellular = (unsigned)v8_shim_env_enabled(
+		"SLMODEMD_V8_ACCESS_ANSWER_CELLULAR", 0);
+	cfg->advertise.access_digital = (unsigned)v8_shim_env_enabled(
+		"SLMODEMD_V8_ACCESS_DIGITAL", 0);
+	cfg->advertise.pcm_analog = (unsigned)v8_shim_env_enabled(
+		"SLMODEMD_V8_PCM_ANALOG", default_pcm);
+	cfg->advertise.pcm_digital = (unsigned)v8_shim_env_enabled(
+		"SLMODEMD_V8_PCM_DIGITAL", default_pcm);
+	cfg->advertise.pcm_v91 = (unsigned)v8_shim_env_enabled(
+		"SLMODEMD_V8_PCM_V91", 0);
 }
 
 static int v8_shim_open_cap_enabled(const struct v8_open_advertise_cfg *caps,

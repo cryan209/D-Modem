@@ -351,6 +351,25 @@ For the currently mapped constants:
   - `b6 = 1`: digital PCM modem availability indicated
   - `b7 = 0`: V.91 availability not indicated
 
+The remaining category payload bits map as follows:
+
+- modulation category (`modn`)
+  - first octet (`modn0`, tag nibble `0101`)
+    - `b5`: PCM modem availability category present
+    - `b6`: V.34 duplex availability
+    - `b7`: V.34 half-duplex availability
+  - first extension octet (`modn1`, extension marker `b3 = 0, b4 = 1, b5 = 0`)
+    - `b0`: V.32 availability
+    - `b1`: V.22 availability
+    - `b2`: V.17 availability
+    - `b6`: V.29 half-duplex availability
+    - `b7`: V.27 ter availability
+
+- PSTN access category (`access0`, tag nibble `1101`)
+  - `b5`: calling DCE on a cellular connection
+  - `b6`: answering DCE on a cellular connection
+  - `b7`: DCE connected to a digital network
+
 The function stores a derived length/timing value at engine offset `0x0c6a`
 via:
 

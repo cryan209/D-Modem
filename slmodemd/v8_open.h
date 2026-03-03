@@ -20,6 +20,12 @@ struct v8_open_advertise_cfg {
 	unsigned v22;
 	unsigned quick_connect;
 	unsigned lapm;
+	unsigned access_call_cellular;
+	unsigned access_answer_cellular;
+	unsigned access_digital;
+	unsigned pcm_analog;
+	unsigned pcm_digital;
+	unsigned pcm_v91;
 };
 
 struct v8_open_create_cfg {

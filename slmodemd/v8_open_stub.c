@@ -46,20 +46,29 @@ struct v8_open_jm_shim {
 	unsigned quick_connect_supported;
 	enum DP_ID preferred_dp;
 	unsigned char modulation_mask;
-	unsigned char modulation_octet;
+	unsigned char modulation0_octet;
+	unsigned char modulation1_octet;
 	unsigned char access_octet;
+	unsigned char pcm_octet;
 	unsigned short modulation_tag;
+	unsigned short modulation0_word;
+	unsigned short modulation1_word;
 	unsigned short access_tag;
+	unsigned short access_word;
 	unsigned short call_function_code;
 	unsigned short protocol_code;
-	unsigned short pcm_tag;
+	unsigned short pcm_word;
+	unsigned has_modulation1;
 	unsigned has_pcm;
+	unsigned access_call_cellular;
+	unsigned access_answer_cellular;
+	unsigned access_digital;
 	unsigned pcm_analog;
 	unsigned pcm_digital;
 	unsigned pcm_v91;
-	unsigned short words[10];
-	unsigned char octets[10];
-	unsigned char decodable[10];
+	unsigned short words[12];
+	unsigned char octets[12];
+	unsigned char decodable[12];
 };
 
 struct v8_open_engine {
@@ -298,8 +307,6 @@ static enum DP_ID v8_open_preferred_dp(const struct v8_open_engine *engine)
 static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 {
 	struct v8_open_jm_shim *jm;
-	unsigned modulation_count;
-
 	jm = &engine->jm;
 	memset(jm, 0, sizeof(*jm));
 
@@ -308,102 +315,83 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	jm->quick_connect_supported = engine->cfg.advertise.quick_connect;
 	jm->preferred_dp = v8_open_preferred_dp(engine);
 	jm->modulation_mask = 0;
-	jm->modulation_octet = 0x05U;
-	jm->access_octet = 0x1dU;
 	jm->modulation_tag = 0x0141;
+	jm->modulation0_octet = 0x05U;
+	jm->modulation1_octet = 0x10U;
 	jm->access_tag = 0x0161;
+	jm->access_octet = 0x0dU;
 	jm->call_function_code = jm->data_supported ? 0x0109 : 0x0000;
 	jm->protocol_code = jm->lapm_supported ? 0x00a9 : 0x0000;
-	jm->pcm_tag = 0x0000;
-	jm->has_pcm = 0U;
-	jm->pcm_analog = 0U;
-	jm->pcm_digital = 0U;
-	jm->pcm_v91 = 0U;
-	modulation_count = 0U;
+	jm->access_call_cellular = engine->cfg.advertise.access_call_cellular;
+	jm->access_answer_cellular = engine->cfg.advertise.access_answer_cellular;
+	jm->access_digital = engine->cfg.advertise.access_digital;
+	jm->pcm_octet = 0x07U;
+	jm->pcm_analog = engine->cfg.advertise.pcm_analog;
+	jm->pcm_digital = engine->cfg.advertise.pcm_digital;
+	jm->pcm_v91 = engine->cfg.advertise.pcm_v91;
 
-	if (engine->cfg.advertise.v92) {
+	if (engine->cfg.advertise.v92)
 		jm->modulation_mask |= 0x10U;
-		jm->modulation_octet |= 0x80U;
-		++modulation_count;
-	}
-	if (engine->cfg.advertise.v90) {
+	if (engine->cfg.advertise.v90)
 		jm->modulation_mask |= 0x08U;
-		jm->modulation_octet |= 0x80U;
-		++modulation_count;
-	}
 	if (engine->cfg.advertise.v34) {
 		jm->modulation_mask |= 0x04U;
-		jm->modulation_octet |= 0x40U;
-		++modulation_count;
+		jm->modulation0_octet |= 0x40U;
 	}
 	if (engine->cfg.advertise.v32) {
 		jm->modulation_mask |= 0x02U;
-		jm->modulation_octet |= 0x20U;
-		++modulation_count;
+		jm->modulation1_octet |= 0x01U;
+		jm->has_modulation1 = 1U;
 	}
 	if (engine->cfg.advertise.v22) {
 		jm->modulation_mask |= 0x01U;
-		jm->modulation_octet |= 0x10U;
-		++modulation_count;
+		jm->modulation1_octet |= 0x02U;
+		jm->has_modulation1 = 1U;
 	}
+
 	if (engine->cfg.advertise.v90 || engine->cfg.advertise.v92) {
 		jm->has_pcm = 1U;
-		jm->pcm_tag = 0x01c9;
-		jm->pcm_analog = 1U;
-		jm->pcm_digital = 1U;
+		jm->modulation0_octet |= 0x20U;
+		if (jm->pcm_analog)
+			jm->pcm_octet |= 0x20U;
+		if (jm->pcm_digital)
+			jm->pcm_octet |= 0x40U;
+		if (jm->pcm_v91)
+			jm->pcm_octet |= 0x80U;
+		jm->pcm_word = v8_open_encode_octet(jm->pcm_octet);
 	}
 
-	jm->octet_count = 5U;
-	if (jm->data_supported)
-		++jm->octet_count;
-	if (jm->lapm_supported)
-		++jm->octet_count;
-	if (jm->quick_connect_supported)
-		++jm->octet_count;
-	if (modulation_count > 2U)
-		++jm->octet_count;
-	jm->prepared = 1U;
+	if (jm->access_call_cellular)
+		jm->access_octet |= 0x20U;
+	if (jm->access_answer_cellular)
+		jm->access_octet |= 0x40U;
+	if (jm->access_digital)
+		jm->access_octet |= 0x80U;
 
-	if (jm->call_function_code)
-		v8_open_jm_push(jm, jm->call_function_code, 1);
-	v8_open_jm_push(jm, jm->modulation_tag, 1);
-	v8_open_jm_push(jm, v8_open_encode_octet(jm->modulation_octet), 1);
-	v8_open_jm_push(jm, jm->access_tag, 1);
-	v8_open_jm_push(jm, v8_open_encode_octet(jm->access_octet), 1);
-	if (jm->protocol_code)
-		v8_open_jm_push(jm, jm->protocol_code, 1);
-	if (jm->has_pcm)
-		v8_open_jm_push(jm, jm->pcm_tag, 1);
+	jm->modulation0_word = v8_open_encode_octet(jm->modulation0_octet);
+	if (jm->has_modulation1)
+		jm->modulation1_word = v8_open_encode_octet(jm->modulation1_octet);
+	jm->access_word = v8_open_encode_octet(jm->access_octet);
 
 	v8_open_jm_push(jm, 0x03ffU, 0);
 	v8_open_jm_push(jm, 0x000fU, 0);
+	if (jm->call_function_code)
+		v8_open_jm_push(jm, jm->call_function_code, 1);
+	v8_open_jm_push(jm, jm->modulation_tag, 1);
+	v8_open_jm_push(jm, jm->modulation0_word, 1);
+	if (jm->has_modulation1)
+		v8_open_jm_push(jm, jm->modulation1_word, 1);
+	v8_open_jm_push(jm, jm->access_tag, 1);
+	v8_open_jm_push(jm, jm->access_word, 1);
+	if (jm->protocol_code)
+		v8_open_jm_push(jm, jm->protocol_code, 1);
+	if (jm->has_pcm)
+		v8_open_jm_push(jm, jm->pcm_word, 1);
 
-	/* Keep the fixed framing words at the start to match the blob-side layout. */
-	if (jm->word_count >= 2U) {
-		unsigned i;
-		unsigned short frame0;
-		unsigned short frame1;
-		unsigned char frame0d;
-		unsigned char frame1d;
+	jm->octet_count = jm->word_count >= 2U ? jm->word_count - 2U : 0U;
+	jm->prepared = 1U;
 
-		frame0 = jm->words[jm->word_count - 2U];
-		frame1 = jm->words[jm->word_count - 1U];
-		frame0d = jm->decodable[jm->word_count - 2U];
-		frame1d = jm->decodable[jm->word_count - 1U];
-		for (i = jm->word_count - 2U; i > 0U; --i) {
-			jm->words[i + 1U] = jm->words[i - 1U];
-			jm->octets[i + 1U] = jm->octets[i - 1U];
-			jm->decodable[i + 1U] = jm->decodable[i - 1U];
-		}
-		jm->words[0] = frame0;
-		jm->octets[0] = 0U;
-		jm->decodable[0] = frame0d;
-		jm->words[1] = frame1;
-		jm->octets[1] = 0U;
-		jm->decodable[1] = frame1d;
-	}
-
-	V8OPEN_DBG("jm-shim: octets=%u words=%u data=%u preferred=%s mask=%02x tags=mod:%03x(%02x) access:%03x(%02x) call:%03x(%02x) proto:%03x(%02x) pcm:%u(%03x/%02x) pcm_bits=a:%u d:%u v91:%u qc=%u lapm=%u\n",
+	V8OPEN_DBG("jm-shim: octets=%u words=%u data=%u preferred=%s mask=%02x mod_tag:%03x(%02x) mod0:%03x(%02x) mod1:%u(%03x/%02x) access_tag:%03x(%02x) access0:%03x(%02x) call:%03x(%02x) proto:%03x(%02x) pcm:%u(%03x/%02x) access_bits=call:%u ans:%u dig:%u pcm_bits=a:%u d:%u v91:%u qc=%u lapm=%u\n",
 		  jm->octet_count,
 		  jm->word_count,
 		  jm->data_supported,
@@ -411,15 +399,25 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 		  jm->modulation_mask,
 		  jm->modulation_tag,
 		  v8_open_decode_word_octet(jm->modulation_tag),
+		  jm->modulation0_word,
+		  jm->modulation0_octet,
+		  jm->has_modulation1,
+		  jm->modulation1_word,
+		  jm->has_modulation1 ? jm->modulation1_octet : 0U,
 		  jm->access_tag,
 		  v8_open_decode_word_octet(jm->access_tag),
+		  jm->access_word,
+		  jm->access_octet,
 		  jm->call_function_code,
 		  jm->call_function_code ? v8_open_decode_word_octet(jm->call_function_code) : 0U,
 		  jm->protocol_code,
 		  jm->protocol_code ? v8_open_decode_word_octet(jm->protocol_code) : 0U,
 		  jm->has_pcm,
-		  jm->pcm_tag,
-		  jm->has_pcm ? v8_open_decode_word_octet(jm->pcm_tag) : 0U,
+		  jm->pcm_word,
+		  jm->has_pcm ? jm->pcm_octet : 0U,
+		  jm->access_call_cellular,
+		  jm->access_answer_cellular,
+		  jm->access_digital,
 		  jm->pcm_analog,
 		  jm->pcm_digital,
 		  jm->pcm_v91,
@@ -503,7 +501,7 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->total_samples = 0U;
 	engine->last_status = V8_OPEN_STATUS_INIT;
 	v8_open_capture_runtime(engine);
-	V8OPEN_DBG("create: side=%s target=%u srate=%u caps=data:%u v92:%u v90:%u v34:%u v32:%u v22:%u qc:%u lapm:%u flags=%02x/%02x/%02x\n",
+	V8OPEN_DBG("create: side=%s target=%u srate=%u caps=data:%u v92:%u v90:%u v34:%u v32:%u v22:%u qc:%u lapm:%u access=call:%u ans:%u dig:%u pcm=a:%u d:%u v91:%u flags=%02x/%02x/%02x\n",
 		  cfg->answer_mode ? "answer" : "originate",
 		  cfg->target_dp_id,
 		  cfg->sample_rate,
@@ -515,6 +513,12 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 		  cfg->advertise.v22,
 		  engine->quick_connect_enabled,
 		  engine->lapm_requested,
+		  cfg->advertise.access_call_cellular,
+		  cfg->advertise.access_answer_cellular,
+		  cfg->advertise.access_digital,
+		  cfg->advertise.pcm_analog,
+		  cfg->advertise.pcm_digital,
+		  cfg->advertise.pcm_v91,
 		  engine->initial_flags0,
 		  engine->initial_flags1,
 		  engine->initial_flags2);
