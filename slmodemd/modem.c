@@ -1627,8 +1627,11 @@ int modem_dial(struct modem *m)
 int modem_hook(struct modem *m, unsigned hook_state)
 {
 	MODEM_DBG("modem hook...\n");
-        if ( m->hook == hook_state )
+        if ( m->hook == hook_state ) {
+                if (hook_state == MODEM_HOOK_ON && !IS_STATE_IDLE(m->state))
+                        return modem_hup(m,1), 0;
                 return 0;
+        }
         if (!IS_STATE_IDLE(m->state))
 		modem_hup(m,1);
         return modem_set_hook(m,hook_state);
@@ -1967,7 +1970,6 @@ void modem_delete(struct modem *m)
 	timer_del(&m->event_timer);
 	free(m);
 }
-
 
 
 
