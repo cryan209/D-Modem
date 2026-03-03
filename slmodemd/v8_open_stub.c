@@ -14,6 +14,13 @@
 #include "v8_open.h"
 
 #define V8OPEN_DBG(fmt,args...) dprintf("v8open: " fmt, ##args)
+#define V8OPEN_PCM_AMPLITUDE 10000
+#define V8OPEN_V21_BITRATE 300U
+#define V8OPEN_ANSAM_FREQ 2100U
+#define V8OPEN_V21_ANS_MARK 1650U
+#define V8OPEN_V21_ANS_SPACE 1850U
+#define V8OPEN_V21_ORG_MARK 980U
+#define V8OPEN_V21_ORG_SPACE 1180U
 
 enum v8_open_phase {
 	V8_OPEN_PHASE_BOOT = 0,
@@ -84,6 +91,11 @@ struct v8_open_engine {
 	unsigned char initial_flags1;
 	unsigned char initial_flags2;
 	struct v8_open_jm_shim jm;
+	unsigned tone_phase_q16;
+	unsigned tx_bit_pos;
+	unsigned tx_bit_samples;
+	unsigned tx_bit_len;
+	unsigned char tx_bits[256];
 };
 
 static const char *v8_open_phase_name(enum v8_open_phase phase)
@@ -239,6 +251,147 @@ static unsigned v8_open_samples_from_ms(const struct v8_open_engine *engine,
 	return (rate * ms) / 1000U;
 }
 
+static void v8_open_reset_tx(struct v8_open_engine *engine)
+{
+	engine->tone_phase_q16 = 0U;
+	engine->tx_bit_pos = 0U;
+	engine->tx_bit_samples = 0U;
+}
+
+static void v8_open_tx_push_bit(struct v8_open_engine *engine, unsigned bit)
+{
+	if (engine->tx_bit_len >= (sizeof(engine->tx_bits) / sizeof(engine->tx_bits[0])))
+		return;
+	engine->tx_bits[engine->tx_bit_len++] = (unsigned char)(bit ? 1U : 0U);
+}
+
+static void v8_open_tx_push_async_octet(struct v8_open_engine *engine,
+					unsigned char octet)
+{
+	unsigned i;
+
+	v8_open_tx_push_bit(engine, 0U);
+	for (i = 0; i < 8U; ++i)
+		v8_open_tx_push_bit(engine, (octet >> i) & 0x01U);
+	v8_open_tx_push_bit(engine, 1U);
+}
+
+static void v8_open_prepare_jm_bits(struct v8_open_engine *engine)
+{
+	unsigned i;
+
+	engine->tx_bit_len = 0U;
+	engine->tx_bit_pos = 0U;
+	engine->tx_bit_samples = 0U;
+
+	for (i = 0; i < 16U; ++i)
+		v8_open_tx_push_bit(engine, 1U);
+
+	for (i = 0; i < engine->jm.word_count; ++i) {
+		if (!engine->jm.decodable[i])
+			continue;
+		v8_open_tx_push_async_octet(engine, engine->jm.octets[i]);
+	}
+
+	for (i = 0; i < 16U; ++i)
+		v8_open_tx_push_bit(engine, 1U);
+
+	V8OPEN_DBG("jm-bits: bits=%u\n", engine->tx_bit_len);
+}
+
+static short v8_open_square_sample(struct v8_open_engine *engine,
+				   unsigned freq_hz)
+{
+	unsigned rate;
+	unsigned step;
+	short sample;
+
+	rate = engine->cfg.sample_rate ? engine->cfg.sample_rate : 9600U;
+	step = (unsigned)(((unsigned long long)freq_hz << 16) / rate);
+	engine->tone_phase_q16 += step;
+	sample = (engine->tone_phase_q16 & 0x8000U) ?
+		(short)V8OPEN_PCM_AMPLITUDE :
+		(short)-V8OPEN_PCM_AMPLITUDE;
+	return sample;
+}
+
+static void v8_open_emit_ansam(struct v8_open_engine *engine,
+			       short *pcm,
+			       int cnt)
+{
+	int i;
+
+	for (i = 0; i < cnt; ++i)
+		pcm[i] = v8_open_square_sample(engine, V8OPEN_ANSAM_FREQ);
+}
+
+static void v8_open_emit_v21(struct v8_open_engine *engine,
+			     short *pcm,
+			     int cnt,
+			     int answer_mode)
+{
+	unsigned samples_per_bit;
+	unsigned mark_hz;
+	unsigned space_hz;
+	int i;
+
+	samples_per_bit = engine->cfg.sample_rate ?
+		(engine->cfg.sample_rate / V8OPEN_V21_BITRATE) : 32U;
+	if (!samples_per_bit)
+		samples_per_bit = 32U;
+
+	if (answer_mode) {
+		mark_hz = V8OPEN_V21_ANS_MARK;
+		space_hz = V8OPEN_V21_ANS_SPACE;
+	} else {
+		mark_hz = V8OPEN_V21_ORG_MARK;
+		space_hz = V8OPEN_V21_ORG_SPACE;
+	}
+
+	for (i = 0; i < cnt; ++i) {
+		unsigned bit;
+		unsigned freq_hz;
+
+		bit = 1U;
+		if (engine->tx_bit_pos < engine->tx_bit_len)
+			bit = engine->tx_bits[engine->tx_bit_pos];
+
+		freq_hz = bit ? mark_hz : space_hz;
+		pcm[i] = v8_open_square_sample(engine, freq_hz);
+
+		engine->tx_bit_samples++;
+		if (engine->tx_bit_samples >= samples_per_bit) {
+			engine->tx_bit_samples = 0U;
+			if (engine->tx_bit_pos < engine->tx_bit_len)
+				engine->tx_bit_pos++;
+		}
+	}
+}
+
+static void v8_open_emit_phase(struct v8_open_engine *engine, void *out, int cnt)
+{
+	short *pcm = out;
+
+	if (!out || cnt <= 0)
+		return;
+
+	switch (engine->phase) {
+	case V8_OPEN_PHASE_ANS_SEND_ANSAM:
+	case V8_OPEN_PHASE_ANS_WAIT_FOR_CM:
+		v8_open_emit_ansam(engine, pcm, cnt);
+		break;
+	case V8_OPEN_PHASE_ANS_SEND_JM:
+		v8_open_emit_v21(engine, pcm, cnt, 1);
+		break;
+	case V8_OPEN_PHASE_ORG_SEND_CM:
+		v8_open_emit_v21(engine, pcm, cnt, 0);
+		break;
+	default:
+		memset(out, 0, (size_t)cnt * 2U);
+		break;
+	}
+}
+
 static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 				     enum v8_open_phase phase)
 {
@@ -246,11 +399,17 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 	case V8_OPEN_PHASE_BOOT:
 		return v8_open_samples_from_ms(engine, 20U);
 	case V8_OPEN_PHASE_ANS_SEND_ANSAM:
-		return v8_open_samples_from_ms(engine, 420U);
+		/*
+		 * Real proprietary answer traces stay on ANSam for roughly
+		 * 2.38 s before transitioning to JM. Keep most of that dwell
+		 * here and use the existing wait state as the short tail.
+		 */
+		return v8_open_samples_from_ms(engine, 2220U);
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CM:
 		return v8_open_samples_from_ms(engine, 160U);
 	case V8_OPEN_PHASE_ANS_SEND_JM:
-		return v8_open_samples_from_ms(engine, 160U);
+		/* Real JM dwell is about 0.82 s before V8_OK. */
+		return v8_open_samples_from_ms(engine, 820U);
 	case V8_OPEN_PHASE_ORG_SEND_CM:
 		return v8_open_samples_from_ms(engine, 160U);
 	case V8_OPEN_PHASE_ORG_WAIT_FOR_ANSAM:
@@ -355,8 +514,7 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 		jm->has_modulation1 = 1U;
 	}
 
-	if ((engine->cfg.advertise.v90 || engine->cfg.advertise.v92) &&
-	    (jm->pcm_analog || jm->pcm_digital || jm->pcm_v91)) {
+	if (jm->pcm_analog || jm->pcm_digital || jm->pcm_v91) {
 		jm->has_pcm = 1U;
 		jm->modulation0_octet |= 0x20U;
 		if (jm->pcm_analog)
@@ -397,6 +555,7 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 
 	jm->octet_count = jm->word_count >= 2U ? jm->word_count - 2U : 0U;
 	jm->prepared = 1U;
+	v8_open_prepare_jm_bits(engine);
 
 	if (jm->has_modulation1)
 		snprintf(mod1_desc, sizeof(mod1_desc), "%03x(%02x)",
@@ -476,6 +635,7 @@ static void v8_open_transition(struct v8_open_engine *engine,
 	engine->phase = next_phase;
 	engine->samples_in_phase = 0U;
 	engine->last_status = v8_open_phase_status(engine, next_phase);
+	v8_open_reset_tx(engine);
 	if (next_phase == V8_OPEN_PHASE_ANS_SEND_JM)
 		v8_open_prepare_jm_shim(engine);
 	V8OPEN_DBG("phase %s -> %s, status=%s, total_samples=%u\n",
@@ -515,6 +675,10 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->samples_in_phase = 0U;
 	engine->total_samples = 0U;
 	engine->last_status = V8_OPEN_STATUS_INIT;
+	engine->tone_phase_q16 = 0U;
+	engine->tx_bit_pos = 0U;
+	engine->tx_bit_samples = 0U;
+	engine->tx_bit_len = 0U;
 	v8_open_capture_runtime(engine);
 	V8OPEN_DBG("create: side=%s target=%u srate=%u caps=data:%u v92:%u v90:%u v34:%u v32:%u v22:%u qc:%u lapm:%u access=call:%u ans:%u dig:%u pcm=a:%u d:%u v91:%u flags=%02x/%02x/%02x\n",
 		  cfg->answer_mode ? "answer" : "originate",
@@ -556,10 +720,7 @@ int v8_open_process(void *engine_ptr, void *in, void *out, int cnt)
 	if (!engine)
 		return V8_OPEN_STATUS_INIT;
 
-	if (out && cnt > 0) {
-		/* slmodemd uses 16-bit mono samples here. */
-		memset(out, 0, (size_t)cnt * 2U);
-	}
+	v8_open_emit_phase(engine, out, cnt);
 
 	if (engine->phase == V8_OPEN_PHASE_COMPLETE) {
 		engine->last_status = V8_OPEN_STATUS_OK;

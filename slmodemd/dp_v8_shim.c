@@ -203,7 +203,8 @@ static void v8_shim_fill_open_caps(struct v8_open_create_cfg *cfg,
 {
 	unsigned char flags2;
 	int default_access_digital;
-	int default_pcm;
+	int default_pcm_analog;
+	int default_pcm_digital;
 	int default_v92;
 	int default_v90;
 	int default_v34;
@@ -227,7 +228,10 @@ static void v8_shim_fill_open_caps(struct v8_open_create_cfg *cfg,
 		target_dp_id == DP_V32BIS;
 	default_v22 = target_dp_id == DP_V22 ||
 		target_dp_id == DP_V22BIS;
-	default_pcm = default_access_digital && default_v90;
+	default_pcm_analog = target_dp_id == DP_V92 ||
+		target_dp_id == DP_V90 ||
+		target_dp_id == DP_V90_NO_V8BIS;
+	default_pcm_digital = default_access_digital && default_v90;
 
 	memset(&cfg->advertise, 0, sizeof(cfg->advertise));
 	cfg->advertise.data = (unsigned)v8_shim_env_enabled("SLMODEMD_V8_REPORT_DATA", 1);
@@ -237,7 +241,8 @@ static void v8_shim_fill_open_caps(struct v8_open_create_cfg *cfg,
 	cfg->advertise.v32 = (unsigned)v8_shim_env_enabled("SLMODEMD_V8_REPORT_V32", default_v32);
 	cfg->advertise.v22 = (unsigned)v8_shim_env_enabled("SLMODEMD_V8_REPORT_V22", default_v22);
 	cfg->advertise.quick_connect = (unsigned)v8_shim_env_enabled("SLMODEMD_V8_REPORT_QC",
-							(flags2 & 0x10U) != 0);
+							default_access_digital &&
+							((flags2 & 0x10U) != 0));
 	cfg->advertise.lapm = (unsigned)v8_shim_env_enabled("SLMODEMD_V8_REPORT_LAPM",
 					      (flags2 & 0x40U) != 0);
 	cfg->advertise.access_call_cellular = (unsigned)v8_shim_env_enabled(
@@ -246,11 +251,31 @@ static void v8_shim_fill_open_caps(struct v8_open_create_cfg *cfg,
 		"SLMODEMD_V8_ACCESS_ANSWER_CELLULAR", 0);
 	cfg->advertise.access_digital = (unsigned)default_access_digital;
 	cfg->advertise.pcm_analog = (unsigned)v8_shim_env_enabled(
-		"SLMODEMD_V8_PCM_ANALOG", default_pcm);
+		"SLMODEMD_V8_PCM_ANALOG", default_pcm_analog);
 	cfg->advertise.pcm_digital = (unsigned)v8_shim_env_enabled(
-		"SLMODEMD_V8_PCM_DIGITAL", default_pcm);
+		"SLMODEMD_V8_PCM_DIGITAL", default_pcm_digital);
 	cfg->advertise.pcm_v91 = (unsigned)v8_shim_env_enabled(
 		"SLMODEMD_V8_PCM_V91", 0);
+}
+
+static void v8_shim_seed_open_runtime(struct v8_blob_wrapper *blob,
+				      const struct v8_open_create_cfg *cfg)
+{
+	unsigned char flags2;
+
+	if (!blob->dp_runtime)
+		return;
+
+	flags2 = 0x00U;
+	if (cfg->advertise.quick_connect)
+		flags2 |= 0x10U;
+	if (cfg->advertise.lapm)
+		flags2 |= 0x40U;
+
+	blob->dp_runtime->flags0 = 0xa0U;
+	blob->dp_runtime->flags1 = cfg->advertise.lapm ? 0x40U : 0x00U;
+	blob->dp_runtime->flags2 = flags2;
+	blob->dp_runtime->qc_index = 0U;
 }
 
 static int v8_shim_open_cap_enabled(const struct v8_open_advertise_cfg *caps,
@@ -344,7 +369,7 @@ static void v8_shim_open_handoff(struct v8_blob_wrapper *blob,
 
 	next_dp = state->open_next_dp;
 	io_delay = modem_get_param(blob->base.modem, MDMPRM_IODELAY);
-	blob->handoff_delay = (int)(io_delay + 0x2a0);
+	blob->handoff_delay = (int)(io_delay + 0x270);
 
 	if (blob->dsp_info) {
 		blob->dsp_info->qc_lapm = 0;
@@ -353,7 +378,6 @@ static void v8_shim_open_handoff(struct v8_blob_wrapper *blob,
 
 	if (blob->dp_runtime) {
 		blob->dp_runtime->flags0 |= 0x01;
-		blob->dp_runtime->flags1 = 0x00;
 		blob->dp_runtime->flags2 = 0x00;
 		blob->dp_runtime->qc_index = 9;
 	}
@@ -400,6 +424,7 @@ static struct dp *v8_shim_create_open(struct modem *m, enum DP_ID id,
 	cfg.sample_rate = (unsigned)srate;
 	cfg.dp_runtime = blob->dp_runtime;
 	v8_shim_fill_open_caps(&cfg, id, blob->dp_runtime);
+	v8_shim_seed_open_runtime(blob, &cfg);
 
 	blob->v8_engine = v8_open_create(&cfg);
 	if (!blob->v8_engine) {
