@@ -307,6 +307,8 @@ static enum DP_ID v8_open_preferred_dp(const struct v8_open_engine *engine)
 static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 {
 	struct v8_open_jm_shim *jm;
+	char mod1_desc[24];
+	char pcm_desc[24];
 	jm = &engine->jm;
 	memset(jm, 0, sizeof(*jm));
 
@@ -391,7 +393,19 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	jm->octet_count = jm->word_count >= 2U ? jm->word_count - 2U : 0U;
 	jm->prepared = 1U;
 
-	V8OPEN_DBG("jm-shim: octets=%u words=%u data=%u preferred=%s mask=%02x mod_tag:%03x(%02x) mod0:%03x(%02x) mod1:%u(%03x/%02x) access_tag:%03x(%02x) access0:%03x(%02x) call:%03x(%02x) proto:%03x(%02x) pcm:%u(%03x/%02x) access_bits=call:%u ans:%u dig:%u pcm_bits=a:%u d:%u v91:%u qc=%u lapm=%u\n",
+	if (jm->has_modulation1)
+		snprintf(mod1_desc, sizeof(mod1_desc), "%03x(%02x)",
+			 jm->modulation1_word, jm->modulation1_octet);
+	else
+		snprintf(mod1_desc, sizeof(mod1_desc), "none");
+
+	if (jm->has_pcm)
+		snprintf(pcm_desc, sizeof(pcm_desc), "%03x(%02x)",
+			 jm->pcm_word, jm->pcm_octet);
+	else
+		snprintf(pcm_desc, sizeof(pcm_desc), "none");
+
+	V8OPEN_DBG("jm-shim: octets=%u words=%u data=%u preferred=%s mask=%02x mod_tag:%03x(%02x) mod0:%03x(%02x) mod1:%s access_tag:%03x(%02x) access0:%03x(%02x) call:%03x(%02x) proto:%03x(%02x) pcm:%s access_bits=call:%u ans:%u dig:%u pcm_bits=a:%u d:%u v91:%u qc=%u lapm=%u\n",
 		  jm->octet_count,
 		  jm->word_count,
 		  jm->data_supported,
@@ -401,9 +415,7 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 		  v8_open_decode_word_octet(jm->modulation_tag),
 		  jm->modulation0_word,
 		  jm->modulation0_octet,
-		  jm->has_modulation1,
-		  jm->modulation1_word,
-		  jm->has_modulation1 ? jm->modulation1_octet : 0U,
+		  mod1_desc,
 		  jm->access_tag,
 		  v8_open_decode_word_octet(jm->access_tag),
 		  jm->access_word,
@@ -412,9 +424,7 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 		  jm->call_function_code ? v8_open_decode_word_octet(jm->call_function_code) : 0U,
 		  jm->protocol_code,
 		  jm->protocol_code ? v8_open_decode_word_octet(jm->protocol_code) : 0U,
-		  jm->has_pcm,
-		  jm->pcm_word,
-		  jm->has_pcm ? jm->pcm_octet : 0U,
+		  pcm_desc,
 		  jm->access_call_cellular,
 		  jm->access_answer_cellular,
 		  jm->access_digital,
