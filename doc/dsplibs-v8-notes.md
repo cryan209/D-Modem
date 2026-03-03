@@ -256,6 +256,170 @@ Fields the V.8 adapter definitely uses:
 This is enough to build a compatible open-side wrapper even though much of
 `dp_runtime` is still unnamed.
 
+## `JM` behavior (deeper map)
+
+The proprietary V.8 code has two dedicated JM helpers:
+
+- `rebuildJMSequence()` at `0x75c50`
+- `evaluateRxJMSequence()` at `0x76890`
+
+These operate on the V.8 engine object directly rather than the outer `DP_V8`
+adapter wrapper.
+
+### Sequence buffers and match latches
+
+`v8handshakinit()` wires two message-sequence buffers into the engine:
+
+- `0x0c48`: pointer to the active transmit sequence buffer
+- `0x0c4c`: pointer to the active receive sequence buffer
+- the default backing stores are:
+  - `0x0c54`: transmit words
+  - `0x0cd4`: receive words
+
+The JM helpers also maintain short-lived match state:
+
+- `0x0ebc`: nonzero when a call-function token matched
+- `0x0ebe`: nonzero when a protocol token matched
+- `0x0ec0`: matched call-function word
+- `0x0ec2`: matched protocol word
+
+These four fields are cleared during `v8handshakinit()`.
+
+### Local capability tables
+
+Both JM helpers consult a small local-configuration block at engine offset
+`0x0a58`. The offsets with direct JM meaning are:
+
+- `+0x00`: base capability flags
+  - bit `3` enables the V.90/V.92-specific extension path
+- `+0x01`: call-function permission bits
+  - bit `6` and bit `7` gate extra call-function tokens
+- `+0x02`: protocol / mode flags
+  - bit `2` selects the call-function table path
+  - bit `3` selects the protocol table path
+- `+0x10`: runtime/QC parameter used by the V.90 extension setup
+- `+0x18..+0x1b`: up to four local call-function bytes
+- `+0x1c..+0x1f`: up to four local protocol bytes
+- `+0x20..+0x27`: secondary 8-byte comparison table used while matching
+- `+0x28..+0x2f`: secondary 8-byte protocol comparison table
+
+The byte arrays are compared after passing each entry through `charFlip()`,
+which is how the blob turns byte-oriented JM values into its 16-bit token
+format.
+
+### Blob-side JM layout
+
+`rebuildJMSequence()` constructs a word stream in the transmit buffer. The
+fixed anchors visible in the disassembly are:
+
+- starts by writing `0x03ff` and `0x000f`
+- emits a modulation category section headed by `0x0141`
+- emits a PSTN access category section headed by `0x0161`
+- emits a PCM modem availability category section headed by `0x01c9` when the
+  local and negotiated conditions allow it
+- emits `0x00a9` as the default LAPM protocol indication when no explicit
+  protocol-table match overrides it
+
+The internal 16-bit tokens are not the on-wire JM octets directly. The blob
+stores each JM octet as:
+
+```c
+stored_word = (charFlip(octet) << 1) | 1;
+```
+
+So the reverse mapping is:
+
+```c
+octet = bit_reverse_8(stored_word >> 1);
+```
+
+For the currently mapped constants:
+
+- `0x0141` -> octet `0x05`
+  - category tag `0101` = modulation modes
+- `0x0161` -> octet `0x0d`
+  - category tag `1101` = PSTN access
+- `0x0109` -> octet `0x21`
+  - category tag `0001` = call function
+  - option bits `b5..b7 = 1,0,0` = data
+- `0x00a9` -> octet `0x2a`
+  - category tag `1010` = protocol
+  - option bits `b5..b7 = 1,0,0` = default LAPM
+- `0x01c9` -> octet `0x27`
+  - category tag `0111` = PCM modem availability
+  - `b5 = 1`: analogue PCM modem availability indicated
+  - `b6 = 1`: digital PCM modem availability indicated
+  - `b7 = 0`: V.91 availability not indicated
+
+The function stores a derived length/timing value at engine offset `0x0c6a`
+via:
+
+- `length_metric = 10 * emitted_word_count`
+
+That value is part of the internal transmit-side scheduling, not the external
+adapter API.
+
+### Call-function tokens
+
+The answer-side JM builder and parser recognize at least these tokens:
+
+- `0x0109`: data indication
+- `0x0103`: fax-TX indication
+- `0x010b`: fax-RX indication
+
+The code also has a `0x0107` branch, but the exact semantic label is still not
+fully pinned down from disassembly alone. It is gated by the local
+call-function permission bits and falls into the same “call function match”
+handling as the better-understood tokens.
+
+The branch debug strings line up with this behavior:
+
+- `"V8: call function DATA indication..."`
+- `"V8: call function FAX TX from caller indication..."`
+- `"V8: call function FAX RX to caller indication..."`
+- `"V8: Got Call Function Match (in call function range) !!!"`
+
+### Answer-side rebuild behavior
+
+The high-level answer-side `JM` flow in the blob is:
+
+1. Parse the remote call-function token from the received sequence.
+2. Compare it against the local call-function table.
+3. If there is no match:
+   - log `"NO Call Function Match !!! zeroing all modulation capabilities..."`
+   - keep the call-function section but suppress advertised modulation
+     capability
+4. Build the protocol section:
+   - prefer explicit protocol-table matches
+   - otherwise emit the default LAPM indication (`0x00a9`) when allowed
+5. If V.90/V.92 is in play and the local conditions match, rebuild the JM again
+   with the PCM modem availability block (`0x01c9`)
+
+The debug strings that anchor those branches are:
+
+- `"V8: Final JM message length is %d octets"`
+- `"V8: on ANSWER: rebuilding JM with V90 capabilities..."`
+- `"V8: Got Protocol Match (in protocol range) !!!"`
+- `"V8: Got Default Protocol Match (LAPM) !!!"`
+
+### Receive-side evaluation behavior
+
+`evaluateRxJMSequence()` mirrors the transmit-side matching logic against the
+receive buffer (`0x0cd4` backing store). It:
+
+- scans for the call-function section and latches the matched token into
+  `0x0ec0`
+- scans for the protocol section and latches the matched token into `0x0ec2`
+- sets `0x0ebc` / `0x0ebe` when a local match is found
+- leaves those latches clear when no local match exists
+
+At debug level > 1 it reports the final match state using:
+
+- `"V8: %s Call Function Match%s!"`
+
+That string is driven by whether the call-function and protocol latches ended
+up set.
+
 ## Named V.8 symbols worth reversing
 
 Exported symbols in `dsplibs.o` include:
