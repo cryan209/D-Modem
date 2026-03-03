@@ -84,8 +84,8 @@ extern int modem_put_bits(struct modem *m, int nbits, u8 *buf, int n);
 
 /* modem dp registration */
 extern int  modem_dp_register(enum DP_ID id, struct dp_operations *op);
+extern struct dp_operations *modem_dp_get_ops(enum DP_ID id);
 extern void modem_dp_deregister(enum DP_ID id, struct dp_operations *op);
 
 
 #endif /* __MODEM_DP_H__ */
-

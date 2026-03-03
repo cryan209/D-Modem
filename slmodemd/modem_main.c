@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 
 /*
  *
@@ -58,6 +59,7 @@
 #include <sys/resource.h>
 #include <sched.h>
 #include <signal.h>
+#include <ucontext.h>
 #include <limits.h>
 #include <grp.h>
 #include <pwd.h>
@@ -101,6 +103,7 @@ extern int  dp_sinus_init(void);
 extern void dp_sinus_exit(void);
 extern int  prop_dp_init(void);
 extern void prop_dp_exit(void);
+extern int  dp_v8_shim_init(void);
 extern int datafile_load_info(char *name,struct dsp_info *info);
 extern int datafile_save_info(char *name,struct dsp_info *info);
 extern int modem_ring_detector_start(struct modem *m);
@@ -1152,6 +1155,37 @@ static struct modem_driver *modem_driver;
 
 static volatile sig_atomic_t keep_running = 1;
 
+void crash_handler(int signum, siginfo_t *info, void *context)
+{
+	ucontext_t *uc = (ucontext_t *)context;
+	fprintf(stderr, "CRASH: sig=%d addr=%p EIP=0x%08x\n",
+		signum, info->si_addr,
+		(unsigned)uc->uc_mcontext.gregs[REG_EIP]);
+	fprintf(stderr, "  EAX=0x%08x EBX=0x%08x ECX=0x%08x EDX=0x%08x\n",
+		(unsigned)uc->uc_mcontext.gregs[REG_EAX],
+		(unsigned)uc->uc_mcontext.gregs[REG_EBX],
+		(unsigned)uc->uc_mcontext.gregs[REG_ECX],
+		(unsigned)uc->uc_mcontext.gregs[REG_EDX]);
+	fprintf(stderr, "  ESI=0x%08x EDI=0x%08x EBP=0x%08x ESP=0x%08x\n",
+		(unsigned)uc->uc_mcontext.gregs[REG_ESI],
+		(unsigned)uc->uc_mcontext.gregs[REG_EDI],
+		(unsigned)uc->uc_mcontext.gregs[REG_EBP],
+		(unsigned)uc->uc_mcontext.gregs[REG_ESP]);
+	fprintf(stderr, "  crash_handler=%p\n", (void *)crash_handler);
+	/* dump /proc/self/maps for address translation */
+	{
+		FILE *f = fopen("/proc/self/maps", "r");
+		if (f) {
+			char line[256];
+			while (fgets(line, sizeof(line), f))
+				if (strstr(line, "slmodemd") || strstr(line, "r-xp"))
+					fprintf(stderr, "  MAP: %s", line);
+			fclose(f);
+		}
+	}
+	_exit(139);
+}
+
 void mark_termination(int signum)
 {
 	DBG("signal %d: mark termination.\n",signum);
@@ -1491,6 +1525,9 @@ int modem_main(const char *dev_name)
 	dp_dummy_init();
 	dp_sinus_init();
 	prop_dp_init();
+	if (dp_v8_shim_init() < 0) {
+		DBG("dp_v8_shim_init failed.\n");
+	}
 	modem_timer_init();
 
 	if (getuid() == 0) {
@@ -1544,6 +1581,15 @@ int modem_main(const char *dev_name)
 	signal(SIGTERM, mark_termination);
 	signal(SIGCHLD, SIG_IGN);
 	signal(SIGPIPE, child_conn_closed);
+	{
+		struct sigaction sa;
+		sa.sa_sigaction = crash_handler;
+		sigemptyset(&sa.sa_mask);
+		sa.sa_flags = SA_SIGINFO;
+		sigaction(SIGSEGV, &sa, NULL);
+		sigaction(SIGBUS, &sa, NULL);
+		sigaction(SIGABRT, &sa, NULL);
+	}
 
 #ifdef SLMODEMD_USER
 	if (getuid() == 0) {

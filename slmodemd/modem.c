@@ -222,6 +222,11 @@ int modem_dp_register(enum DP_ID id, struct dp_operations *op)
 	return ret;
 }
 
+struct dp_operations *modem_dp_get_ops(enum DP_ID id)
+{
+	return get_dp_operations(id);
+}
+
 void modem_dp_deregister(enum DP_ID id, struct dp_operations *op)
 {
 	struct dp_driver *p;
@@ -1970,6 +1975,5 @@ void modem_delete(struct modem *m)
 	timer_del(&m->event_timer);
 	free(m);
 }
-
 
 

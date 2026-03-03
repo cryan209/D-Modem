@@ -30,7 +30,7 @@ modem-objs:= \
 	modem.o modem_datafile.o modem_at.o modem_timer.o \
 	modem_pack.o modem_ec.o modem_comp.o \
 	modem_param.o modem_debug.o homolog_data.o
-dp-objs:= dp_sinus.o dp_dummy.o
+dp-objs:= dp_sinus.o dp_dummy.o dp_v8_shim.o v8_open_stub.o
 sysdep-objs:= sysdep_common.o
 all-objs:= modem_cmdline.o $(modem-objs) $(dp-objs) dsplibs.o $(sysdep-objs) 
 
@@ -89,4 +89,3 @@ endif
 clean: clean-build-profile
 clean-build-profile:
 	@$(RM) -f .build_profile
-
