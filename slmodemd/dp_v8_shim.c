@@ -202,6 +202,7 @@ static void v8_shim_fill_open_caps(struct v8_open_create_cfg *cfg,
 				   const struct v8_runtime_partial *dp_runtime)
 {
 	unsigned char flags2;
+	int default_access_digital;
 	int default_pcm;
 	int default_v92;
 	int default_v90;
@@ -210,11 +211,15 @@ static void v8_shim_fill_open_caps(struct v8_open_create_cfg *cfg,
 	int default_v22;
 
 	flags2 = dp_runtime ? dp_runtime->flags2 : 0;
-	default_v92 = target_dp_id == DP_V92;
+	default_access_digital = v8_shim_env_enabled("SLMODEMD_V8_ACCESS_DIGITAL", 0);
+	default_v92 = default_access_digital && target_dp_id == DP_V92;
 	default_v90 = target_dp_id == DP_V92 ||
 		target_dp_id == DP_V90 ||
 		target_dp_id == DP_V90_NO_V8BIS;
-	default_v34 = default_v90 ||
+	default_v90 = default_access_digital && default_v90;
+	default_v34 = target_dp_id == DP_V92 ||
+		target_dp_id == DP_V90 ||
+		target_dp_id == DP_V90_NO_V8BIS ||
 		target_dp_id == DP_V34 ||
 		target_dp_id == DP_V34BIS;
 	default_v32 = default_v34 ||
@@ -222,7 +227,7 @@ static void v8_shim_fill_open_caps(struct v8_open_create_cfg *cfg,
 		target_dp_id == DP_V32BIS;
 	default_v22 = target_dp_id == DP_V22 ||
 		target_dp_id == DP_V22BIS;
-	default_pcm = default_v90;
+	default_pcm = default_access_digital && default_v90;
 
 	memset(&cfg->advertise, 0, sizeof(cfg->advertise));
 	cfg->advertise.data = (unsigned)v8_shim_env_enabled("SLMODEMD_V8_REPORT_DATA", 1);
@@ -239,8 +244,7 @@ static void v8_shim_fill_open_caps(struct v8_open_create_cfg *cfg,
 		"SLMODEMD_V8_ACCESS_CALL_CELLULAR", 0);
 	cfg->advertise.access_answer_cellular = (unsigned)v8_shim_env_enabled(
 		"SLMODEMD_V8_ACCESS_ANSWER_CELLULAR", 0);
-	cfg->advertise.access_digital = (unsigned)v8_shim_env_enabled(
-		"SLMODEMD_V8_ACCESS_DIGITAL", 0);
+	cfg->advertise.access_digital = (unsigned)default_access_digital;
 	cfg->advertise.pcm_analog = (unsigned)v8_shim_env_enabled(
 		"SLMODEMD_V8_PCM_ANALOG", default_pcm);
 	cfg->advertise.pcm_digital = (unsigned)v8_shim_env_enabled(
@@ -317,6 +321,9 @@ static enum DP_ID v8_shim_open_next_dp(enum DP_ID target_dp_id,
 		enum DP_ID candidate = fallback_order[i];
 
 		if (!v8_shim_open_target_allows(target_dp_id, candidate))
+			continue;
+		if ((candidate == DP_V92 || candidate == DP_V90) &&
+		    (!caps->access_digital || !caps->pcm_digital))
 			continue;
 		if (!v8_shim_open_cap_enabled(caps, candidate))
 			continue;

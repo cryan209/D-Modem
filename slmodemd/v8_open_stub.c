@@ -291,9 +291,13 @@ static unsigned v8_open_phase_status(const struct v8_open_engine *engine,
 
 static enum DP_ID v8_open_preferred_dp(const struct v8_open_engine *engine)
 {
-	if (engine->cfg.advertise.v92)
+	if (engine->cfg.advertise.v92 &&
+	    engine->cfg.advertise.access_digital &&
+	    engine->cfg.advertise.pcm_digital)
 		return DP_V92;
-	if (engine->cfg.advertise.v90)
+	if (engine->cfg.advertise.v90 &&
+	    engine->cfg.advertise.access_digital &&
+	    engine->cfg.advertise.pcm_digital)
 		return DP_V90;
 	if (engine->cfg.advertise.v34)
 		return DP_V34;
@@ -351,7 +355,8 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 		jm->has_modulation1 = 1U;
 	}
 
-	if (engine->cfg.advertise.v90 || engine->cfg.advertise.v92) {
+	if ((engine->cfg.advertise.v90 || engine->cfg.advertise.v92) &&
+	    (jm->pcm_analog || jm->pcm_digital || jm->pcm_v91)) {
 		jm->has_pcm = 1U;
 		jm->modulation0_octet |= 0x20U;
 		if (jm->pcm_analog)

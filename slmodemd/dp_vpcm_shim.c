@@ -125,6 +125,17 @@ static enum vpcm_shim_stub_mode vpcm_shim_get_stub_mode(void)
 	return VPCMSHIM_STUB_CONNECT;
 }
 
+static int vpcm_shim_stub_allowed(enum DP_ID id)
+{
+	switch (id) {
+	case DP_V34:
+	case DP_V34BIS:
+		return 0;
+	default:
+		return 1;
+	}
+}
+
 static unsigned long vpcm_shim_millis_to_samples(int srate, unsigned long ms)
 {
 	if (srate <= 0 || !ms)
@@ -292,6 +303,8 @@ static struct dp *vpcm_shim_create(struct modem *m, enum DP_ID id,
 		return NULL;
 
 	stub_mode = vpcm_shim_get_stub_mode();
+	if (!vpcm_shim_stub_allowed(id))
+		stub_mode = VPCMSHIM_STUB_DISABLED;
 
 	if (stub_mode != VPCMSHIM_STUB_DISABLED)
 		inner = vpcm_shim_create_stub(m, id, op);
@@ -389,6 +402,8 @@ static int vpcm_shim_process(struct dp *dp, void *in, void *out, int cnt)
 	int nbytes;
 	int bit_cnt;
 	int i;
+	int prev_ret;
+	unsigned prev_status;
 	unsigned long linked_ms;
 
 	state = vpcm_shim_find(dp);
@@ -481,10 +496,19 @@ static int vpcm_shim_process(struct dp *dp, void *in, void *out, int cnt)
 	if (!state->real_ops || !state->real_ops->process)
 		return -1;
 
+	prev_ret = state->last_ret;
+	prev_status = state->status;
 	ret = state->real_ops->process(dp, in, out, cnt);
 	state->total_samples += cnt;
 	state->last_ret = ret;
 	state->status = dp->status;
+	if (ret != prev_ret || state->status != prev_status) {
+		VPCMSHIM_DBG("process: path=blob dp=%d ret=%d status=%u samples=%lu\n",
+			    state->target_dp_id,
+			    ret,
+			    state->status,
+			    state->total_samples);
+	}
 	return ret;
 }
 
