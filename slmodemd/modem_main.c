@@ -114,6 +114,8 @@ extern void RcFixed_Delete(void *rc);
 extern void RcFixed_Resample(void *rc, char *in, unsigned int inlen, char *out, int *sizeinout);
 extern void RcFixed_Reset(void *rc);
 
+static void return_data_to_child(struct modem *m, char buf[256]);
+
 /* global config data */
 extern const char *modem_dev_name;
 extern unsigned int ring_detector;
@@ -761,12 +763,9 @@ void return_data_to_child (struct modem *m,char buf[256])
 		struct device_struct *dev = m->dev_data;
 		struct socket_frame sip_socket_frame = { 0 };
 		int ret;
-		DBG("return_data_to_child: called");
 		sip_socket_frame.type = SOCKET_FRAME_SIP_INFO;
 		snprintf(sip_socket_frame.data.sip.info,256,"%s",buf);
-		DBG("return_data_to_child: write to socket");
 		ret = write(dev->sipfd, &sip_socket_frame, sizeof(sip_socket_frame));
-		DBG("sip socket write %i\n",ret);
 		if (ret != sizeof(sip_socket_frame)) {
 			perror("return_data_to_child: write fail");
 			exit(EXIT_FAILURE);
@@ -778,44 +777,32 @@ void return_data_to_child (struct modem *m,char buf[256])
 //send cid in socket
 static int socket_dial (struct modem *m)
 {
-	struct device_struct *dev = m->dev_data;
-	struct socket_frame sip_socket_frame = { 0 };
-	int ret;
 	char dialreturn[256];
-	char atstring[64];
-	DBG("socket_dial:request...\n");
-	DBG("AT String %s",m->at_cmd);
 	
 	//No AT cmd
-	if (m->at_cmd == '\0'){
-		DBG("No AT command");
+	if (m->at_cmd[0] == '\0'){
 		return 0;
 	}
 	//AT Dial
 	if (strncasecmp(m->at_cmd,"ATD",3)==0){
-	DBG("socket_dial:Dialling %s...\n",m->dial_string);
+	DBG("socket_dial: dialing %s\n",m->dial_string);
 	sip_modem_hookstate = 1;
-	DBG("socket:sipinfo:hookstate: %x \n",sip_modem_hookstate);
 	snprintf(dialreturn,255,"MD%s",m->dial_string);	
-	DBG("returning data...\n")
 	return_data_to_child(m,dialreturn);
-	DBG("wrote m->dialstring to socket\n");
 	}
 	//AT Answer
 	if (strncasecmp(m->at_cmd,"ATA",3)==0){
-		DBG("ANSWERING?");
+		DBG("socket_dial: answering\n");
 		sip_ringing = 0;
 		sip_ring_last.tv_sec = 0;
 		snprintf(dialreturn,255,"MA");
 		return_data_to_child(m,dialreturn);
-		DBG("ANSWERED?");
 	}
 	return 0;
 }
 
 static int socket_stop (struct modem *m)
 {
-	struct device_struct *dev = m->dev_data;
 	DBG("socket_stop...\n");
 	DBG("kill -%d %d\n", SIGTERM, pid);
 	if (pid) {
@@ -847,7 +834,6 @@ static int socket_ioctl(struct modem *m, unsigned int cmd, unsigned long arg)
 {
 	struct device_struct *dev = m->dev_data;
 	int ret = 0;
-	DBG("socket_ioctl: cmd %x, arg %lx...\n",cmd,arg);
 	if (cmd == MDMCTL_SETFRAG)
 		arg <<= MFMT_SHIFT(m->format);
 
@@ -866,15 +852,7 @@ static int socket_ioctl(struct modem *m, unsigned int cmd, unsigned long arg)
 	case MDMCTL_SPEAKERVOL:
 		modem_volume = arg;
 		if (pid) {
-			struct socket_frame socket_frame = { 0 };
-
-			socket_frame.type = SOCKET_FRAME_VOLUME;
-			socket_frame.data.volume.value = arg;
-			//ret = write(dev->fd, &socket_frame, sizeof(socket_frame));
-			//if (ret != sizeof(socket_frame)) {
-			//	perror("speaker vol write fail");
-			//}
-			DBG("adjust volume frame needed");
+			DBG("adjust volume frame needed\n");
 		}
 		ret = 0;
 		break;
@@ -893,8 +871,6 @@ static int socket_ioctl(struct modem *m, unsigned int cmd, unsigned long arg)
 	default:
 		return -ENOIOCTLCMD;
 	}
-
-	DBG("socket_ioctl: returning %x\n",ret);
 	return ret;
 }
 
@@ -1269,7 +1245,6 @@ static int modem_run(struct modem *m, struct device_struct *dev)
 						if (elapsed_ms >= 2000 || sip_ring_last.tv_sec == 0) {
 							modem_send_to_tty(m,"RING",4);
 							modem_send_to_tty(m,CRLF_CHARS(m),2);
-							DBG("TTY RING!!");
 							sip_ring_last = now;
 						}
 					}
@@ -1314,7 +1289,6 @@ static int modem_run(struct modem *m, struct device_struct *dev)
 						if (elapsed_ms >= 2000 || sip_ring_last.tv_sec == 0) {
 							modem_send_to_tty(m,"RING",4);
 							modem_send_to_tty(m,CRLF_CHARS(m),2);
-							DBG("TTY RING!!");
 							sip_ring_last = now;
 						}
 					}
