@@ -46,6 +46,9 @@
 
 //#define EC_DEBUG 1
 
+#define ECTRACE_MODEM(m, fmt, arg...) dprintf("%s ec-trace: " fmt, (m)->name, ##arg)
+#define ECTRACE_LAPM(l, fmt, arg...) ECTRACE_MODEM((l)->modem, fmt, ##arg)
+
 /* LAPM default parameters */
 #define LAPM_DFLT_WIN_SIZE   15  /* default win size */
 #define LAPM_DFLT_INFO_SIZE 128  /* default info size */
@@ -146,6 +149,22 @@
 
 /* type definitions */
 enum LAPM_STATES { LAPM_IDLE, LAPM_ESTAB, LAPM_DATA, LAPM_DISC };
+
+static const char *lapm_state_name(int state)
+{
+	switch (state) {
+	case LAPM_IDLE:
+		return "IDLE";
+	case LAPM_ESTAB:
+		return "ESTAB";
+	case LAPM_DATA:
+		return "DATA";
+	case LAPM_DISC:
+		return "DISC";
+	default:
+		return "UNKNOWN";
+	}
+}
 
 /* prototypes */
 static int lapm_connect(struct lapm_state *l);
@@ -543,6 +562,15 @@ static int rx_xid(struct lapm_state *l, frame_t *f)
 	cfg.ec_rx_win_size  = l->rx_win_size;
 	cfg.ec_tx_info_size = l->tx_info_size;
 	cfg.ec_rx_info_size = l->rx_info_size;
+	ECTRACE_LAPM(l,
+		    "rx_xid: tx_win=%u rx_win=%u tx_info=%u rx_info=%u comp=%u dict=%d max=%d\n",
+		    cfg.ec_tx_win_size,
+		    cfg.ec_rx_win_size,
+		    cfg.ec_tx_info_size,
+		    cfg.ec_rx_info_size,
+		    cfg.comp,
+		    cfg.comp_dict_size,
+		    cfg.comp_max_string);
 	modem_update_config(l->modem,&cfg);
 	return 0;
 }
@@ -1259,6 +1287,13 @@ static int lapm_connect(struct lapm_state *l)
 	reset(l);
 	/* connect */
 	l->state = LAPM_ESTAB;
+	ECTRACE_LAPM(l,
+		    "lapm_connect: state=%s tx_win=%u rx_win=%u tx_info=%u rx_info=%u\n",
+		    lapm_state_name(l->state),
+		    l->tx_win_size,
+		    l->rx_win_size,
+		    l->tx_info_size,
+		    l->rx_info_size);
 	TX_SABME(l);
 	/* start t401 (and not t403) */
 	T401_START(l);
@@ -1269,6 +1304,16 @@ static int lapm_connect(struct lapm_state *l)
 static int lapm_config(struct lapm_state *l)
 {
 	l->config = 1;
+	ECTRACE_LAPM(l,
+		    "lapm_config: state=%s tx_win=%u rx_win=%u tx_info=%u rx_info=%u comp=%u dict=%d max=%d\n",
+		    lapm_state_name(l->state),
+		    l->tx_win_size,
+		    l->rx_win_size,
+		    l->tx_info_size,
+		    l->rx_info_size,
+		    l->modem->cfg.comp,
+		    l->modem->cfg.comp_dict_size,
+		    l->modem->cfg.comp_max_string);
 	if (l->state == LAPM_DATA) {
 		l->busy = 1;
 		TX_RNR(l,l->cmd_addr,1);
@@ -1280,6 +1325,7 @@ static int lapm_config(struct lapm_state *l)
 
 static int lapm_disconnect(struct lapm_state *l)
 {
+	ECTRACE_LAPM(l, "lapm_disconnect: from=%s\n", lapm_state_name(l->state));
 	l->state = LAPM_DISC;
 	TX_DISC(l);
 	/* start T401 (and not T403) */
@@ -1377,6 +1423,14 @@ static void modem_ec_negotiate(struct modem *m)
 {
 	m->packer.hdlc.tx_complete  = lapm_tx_complete;
 	m->packer.hdlc.get_tx_frame = lapm_get_tx_frame;
+	ECTRACE_MODEM(m,
+		     "negotiate: caller=%u ec=%u detector=%u comp=%u dict=%d max=%d\n",
+		     m->caller,
+		     m->cfg.ec,
+		     m->cfg.ec_detector,
+		     m->cfg.comp,
+		     m->cfg.comp_dict_size,
+		     m->cfg.comp_max_string);
 	lapm_config(&m->ec.lapm);
 }
 
@@ -1385,6 +1439,16 @@ void modem_ec_start(struct modem *m)
 	struct hdlc_state *h = &m->packer.hdlc;
 	struct lapm_state *l = &m->ec.lapm;
 	EC_DBG("modem_ec_start...\n");
+	ECTRACE_MODEM(m,
+		     "start: caller=%u ec=%u detector=%u tx_win=%u rx_win=%u tx_info=%u rx_info=%u comp=%u\n",
+		     m->caller,
+		     m->cfg.ec,
+		     m->cfg.ec_detector,
+		     l->tx_win_size,
+		     l->rx_win_size,
+		     l->tx_info_size,
+		     l->rx_info_size,
+		     m->cfg.comp);
 	h->framer = l;
 	h->tx_complete  = NULL;
 	h->rx_complete  = lapm_rx_complete;
@@ -1392,10 +1456,12 @@ void modem_ec_start(struct modem *m)
 	if(m->caller) {
 		m->bit_timer = 48*8;
 		m->bit_timer_func = modem_ec_negotiate;
+		ECTRACE_MODEM(m, "start: deferring negotiate via bit_timer=%d\n", m->bit_timer);
 	}
 	else {
 		h->tx_complete  = lapm_tx_complete;
 		h->get_tx_frame = lapm_get_tx_frame;
+		ECTRACE_MODEM(m, "start: answer-side immediate tx path enabled\n");
 	}
 	// fixme: improve BUSY becoming, remove packer_process()
 	m->packer_process = NULL;
@@ -1405,6 +1471,13 @@ void modem_ec_stop(struct modem *m)
 {
 	struct lapm_state *l = &m->ec.lapm;
 	EC_DBG("modem_ec_stop...\n");
+	ECTRACE_MODEM(m,
+		     "stop: state=%s bit_timer=%d rtx=%d tx_win=%u rx_win=%u\n",
+		     lapm_state_name(l->state),
+		     m->bit_timer,
+		     l->rtx_count,
+		     l->tx_win_size,
+		     l->rx_win_size);
 	m->bit_timer = 0;
 	m->packer_process = NULL;
 	lapm_disconnect(l);
@@ -1422,4 +1495,3 @@ void modem_ec_exit(struct modem *m)
 	struct lapm_state *l = &m->ec.lapm;
 	lapm_exit(l);
 }
-

@@ -46,6 +46,7 @@
 
 #define PACK_DBG(fmt,arg...) dprintf("%s: " fmt , m->name , ##arg)
 #define PACK_ERR(fmt,arg...) eprintf("%s: " fmt , m->name , ##arg)
+#define DETTRACE(m, fmt, arg...) dprintf("%s detector-trace: " fmt, (m)->name, ##arg)
 
 /* HDLC definitions */
 
@@ -194,16 +195,42 @@ void modem_async_start(struct modem *m)
 #define FILL_PATTERN_ODP(pat) { (pat)[0]=ODP0 ; (pat)[1]=ODP1; }
 #define FILL_PATTERN_ADP(pat) { (pat)[0]=ADP0 ; (pat)[1]=ADP1; }
 
+static const char *detector_pattern_name(u8 p0, u8 p1)
+{
+	if (p0 == ODP0 && p1 == ODP1)
+		return "ODP";
+	if (p0 == ADP0 && p1 == ADP1_V42)
+		return "ADP-V42";
+	if (p0 == ADP0 && p1 == ADP1_V14)
+		return "ADP-V14";
+	return "unknown";
+}
+
 
 static void detector_start(struct modem *m)
 {
 	PACK_DBG("detector start...\n");
+	DETTRACE(m,
+		 "start-tx: caller=%u tx=%s rx=%s ec_enable=%d bit_timer=%d\n",
+		 m->caller,
+		 detector_pattern_name(m->packer.detector.tx_pattern[0],
+				       m->packer.detector.tx_pattern[1]),
+		 detector_pattern_name(m->packer.detector.rx_pattern[0],
+				       m->packer.detector.rx_pattern[1]),
+		 m->packer.detector.ec_enable,
+		 m->bit_timer);
 	m->packer.detector.tx_count = 1;
 }
 
 static void detector_finish(struct modem *m)
 {
 	PACK_DBG("detector finished.\n");
+	DETTRACE(m,
+		 "finish: ec_enable=%d tx_count=%d rx_count=%d bit_timer=%d\n",
+		 m->packer.detector.ec_enable,
+		 m->packer.detector.tx_count,
+		 m->packer.detector.rx_count,
+		 m->bit_timer);
 	// fixme: modem update config
 	m->cfg.ec = m->packer.detector.ec_enable;
 	modem_update_status(m,STATUS_PACK_LINK);
@@ -264,6 +291,9 @@ int modem_detector_put_bits(struct modem *m, int nbits, u8 *bit_buf, int bit_cnt
 			PACK_DBG("rx pattern: 0x%02x.\n",ch);
 			if (ch == HDLC_FLAG) {
 				PACK_DBG("hdlc flag detected.\n");
+				DETTRACE(m,
+					 "detect: hdlc-flag -> ec_enable=1 finish_in=%d\n",
+					 PATTERN_SIZE);
 				d->ec_enable = 1;
 				m->bit_timer_func = detector_finish;
 				m->bit_timer = PATTERN_SIZE;
@@ -279,6 +309,9 @@ int modem_detector_put_bits(struct modem *m, int nbits, u8 *bit_buf, int bit_cnt
 			case ODP1:
 				//PACK_DBG("rx ODP.\n");
 				if (!m->caller) {
+					DETTRACE(m,
+						 "detect: rx ODP on answer side -> replay ADP and finish_in=%d\n",
+						 MAX_TX_PATTERNS*PATTERN_SIZE);
 					/* start replay ADP and leave detector */ 
 					d->tx_count = 1;
 					d->rx_count = 2;
@@ -291,6 +324,9 @@ int modem_detector_put_bits(struct modem *m, int nbits, u8 *bit_buf, int bit_cnt
 				break;
 			case ADP1_V14:
 				//PACK_DBG("rx ADP non v42.\n");
+				DETTRACE(m,
+					 "detect: rx ADP-V14 -> ec_enable=0 finish_in=%d\n",
+					 PATTERN_SIZE);
 				d->rx_count = 2;
 				d->ec_enable = 0;
 				m->bit_timer_func = detector_finish;
@@ -298,6 +334,9 @@ int modem_detector_put_bits(struct modem *m, int nbits, u8 *bit_buf, int bit_cnt
 				break;
 			case ADP1_V42:
 				//PACK_DBG("rx ADP v42.\n");
+				DETTRACE(m,
+					 "detect: rx ADP-V42 -> ec_enable=1 finish_in=%d\n",
+					 PATTERN_SIZE);
 				m->cfg.ec = 1;
 				d->rx_count = 2;
 				d->ec_enable = 1;
@@ -331,6 +370,12 @@ void modem_detector_start(struct modem *m) {
 		m->bit_timer_func = detector_finish;
 		m->bit_timer = rate*3/4; /* T400 timeout */
 	}
+	DETTRACE(m,
+		 "arm: caller=%u tx=%s rx=%s timeout_bits=%d\n",
+		 m->caller,
+		 detector_pattern_name(d->tx_pattern[0], d->tx_pattern[1]),
+		 detector_pattern_name(d->rx_pattern[0], d->rx_pattern[1]),
+		 m->bit_timer);
 	m->pack.bit  = m->unpack.bit  = 0;
 	m->pack.data = m->unpack.data = 0;
 }
@@ -630,5 +675,3 @@ void tmp_init(struct modem *m)
 	m->packer.hdlc.framer = m;
 }
 #endif
-
-
