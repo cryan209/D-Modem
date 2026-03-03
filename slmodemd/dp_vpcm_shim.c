@@ -39,6 +39,9 @@ struct vpcm_shim_state {
 	int last_ret;
 	int use_stub;
 	int stub_connected;
+	int stub_bit_bridge;
+	int stub_force_ec;
+	int stub_pack_promoted;
 	int stub_loopback;
 	enum vpcm_shim_stub_mode stub_mode;
 	unsigned long total_samples;
@@ -48,6 +51,7 @@ struct vpcm_shim_state {
 	unsigned long stub_log_interval_samples;
 	unsigned long stub_next_log_samples;
 	unsigned status;
+	u8 stub_bits[1024];
 	struct vpcm_shim_state *next;
 };
 
@@ -156,6 +160,30 @@ static int vpcm_shim_get_stub_loopback(void)
 	return 1;
 }
 
+static int vpcm_shim_get_stub_bit_bridge(void)
+{
+	const char *value = getenv("SLMODEMD_VPCM_STUB_BIT_BRIDGE");
+
+	if (!value)
+		return 1;
+	if (vpcm_shim_env_false(value))
+		return 0;
+
+	return 1;
+}
+
+static int vpcm_shim_get_stub_force_ec(void)
+{
+	const char *value = getenv("SLMODEMD_VPCM_STUB_FORCE_EC");
+
+	if (!value)
+		return 1;
+	if (vpcm_shim_env_false(value))
+		return 0;
+
+	return 1;
+}
+
 static struct vpcm_shim_state *vpcm_shim_find(struct dp *dp)
 {
 	struct vpcm_shim_state *state;
@@ -213,7 +241,7 @@ static void vpcm_shim_log_create(struct vpcm_shim_state *state)
 		    update_delay);
 
 	if (state->use_stub) {
-		VPCMSHIM_DBG("create-stub: dp=%d connect_ms=%lu drop_ms=%lu loopback=%d log_ms=%lu\n",
+		VPCMSHIM_DBG("create-stub: dp=%d connect_ms=%lu drop_ms=%lu bit_bridge=%d force_ec=%d loopback=%d log_ms=%lu\n",
 			    state->target_dp_id,
 			    state->stub_connect_samples
 				    ? (state->stub_connect_samples * 1000UL) / (unsigned long)state->srate
@@ -221,6 +249,8 @@ static void vpcm_shim_log_create(struct vpcm_shim_state *state)
 			    state->stub_drop_samples
 				    ? (state->stub_drop_samples * 1000UL) / (unsigned long)state->srate
 				    : 0UL,
+			    state->stub_bit_bridge,
+			    state->stub_force_ec,
 			    state->stub_loopback,
 			    state->stub_log_interval_samples
 				    ? (state->stub_log_interval_samples * 1000UL) / (unsigned long)state->srate
@@ -297,6 +327,8 @@ static struct dp *vpcm_shim_create(struct modem *m, enum DP_ID id,
 	state->last_ret = 0;
 	state->use_stub = (stub_mode != VPCMSHIM_STUB_DISABLED);
 	state->stub_mode = stub_mode;
+	state->stub_bit_bridge = vpcm_shim_get_stub_bit_bridge();
+	state->stub_force_ec = vpcm_shim_get_stub_force_ec();
 	state->stub_loopback = vpcm_shim_get_stub_loopback();
 	state->status = inner->status;
 
@@ -355,6 +387,8 @@ static int vpcm_shim_process(struct dp *dp, void *in, void *out, int cnt)
 	struct vpcm_shim_state *state;
 	int ret;
 	int nbytes;
+	int bit_cnt;
+	int i;
 	unsigned long linked_ms;
 
 	state = vpcm_shim_find(dp);
@@ -392,6 +426,29 @@ static int vpcm_shim_process(struct dp *dp, void *in, void *out, int cnt)
 		}
 
 		state->linked_samples += cnt;
+
+		if (state->stub_force_ec && !state->stub_pack_promoted) {
+			state->stub_pack_promoted = 1;
+			dp->modem->cfg.ec = 1;
+			VPCMSHIM_DBG("process-stub: dp=%d forcing PACK LINK with EC enabled\n",
+				    state->target_dp_id);
+			modem_update_status(dp->modem, STATUS_PACK_LINK);
+		}
+
+		if (state->stub_bit_bridge) {
+			bit_cnt = cnt;
+			if (bit_cnt > (int)sizeof(state->stub_bits))
+				bit_cnt = sizeof(state->stub_bits);
+			modem_get_bits(dp->modem, 1, state->stub_bits, bit_cnt);
+			modem_put_bits(dp->modem, 1, state->stub_bits, bit_cnt);
+			if (!state->stub_loopback && MFMT_IS_16BIT(dp->modem->format)) {
+				s16 *samples = out;
+				for (i = 0; i < bit_cnt; i++)
+					samples[i] = state->stub_bits[i] & 0x1;
+				for (; i < cnt; i++)
+					samples[i] = 0;
+			}
+		}
 
 		if (state->stub_loopback)
 			memcpy(out, in, nbytes);

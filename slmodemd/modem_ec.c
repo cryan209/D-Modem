@@ -166,6 +166,20 @@ static const char *lapm_state_name(int state)
 	}
 }
 
+static const char *lapm_frame_type_name(frame_t *f)
+{
+	switch (FRAME_TYPE(f)) {
+	case FRAME_I:
+		return "I";
+	case FRAME_S:
+		return "S";
+	case FRAME_U:
+		return "U";
+	default:
+		return "?";
+	}
+}
+
 /* prototypes */
 static int lapm_connect(struct lapm_state *l);
 static int lapm_disconnect(struct lapm_state *l);
@@ -1174,6 +1188,13 @@ static frame_t *lapm_get_tx_frame(void *framer)
 	if ( l->tx_ctrl != l->ctrl_list ) {
 		f = l->tx_ctrl;
 		l->tx_ctrl = l->tx_ctrl->next;
+		ECTRACE_LAPM(l,
+			    "tx-queue: ctrl type=%s ctrl=0x%02x count=%d state=%s config=%d\n",
+			    lapm_frame_type_name(f),
+			    FRAME_CTRL(f),
+			    f->count,
+			    lapm_state_name(l->state),
+			    l->config);
 		return f;
 	}
 	/* get info frame */
@@ -1190,6 +1211,12 @@ static frame_t *lapm_get_tx_frame(void *framer)
 	l->vs = (l->vs + 1)&0x7f;
 	if (!l->modem->bit_timer)
 		TIMER_START(l);
+	ECTRACE_LAPM(l,
+		    "tx-queue: info ns=%u nr=%u count=%d state=%s\n",
+		    FRAME_NS(f),
+		    FRAME_NR(f),
+		    f->count,
+		    lapm_state_name(l->state));
 	//LAPM_PRINT_FRAME("get_tx_frame",1,f);
 
 	//EC_DBG1("get_tx_frame: sent %d, tx %d, free %d...\n",
@@ -1245,6 +1272,13 @@ static int valid_data_state(struct lapm_state *l)
 static void lapm_rx_complete(void *framer, frame_t *f)
 {
 	struct lapm_state *l = framer;
+	ECTRACE_LAPM(l,
+		    "rx-frame: type=%s ctrl=0x%02x count=%d cmd=%d state=%s\n",
+		    lapm_frame_type_name(f),
+		    FRAME_CTRL(f),
+		    f->count,
+		    RX_IS_COMMAND(f) ? 1 : 0,
+		    lapm_state_name(l->state));
 	LAPM_PRINT_FRAME("rx",RX_IS_COMMAND(f),f);
 	switch(FRAME_TYPE(f)) {
 	case FRAME_I:
