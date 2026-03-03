@@ -75,6 +75,8 @@ long modem_get_param(struct modem *m, unsigned param_name)
 		return (long)m->dial_string;
 	case MDMPRM_AUTOMODE:
 		return 0 /* MODEM_AUTOMODE(m)*/;
+	case MDMPRM_DP_REQUESTED:
+		return m->dp_requested;
 	case MDMPRM_DPRUNTIME:
 		return (long)(m->dp_runtime);
 	case MDMPRM_DSPINFO:
@@ -83,6 +85,8 @@ long modem_get_param(struct modem *m, unsigned param_name)
 	case MDMPRM_VOICEINFO:
 		return (long)(&m->voice_info);
 #endif
+	case MDMPRM_UPDATE_DELAY:
+		return m->update_delay;
 	case MDMPRM_DP_ADDR:
 		return (long)(m->dp);
 	case GetPulseDialMakeTime:
