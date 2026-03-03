@@ -1410,13 +1410,16 @@ static int modem_run(struct modem *m, struct device_struct *dev)
 		//DBG("keep_running FD_ISSET pty rset");
 		if(FD_ISSET(m->pty,&rset)) {
 			/* check termios */
-			tcgetattr(m->pty,&termios);
-			if(memcmp(&termios,&m->termios,sizeof(termios))) {
-				DBG("termios changed.\n");
-				modem_update_termios(m,&termios);
+			if (tcgetattr(m->pty, &termios) == 0) {
+				if(memcmp(&termios,&m->termios,sizeof(termios))) {
+					DBG("termios changed.\n");
+					modem_update_termios(m,&termios);
+				}
+			} else if (errno != EIO && errno != ENOTTY) {
+				ERR("tcgetattr(pty): %s\n", strerror(errno));
+				return -1;
 			}
 			/* read data */
-			DBG("keep_running read pty");
 			count = m->xmit.size - m->xmit.count;
 			if(count == 0)
 				continue;

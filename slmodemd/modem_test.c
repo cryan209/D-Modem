@@ -312,11 +312,15 @@ static int modem_test_run(struct modem_test *modems)
 			if(FD_ISSET(pty,&rset)) {
 				//DBG("pty read...\n");
 				/* check termios */
-				tcgetattr(pty,&termios);
-				if(memcmp(&termios,&t->modem->termios,
-					  sizeof(termios))) {
-					DBG("termios changed.\n");
-					modem_update_termios(t->modem, &termios);
+				if (tcgetattr(pty, &termios) == 0) {
+					if(memcmp(&termios,&t->modem->termios,
+						  sizeof(termios))) {
+						DBG("termios changed.\n");
+						modem_update_termios(t->modem, &termios);
+					}
+				} else if (errno != EIO && errno != ENOTTY) {
+					ERR("tcgetattr(pty): %s\n", strerror(errno));
+					return -1;
 				}
 				/* read data */
 				count = t->modem->xmit.size - t->modem->xmit.count;
