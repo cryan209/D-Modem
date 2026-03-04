@@ -735,6 +735,356 @@ At debug level > 1 it reports the final match state using:
 That string is driven by whether the call-function and protocol latches ended
 up set.
 
+### `v8handshak()` decompilation
+
+`v8handshak()` at `0x77310` is the blob's main per-fragment V.8 work loop. It
+does three things in one dispatcher:
+
+1. Emit up to 4 PCM samples into the TX queue when the current state is a
+   transmit state.
+2. Run tone/FSK receive logic when the current state is a receive state.
+3. Advance the internal V.8 state machine and return a small status code to
+   `V8Process`.
+
+The top-level loop is gated by:
+
+- `engine+0x021c`: samples already processed in this fragment
+- `engine+0x0a3e`: fragment sample budget
+
+It keeps looping while `processed < max_frag`. The current major state is the
+16-bit field at:
+
+- `engine+0x09d4`
+
+The dispatcher is:
+
+```c
+while (engine->processed < engine->max_frag) {
+    switch (engine->state_9d4) {
+    case 0x05:
+        /* direct tone generator path */
+        break;
+    case 0x04:
+        /* timed FSK TX path */
+        break;
+    case 0x0c:
+        /* phase-reversal / shaped TX path */
+        break;
+    case 0x19:
+        /* answer-side signal analysis / phase-reversal detect */
+        break;
+    case 0x20:
+        /* wait window before enabling V.21 receive */
+        break;
+    case 0x23:
+        /* drain the RX queue */
+        break;
+    case 0x28:
+        /* V.21 bit receive / symbol framing */
+        break;
+    case 0x29:
+        /* collect a short received sequence in buffer A */
+        break;
+    case 0x2a:
+        /* collect a longer received sequence in buffer B */
+        break;
+    case 0x2c:
+        /* validate a fixed CJ-like receive pattern */
+        break;
+    case 0x2d:
+        /* DFT-energy driven signal confirmation */
+        break;
+    case 0x17:
+    case 0x32:
+    case 0x33:
+        /* post-receive JM rebuild / evaluation transitions */
+        break;
+    case 0x63:
+        return 2;
+    default:
+        return 0;
+    }
+}
+```
+
+The other control fields used heavily in the dispatcher are:
+
+- `engine+0x09d6`: current signal family / demod mode selector
+- `engine+0x09d8`: current receive substate
+- `engine+0x0c48`: active TX bitstream pointer
+- `engine+0x0c4c`: receive buffer A
+- `engine+0x0c50`: receive buffer B
+- `engine+0x0c26`: TX bitstream length in bit-units
+- `engine+0x0c28`: TX bitstream cursor in bit-units
+- `engine+0x0c38`: V.21 receive bit count
+- `engine+0x0c3a`: V.21 receive shift register / assembled symbol
+- `engine+0x0c3e`: run length of consecutive zero bits
+- `engine+0x0c40`: zero-run counter
+- `engine+0x0c42`: trailing zero counter
+- `engine+0x0c44`: receive buffer fill count
+- `engine+0x0c46`: receive buffer read cursor / symbol count latch
+- `engine+0x0db4`: small phase / sequencing latch
+- `engine+0x0db6`: generic sample/symbol timer
+- `engine+0x0db8`: small bit-pattern match counter
+- `engine+0x0dbc`: receive sequence length
+- `engine+0x0dc0`: TX emitted-bit counter for the current message
+- `engine+0x0dc4`: latched remote PCM capability present
+- `engine+0x0dc8`: latched remote digital PCM capability bit
+- `engine+0x0dcc`: small decoded remote capability class
+- `engine+0x0dd0`: local receive-permission mask
+- `engine+0x0e5c` / `engine+0x0e60`: optional timeout targets
+- `engine+0x0e64`: shared running timeout counter
+
+The control flow of each major branch is:
+
+#### `state_9d4 == 0x05`: direct tone TX
+
+This path uses the simple DDS at `engine+0x0dd2/0x0dd4`:
+
+- advance phase
+- call `v8_cosread()`
+- emit 4 samples into the TX queue at `engine+0x05c0`
+- call `v8_txwritequeue()`
+
+This is the simplest “continuous tone” transmitter.
+
+#### `state_9d4 == 0x04` and `state_9d4 == 0x17`: V.21-style FSK TX
+
+Both of these states run:
+
+- `v8_fskmodulate(engine, engine->current_tx_bit)`
+
+They then advance `engine+0x0c28` by 4 bit-time units. When the cursor reaches
+`engine+0x0c26`, they fetch the next transmit bit from the active TX stream:
+
+- `v8_getbit(engine->tx_stream_ptr)`
+
+The current transmit bit is stored at:
+
+- `engine+0x0a3c`
+
+The TX stream pointer is:
+
+- `engine+0x0c48`
+
+The emitted-bit counter is:
+
+- `engine+0x0dc0`
+
+When that counter reaches `0x3c`, the function:
+
+- sets `engine+0x09d4 = 0x17`
+- repoints `engine+0x0c48` to `engine+0x0c54`
+
+That is the handoff into the TX sequence that was built by
+`initTxSequence()` / `rebuildJMSequence()`.
+
+`state_9d4 == 0x04` additionally uses the shared timeout pair
+`0x0e60/0x0e64` before it emits.
+
+#### `state_9d4 == 0x0c`: shaped / phase-reversal TX
+
+This path uses the oscillator/filter block at `engine+0x0da4`:
+
+- advances two phase accumulators
+- multiplies the two cosine terms with `v8_mpyint()`
+- filters the result through `v8_fsktxfilter()`
+- emits 4 samples into the TX queue
+
+It also uses:
+
+- `engine+0x0dae`: enable phase reversals
+- `engine+0x0daa`: phase-reversal dwell counter
+- `engine+0x0da8`: sign / polarity
+
+When `engine+0x0daa` reaches `0x438`, it flips the sign in `engine+0x0da8`.
+
+This is the blob-side shaped answer-tone / reversal-capable transmit path.
+
+#### `state_9d4 == 0x20`: timed arm of V.21 receive
+
+This state is a pure delay:
+
+- increment `engine+0x0db6`
+- once it exceeds `0x258`, set:
+  - `engine+0x09d6 = 0x28`
+  - `engine+0x09d8 = 0x29`
+  - clear `engine+0x0db6`
+  - set `ctx+0x20 |= 0x0800`
+
+That is the arm point for V.21 demodulation.
+
+#### `state_9d4 == 0x19`: answer-side tone / phase-reversal analysis
+
+This branch runs:
+
+- `V8agc(engine)`
+- copies the 4 TX samples through `v8_absfn()` into a temp buffer
+- `checkSignalStability(engine)`
+
+Then it has two subpaths:
+
+- If `ctx+0x8a != 0`, it runs `v8_dftupdate(engine+0x0d94, temp_abs, 1, 4)`.
+- Otherwise it runs `v8_phase_rev_detect(engine+0x0b40, engine+0x05c8, 4)`.
+
+It increments `engine+0x0db6`, and after `0x960` samples:
+
+- sets `ctx+0x0a |= 0x0200`
+
+Then, depending on the local config and the phase-reversal result, it either:
+
+- moves to `state_9d4 = 0x05`, returning `1`
+- or moves to `state_9d4 = 0x2d`
+
+This is the main answer-side “wait for stable signal / phase reversal” logic.
+
+#### `state_9d4 == 0x2d`: DFT-energy confirmation before V.21 start
+
+This is the branch that decides whether the blob should start V.21 exchange.
+
+If `ctx+0x8a == 0`, it checks:
+
+- the DFT energy window at `engine+0x0d94`
+- config bits in `engine->cfg`
+- the local permission mask in `engine+0x0dd0`
+
+If the receive conditions pass, it initializes the V.21 modem:
+
+- `v8_V21_Init(engine, 0, 1, 1)`
+
+Then it sets:
+
+- `engine+0x09d4 = 0x17` or `0x2b` depending on config bit `cfg[2] & 0x10`
+- `engine+0x09d6 = 0x28`
+- `engine+0x09d8 = 0x29`
+- `engine+0x0a3c = 1`
+- clears `engine+0x0db6` / `0x0db4`
+- sets `ctx+0x20 |= 0x0800`
+
+If the conditions do not pass but a different DFT gate is enabled, it moves to
+`state_9d4 = 0x2d` directly from the `0x19` path and keeps analyzing.
+
+#### `state_9d4 == 0x23`: RX queue drain
+
+This is trivial:
+
+- call `v8_rxreadqueue(engine)`
+- return `0`
+
+#### `state_9d4 == 0x28`: V.21 demodulation and bit framing
+
+This is the main bit receiver:
+
+- `V8agc(engine)`
+- `v8_fskdemodulate(engine)`
+
+If the demodulator produced new bits (`engine+0x0c38` advanced), it inspects
+the most recent receive shift register (`engine+0x0c3a`) and runs a small
+run-length detector:
+
+- `engine+0x0c3e`: consecutive zero count
+- `engine+0x0c40`: count of completed zero-runs
+- `engine+0x0c42`: trailing run length
+
+When the framing conditions are met, it increments:
+
+- `engine+0x0c44`
+- and latches the completed symbol index into `engine+0x0c46`
+
+Then, based on `engine+0x09d8`, it dispatches to the two receive-sequence
+collectors below.
+
+#### `state_9d8 == 0x29`: short receive sequence collector (`engine+0x0c4c`)
+
+This collector appends the decoded symbol (`engine+0x0c3a & 0x0fff`) into
+buffer A:
+
+- `engine+0x0c4c`
+
+Special handling:
+
+- If the symbol is `0x000f`, the blob uses `engine+0x0db6` and
+  `bufferA[0x14]` as a “closing delimiter seen” gate.
+- When the terminator condition is met, it rewrites the buffer to:
+  - `0x000f`
+  - then repeated `0x03ff`
+  - sets `engine+0x09d8 = 0x28`
+  - sets `engine+0x0db6 = 1`
+  - sets `engine+0x0dbc = 1`
+  - resets the demod bit counters
+
+This is the fixed receive-pattern path that validates a CJ-like short message.
+
+#### `state_9d8 == 0x2a`: long receive sequence collector (`engine+0x0c50`)
+
+This collector appends decoded symbols into buffer B:
+
+- `engine+0x0c50`
+
+It keeps writing until either:
+
+- the current symbol is `0x000f`, in which case it resets the receive buffer
+  delimiter and restarts the collector, or
+- the receive count in `engine+0x0db6` reaches the current target length stored
+  in `bufferB[0x14]`
+
+When the target is reached, it finalizes the message and branches into the main
+post-receive decision logic described below.
+
+#### Received-sequence validation (`state_9d8 == 0x2c` / `0x32` / `0x33`)
+
+Once a full receive sequence exists in buffer B, the blob distinguishes two
+cases:
+
+- If `engine+0x0a44 == 1`, it takes the “rebuild local JM” branch.
+- Otherwise it calls `evaluateRxJMSequence(engine)` and uses the resulting
+  latches to decide the next substate.
+
+The answer/rebuild branch is:
+
+```c
+engine->substate_9d8 = 0x2a or 0x33;   // depends on engine+0x0a48
+engine->state_9d4 = 0x17;
+engine->timeout_0e64 = 0;
+rebuildJMSequence(engine);
+engine->db4 = 0;
+engine->dbc = 0;
+engine->current_tx_bit = 1;
+engine->tx_stream[0x30/4] = 0;
+engine->tx_stream[0x34/2] = 0;
+ctx->flags_0a |= 0x0200;
+engine->saved_ctx_word_0xa40 = ctx->word_0x1c;
+engine->db6 = 0;
+```
+
+The non-rebuild branch is:
+
+- `evaluateRxJMSequence(engine)`
+- if `engine+0x0a48 == 1`:
+  - `engine+0x09d8 = 0x32`
+- else:
+  - `engine+0x09d8 = 0x23`
+- then it still:
+  - sets `ctx+0x0a |= 0x0200`
+  - stores `ctx+0x1c` into `engine+0x0a40`
+  - clears `engine+0x0db6`
+
+This is the core receive-side handoff point:
+
+- answer side: rebuild and transmit JM
+- other side: evaluate the received JM and move toward CJ / completion
+
+#### Return values
+
+`v8handshak()` uses only three effective returns:
+
+- `0`: continue processing, no outer status change
+- `1`: major internal event occurred (outer process loop should re-run)
+- `2`: terminal state (`state_9d4 == 0x63`)
+
+That final `return 2` is the direct source of the blob-side “handshake
+complete” path seen by `V8Process`.
+
 ## Named V.8 symbols worth reversing
 
 Exported symbols in `dsplibs.o` include:

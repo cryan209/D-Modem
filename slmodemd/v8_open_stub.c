@@ -64,11 +64,12 @@ struct v8_open_jm_shim {
 	unsigned char modulation_mask;
 	unsigned char modulation0_octet;
 	unsigned char modulation1_octet;
+	unsigned char modulation2_octet;
 	unsigned char access_octet;
 	unsigned char pcm_octet;
-	unsigned short modulation_tag;
 	unsigned short modulation0_word;
 	unsigned short modulation1_word;
+	unsigned short modulation2_word;
 	unsigned short access_tag;
 	unsigned short access_word;
 	unsigned short call_function_code;
@@ -561,16 +562,27 @@ static unsigned short v8_open_find_rx_token(const struct v8_open_engine *engine,
 	unsigned i;
 	unsigned seen;
 
-	if (category_masked == 0x0141U && nth == 1U) {
+	if (category_masked == 0x0141U && nth > 0U) {
 		for (i = 0; i < engine->rx_token_count; ++i) {
 			unsigned short token;
+			unsigned ext_seen;
+			unsigned j;
 
 			token = engine->rx_tokens[i];
 			if ((token & 0xfff1U) != 0x0141U)
 				continue;
-			if (i + 1U < engine->rx_token_count &&
-			    (engine->rx_tokens[i + 1U] & 0x0039U) == 0x0011U)
-				return engine->rx_tokens[i + 1U];
+
+			ext_seen = 0U;
+			for (j = i + 1U; j < engine->rx_token_count; ++j) {
+				unsigned short ext;
+
+				ext = engine->rx_tokens[j];
+				if ((ext & 0x0039U) != 0x0011U)
+					break;
+				ext_seen++;
+				if (ext_seen == nth)
+					return ext;
+			}
 			return 0U;
 		}
 		return 0U;
@@ -627,6 +639,7 @@ static void v8_open_apply_remote_cm_defaults(struct v8_open_engine *engine)
 		remote_mod1_octet = 0x10U | 0x01U;
 		v8_open_rx_push_token(engine, v8_open_encode_octet(remote_mod1_octet));
 	}
+	v8_open_rx_push_token(engine, 0x0011U);
 
 	if (engine->remote_access_present)
 		v8_open_rx_push_token(engine, 0x0161U);
@@ -806,21 +819,25 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 {
 	struct v8_open_jm_shim *jm;
 	char mod1_desc[24];
+	char mod2_desc[24];
 	char pcm_desc[24];
+	char tail_desc[24];
 	unsigned char local_mod0_octet;
 	unsigned char local_mod1_octet;
+	unsigned char local_mod2_octet;
 	unsigned char local_pcm_octet;
 	unsigned short rx_call;
 	unsigned short rx_mod0;
 	unsigned short rx_mod1;
+	unsigned short rx_mod2;
 	unsigned short rx_access;
 	unsigned short rx_pcm;
 	unsigned short rx_proto;
-	unsigned local_has_mod1;
 	unsigned want_pcm;
 	unsigned want_access;
 	unsigned short local_mod0_word;
 	unsigned short local_mod1_word;
+	unsigned short local_mod2_word;
 	unsigned short local_pcm_word;
 	jm = &engine->jm;
 	memset(jm, 0, sizeof(*jm));
@@ -829,9 +846,8 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	jm->lapm_supported = engine->cfg.advertise.lapm && engine->remote_lapm;
 	jm->quick_connect_supported = engine->cfg.advertise.quick_connect;
 	jm->preferred_dp = v8_open_preferred_dp(engine);
-	jm->modulation_tag = 0x0141;
 	jm->access_tag = 0x0161;
-	jm->access_octet = 0x10U;
+	jm->access_octet = v8_open_decode_word_octet(jm->access_tag);
 	jm->access_call_cellular = engine->cfg.advertise.access_call_cellular;
 	jm->access_answer_cellular = engine->cfg.advertise.access_answer_cellular;
 	jm->access_digital = engine->cfg.advertise.access_digital;
@@ -841,8 +857,8 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 
 	local_mod0_octet = 0x05U;
 	local_mod1_octet = 0x10U;
+	local_mod2_octet = 0x10U;
 	local_pcm_octet = 0x07U;
-	local_has_mod1 = 0U;
 
 	if (engine->cfg.advertise.v92 && engine->cfg.advertise.access_digital &&
 	    engine->cfg.advertise.pcm_digital && engine->remote_pcm_present)
@@ -857,12 +873,10 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	if (engine->cfg.advertise.v32 && engine->remote_v32) {
 		jm->modulation_mask |= 0x02U;
 		local_mod1_octet |= 0x01U;
-		local_has_mod1 = 1U;
 	}
 	if (engine->cfg.advertise.v22) {
 		jm->modulation_mask |= 0x01U;
 		local_mod1_octet |= 0x02U;
-		local_has_mod1 = 1U;
 	}
 
 	if (jm->pcm_analog || jm->pcm_digital || jm->pcm_v91) {
@@ -877,14 +891,17 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 
 	jm->modulation0_octet = local_mod0_octet;
 	jm->modulation1_octet = local_mod1_octet;
+	jm->modulation2_octet = local_mod2_octet;
 	jm->pcm_octet = local_pcm_octet;
 	local_mod0_word = v8_open_encode_octet(local_mod0_octet);
 	local_mod1_word = v8_open_encode_octet(local_mod1_octet);
+	local_mod2_word = v8_open_encode_octet(local_mod2_octet);
 	local_pcm_word = v8_open_encode_octet(local_pcm_octet);
 
 	rx_call = v8_open_find_rx_token(engine, 0x0101U, 0U);
 	rx_mod0 = v8_open_find_rx_token(engine, 0x0141U, 0U);
 	rx_mod1 = v8_open_find_rx_token(engine, 0x0141U, 1U);
+	rx_mod2 = v8_open_find_rx_token(engine, 0x0141U, 2U);
 	rx_access = v8_open_find_rx_token(engine, 0x0161U, 0U);
 	rx_pcm = v8_open_find_rx_token(engine, 0x01c1U, 0U);
 	rx_proto = v8_open_find_rx_token(engine, 0x00a1U, 0U);
@@ -905,31 +922,24 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 		jm->call_function_code = 0x0000U;
 	}
 
-	if (jm->access_call_cellular)
-		jm->access_octet |= 0x20U;
-	if (jm->access_answer_cellular)
-		jm->access_octet |= 0x40U;
-	if (jm->access_digital)
-		jm->access_octet |= 0x80U;
-	jm->access_word = v8_open_encode_octet(jm->access_octet);
-
+	jm->modulation0_word = local_mod0_word;
 	if (rx_mod0)
-		jm->modulation0_word = (unsigned short)(local_mod0_word & rx_mod0);
-	else
-		jm->modulation0_word = 0x0011U;
+		jm->modulation0_word = (unsigned short)(jm->modulation0_word & rx_mod0);
 
-	if (rx_mod1 || local_has_mod1) {
-		jm->has_modulation1 = 1U;
-		if (rx_mod1)
-			jm->modulation1_word = (unsigned short)(local_mod1_word & rx_mod1);
-		else
-			jm->modulation1_word = 0x0011U;
-	}
+	jm->has_modulation1 = 1U;
+	jm->modulation1_word = local_mod1_word;
+	if (rx_mod1)
+		jm->modulation1_word = (unsigned short)(jm->modulation1_word & rx_mod1);
+
+	jm->modulation2_word = local_mod2_word;
+	if (rx_mod2)
+		jm->modulation2_word = (unsigned short)(jm->modulation2_word & rx_mod2);
 
 	want_pcm = (rx_pcm != 0U) && (jm->pcm_analog || jm->pcm_digital || jm->pcm_v91);
 	if (want_pcm) {
 		jm->has_pcm = 1U;
-		jm->pcm_word = (unsigned short)(local_pcm_word & rx_pcm);
+		jm->pcm_word = local_pcm_word;
+		jm->access_word = 0x0011U;
 	}
 
 	want_access =
@@ -955,15 +965,15 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	v8_open_jm_push(jm, 0x000fU, 0);
 	if (jm->call_function_code)
 		v8_open_jm_push(jm, jm->call_function_code, 1);
-	v8_open_jm_push(jm, jm->modulation_tag, 1);
 	v8_open_jm_push(jm, jm->modulation0_word, 1);
-	if (jm->has_modulation1)
-		v8_open_jm_push(jm, jm->modulation1_word, 1);
+	v8_open_jm_push(jm, jm->modulation1_word, 1);
+	v8_open_jm_push(jm, jm->modulation2_word, 1);
 	if (jm->access_tag) {
 		v8_open_jm_push(jm, jm->access_tag, 1);
-		if (jm->has_pcm)
+		if (jm->has_pcm) {
 			v8_open_jm_push(jm, jm->pcm_word, 1);
-		v8_open_jm_push(jm, jm->access_word, 1);
+			v8_open_jm_push(jm, jm->access_word, 1);
+		}
 	}
 	if (jm->protocol_code)
 		v8_open_jm_push(jm, jm->protocol_code, 1);
@@ -978,32 +988,40 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	else
 		snprintf(mod1_desc, sizeof(mod1_desc), "none");
 
+	snprintf(mod2_desc, sizeof(mod2_desc), "%03x(%02x)",
+		 jm->modulation2_word, jm->modulation2_octet);
+
 	if (jm->has_pcm)
 		snprintf(pcm_desc, sizeof(pcm_desc), "%03x(%02x)",
 			 jm->pcm_word, jm->pcm_octet);
 	else
 		snprintf(pcm_desc, sizeof(pcm_desc), "none");
 
-	V8OPEN_DBG("jm-shim: octets=%u words=%u data=%u preferred=%s mask=%02x mod_tag:%03x(%02x) mod0:%03x(%02x) mod1:%s access_tag:%03x(%02x) access0:%03x(%02x) call:%03x(%02x) proto:%03x(%02x) pcm:%s access_bits=call:%u ans:%u dig:%u pcm_bits=a:%u d:%u v91:%u qc=%u lapm=%u\n",
+	if (jm->has_pcm)
+		snprintf(tail_desc, sizeof(tail_desc), "%03x(%02x)",
+			 jm->access_word,
+			 jm->access_word ? v8_open_decode_word_octet(jm->access_word) : 0U);
+	else
+		snprintf(tail_desc, sizeof(tail_desc), "none");
+
+	V8OPEN_DBG("jm-shim: octets=%u words=%u data=%u preferred=%s mask=%02x mod0:%03x(%02x) mod1:%s mod2:%s access:%03x(%02x) call:%03x(%02x) proto:%03x(%02x) pcm:%s pcmx:%s access_bits=call:%u ans:%u dig:%u pcm_bits=a:%u d:%u v91:%u qc=%u lapm=%u\n",
 		  jm->octet_count,
 		  jm->word_count,
 		  jm->data_supported,
 		  v8_open_dp_name(jm->preferred_dp),
 		  jm->modulation_mask,
-		  jm->modulation_tag,
-		  v8_open_decode_word_octet(jm->modulation_tag),
 		  jm->modulation0_word,
 		  jm->modulation0_octet,
 		  mod1_desc,
+		  mod2_desc,
 		  jm->access_tag,
 		  v8_open_decode_word_octet(jm->access_tag),
-		  jm->access_word,
-		  jm->access_octet,
 		  jm->call_function_code,
 		  jm->call_function_code ? v8_open_decode_word_octet(jm->call_function_code) : 0U,
 		  jm->protocol_code,
 		  jm->protocol_code ? v8_open_decode_word_octet(jm->protocol_code) : 0U,
 		  pcm_desc,
+		  tail_desc,
 		  jm->access_call_cellular,
 		  jm->access_answer_cellular,
 		  jm->access_digital,
