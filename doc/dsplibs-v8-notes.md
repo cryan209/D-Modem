@@ -1420,3 +1420,462 @@ The safest incremental path is:
 3. Register it after `prop_dp_init()` so it overrides the blob registration for
    `DP_V8` only.
 4. Keep the rest of the proprietary datapumps untouched while validating V.8.
+
+---
+
+## Full `v8_create` decompilation (0x3540, 457 bytes)
+
+```c
+struct dp *v8_create(struct modem *m, enum DP_ID id, int caller,
+                     int srate, int max_frag, struct dp_operations *op)
+{
+    /* arg1=m at [esp+0x50], arg2=id at [esp+0x54], arg3=caller at [esp+0x58],
+       arg4=srate at [esp+0x5c], arg5=max_frag (unused), arg6=op at [esp+0x64] */
+
+    /* 0x3550: modem_get_param(m, DP_V8=8) — purpose unclear, possibly a
+       re-entrancy check. If the result is nonzero, returns NULL. */
+    if (modem_get_param(m, 8) != 0)
+        return NULL;
+
+    /* 0x3566: reject non-9600 sample rates */
+    if (srate != 0x2580)   /* 9600 */
+        return NULL;
+
+    /* 0x3581: allocate 0x34-byte wrapper */
+    struct v8_blob_wrapper *w = sysdep_malloc(0x34);
+    if (!w)
+        return NULL;
+    sysdep_memset(w, 0, 0x34);
+
+    /* 0x35b0–0x35d5: fill struct dp header */
+    w->dp.id = DP_V8;                  /* [esi+0x00] = 8 */
+    w->dp.modem = m;                   /* [esi+0x04] = ebx */
+    w->dp.op = op;                     /* [esi+0x0c] = arg6 */
+    w->dp.dp_data = w;                 /* [esi+0x10] = esi (self) */
+    w->answer_mode = (caller == 0);    /* [esi+0x14] = sete from edi */
+    w->target_dp_id = id;              /* [esi+0x18] = ebp */
+    w->handoff_delay = 0;              /* [esi+0x20] = 0 */
+
+    /* 0x35e0: get dsp_info */
+    w->dsp_info = (struct dsp_info *)modem_get_param(m, MDMPRM_DSPINFO); /* 0xb */
+
+    /* 0x35f0: get dp_runtime */
+    w->dp_runtime = dp_param_get(m);   /* [esi+0x28] */
+
+    /* 0x35f8–0x3628: seed dp_runtime flags for V.8 negotiation */
+    w->dp_runtime->flags0 &= 0xfd;          /* clear bit 1 */
+    w->dp_runtime->flags1 |= 0x40;          /* set LAPM capability */
+
+    /* 0x3602–0x36db: if originator AND target is V90/V92, set V.90 bit */
+    int v90_capable = 0;
+    if (caller != 0 && (id == DP_V90 || id == DP_V92))
+        v90_capable = 1;
+    w->dp_runtime->flags0 = (w->dp_runtime->flags0 & 0xf7) | (v90_capable << 3);
+
+    w->dp_runtime->flags0 |= 0x20;          /* V.34 capable */
+    w->dp_runtime->flags0 |= 0x80;          /* V.32 capable */
+
+    /* 0x362b–0x364d: if originator AND target is V92, set QC bit in flags2 */
+    int qc_bit = (caller != 0 && id == DP_V92) ? 0x10 : 0;
+    w->dp_runtime->flags2 = (w->dp_runtime->flags2 & 0xef) | qc_bit;
+
+    /* 0x3650–0x369c: build V8Create config on stack (6 dwords = 24 bytes) */
+    struct {
+        int answer_mode;        /* [esp+0x10] = !caller */
+        int reserved;           /* [esp+0x14] = 0 */
+        int sig_timeout;        /* [esp+0x18] = 12 seconds */
+        int msg_timeout;        /* [esp+0x1c] = 7 seconds */
+        int sample_rate;        /* [esp+0x20] = 9600 */
+        void *dp_runtime;       /* [esp+0x24] = w->dp_runtime */
+    } cfg = { w->answer_mode, 0, 12, 7, 9600, w->dp_runtime };
+
+    w->v8_engine = V8Create(&cfg);     /* [esi+0x30] */
+    if (!w->v8_engine) {
+        sysdep_free(w);
+        return NULL;
+    }
+    w->last_v8_status = 0;             /* [esi+0x2c] = 0 */
+    return &w->dp;
+}
+```
+
+## Full `v8_delete` decompilation (0x3710, 86 bytes)
+
+```c
+int v8_delete(struct dp *dp)
+{
+    struct v8_blob_wrapper *w = (struct v8_blob_wrapper *)dp->dp_data;
+    /* optional debug print at dsplibs_debug_level > 1 */
+    V8Delete(w->v8_engine);    /* [ebx+0x30] */
+    sysdep_free(w);
+    return 0;
+}
+```
+
+## Full `v8_process` decompilation (0x3770, 590 bytes)
+
+```c
+int v8_process(struct dp *dp, void *in, void *out, int cnt)
+{
+    /* dp at [esp+0x30], in at [esp+0x34], out at [esp+0x38], cnt at [esp+0x3c] */
+    struct v8_blob_wrapper *w = (struct v8_blob_wrapper *)dp->dp_data;
+    int ret = DPSTAT_OK;   /* edi = 0 */
+
+    /* 0x37a4: call V8Process(engine, in, out, cnt) */
+    int status = V8Process(w->v8_engine, in, out, cnt);
+
+    if (status > 17)
+        goto default_handler;
+
+    /* 0x37b6: jump table at .rodata+0x11c, 18 entries */
+    switch (status) {
+
+    /* --- No-op statuses: return DPSTAT_OK --- */
+    case 0:  /* V8_QC1A */
+    case 1:  /* V8_INIT */
+    case 3:  /* V8_ANS_CM_DETECTED */
+    case 6:  /* V8_ANS_SEND_JM */
+    case 8:  /* V8_ORG_WAITING_FOR_ANSAM */
+    case 10: /* V8_ORG_JM_DETECTED */
+    case 14: /* V8_OK */
+    case 15: /* V8_ORG_SEND_QC */
+        ret = DPSTAT_OK;
+        break;
+
+    /* --- Status-change-only statuses: still return OK --- */
+    case 2:  /* V8_ANS_SEND_ANSAM */
+    case 7:  /* V8_ORG_ANSAM_DETECTED_WAITING_TE */
+    case 9:  /* V8_ORG_SEND_CM */
+        break;
+
+    /* --- Error/timeout statuses --- */
+    case 4:  /* V8_ANS_TIME_OUT_WAITING_FOR_CM */
+    case 5:  /* V8_ANS_TIME_OUT_WAITING_FOR_CJ */
+    case 11: /* V8_ORG_TIME_OUT_WAITING_FOR_ANSAM */
+    case 12: /* V8_ORG_TIME_OUT_WAITING_FOR_JM */
+    case 17: /* V8_ORG_BAD_QCA1d_MESSAGE */
+        ret = DPSTAT_ERROR;
+        break;
+
+    /* --- Main handoff: V.8 negotiation complete --- */
+    case 13: /* V8_ORG_SEND_CJ */
+    {
+        if (w->handoff_delay != 0)
+            break;  /* already set up on a previous call, counting down */
+
+        /* First time reaching status 13: set up handoff */
+        V8UpdateModemParameters(w->v8_engine, w->dp_runtime);
+
+        enum DP_ID next_dp;
+        if (w->dp_runtime->flags2 & 0x10) {
+            /* Quick Connect path */
+            next_dp = w->target_dp_id;
+            w->dsp_info->qc_lapm = (w->dp_runtime->flags2 >> 6) & 1;
+            w->dsp_info->qc_index = w->dp_runtime->qc_index;
+        } else {
+            /* Standard path: determine next DP from flags0 bits */
+            unsigned char f0 = w->dp_runtime->flags0;
+            if (f0 & 0x08)
+                next_dp = DP_V90;    /* 0x5a = 90 */
+            else if (f0 & 0x20)
+                next_dp = DP_V34;    /* 0x22 = 34 */
+            else if (f0 & 0x80)
+                next_dp = DP_V32;    /* 0x20 = 32 */
+            else {
+                ret = DPSTAT_ERROR;
+                break;
+            }
+        }
+        modem_set_param(dp->modem, MDMPRM_DP_REQUESTED, next_dp);
+        w->handoff_delay = modem_get_param(dp->modem, MDMPRM_IODELAY) + 0x2a0;
+        ret = DPSTAT_CHANGEDP;
+        break;
+    }
+
+    /* --- V.92 Quick Connect handoff --- */
+    case 16: /* V8_ORG_WAITING_FOR_QCA1d */
+    {
+        /* Only valid when target is V90 or V92 */
+        if (w->target_dp_id != DP_V90 && w->target_dp_id != DP_V92) {
+            ret = DPSTAT_ERROR;
+            break;
+        }
+        if (w->handoff_delay != 0)
+            break;  /* counting down */
+
+        w->dsp_info->qc_lapm &= 1;  /* sanitize to 0 or 1 */
+        modem_set_param(dp->modem, MDMPRM_DP_REQUESTED, DP_V92);
+        w->handoff_delay = modem_get_param(dp->modem, MDMPRM_IODELAY) + 0x2a0;
+        ret = DPSTAT_CHANGEDP;
+        break;
+    }
+    }
+
+default_handler:
+    /* 0x37c2: status change logging */
+    if (w->last_v8_status != (unsigned)status)
+        dsplibs_debug_printf("v8: status %d %s", status,
+                             v8StatusName[status]);
+    w->last_v8_status = (unsigned)status;
+
+    /* 0x37d3: handoff countdown */
+    if (w->handoff_delay > 0) {
+        w->handoff_delay -= cnt;
+        if (w->handoff_delay <= 0) {
+            /* Countdown expired */
+            w->handoff_delay = -1;         /* sentinel: done */
+            w->reserved_1c = 0;            /* clear */
+            modem_set_param(dp->modem, MDMPRM_DP_REQUESTED, 0);
+            ret = DPSTAT_CHANGEDP;
+        }
+    }
+    return ret;
+}
+```
+
+### Handoff delay mechanics
+
+The blob's handoff mechanism operates in three phases:
+
+1. **Setup** (first call returning status 13 or 16):
+   - Sets `MDMPRM_DP_REQUESTED` to the negotiated next datapump
+   - Computes delay = `MDMPRM_IODELAY + 0x2a0` (672 samples ≈ 70ms at 9600 Hz)
+   - Returns `DPSTAT_CHANGEDP` immediately
+
+2. **Countdown** (subsequent calls while `handoff_delay > 0`):
+   - Decrements `handoff_delay` by `cnt` each call
+   - Returns `DPSTAT_OK` (the modem core continues calling process)
+
+3. **Expiry** (when `handoff_delay` reaches zero or negative):
+   - Sets `handoff_delay = -1` (sentinel)
+   - Clears `MDMPRM_DP_REQUESTED` to 0
+   - Returns `DPSTAT_CHANGEDP` again
+
+The double-CHANGEDP pattern is significant: the first tells the modem core which
+DP to switch to, and the final one (with DP_REQUESTED=0) signals that the
+handoff silence period has elapsed and the actual DP switch should now happen.
+
+## Complete V8Process status code table
+
+From the `v8StatusName` array at `.rodata+0x53c0` (19 entries, indices 0–18):
+
+| Index | Name | Jump Table Target | Adapter Return |
+|-------|------|-------------------|----------------|
+| 0 | `V8_QC1A` | 0x37c0 (default) | DPSTAT_OK |
+| 1 | `V8_INIT` | 0x37c0 | DPSTAT_OK |
+| 2 | `V8_ANS_SEND_ANSAM` | 0x37c2 (status-change) | DPSTAT_OK |
+| 3 | `V8_ANS_CM_DETECTED` | 0x37c0 | DPSTAT_OK |
+| 4 | `V8_ANS_TIME_OUT_WAITING_FOR_CM` | 0x381e (error) | DPSTAT_ERROR |
+| 5 | `V8_ANS_TIME_OUT_WAITING_FOR_CJ` | 0x381e | DPSTAT_ERROR |
+| 6 | `V8_ANS_SEND_JM` | 0x37c0 | DPSTAT_OK |
+| 7 | `V8_ORG_ANSAM_DETECTED_WAITING_TE` | 0x37c2 | DPSTAT_OK |
+| 8 | `V8_ORG_WAITING_FOR_ANSAM` | 0x37c0 | DPSTAT_OK |
+| 9 | `V8_ORG_SEND_CM` | 0x37c2 | DPSTAT_OK |
+| 10 | `V8_ORG_JM_DETECTED` | 0x37c0 | DPSTAT_OK |
+| 11 | `V8_ORG_TIME_OUT_WAITING_FOR_ANSAM` | 0x381e | DPSTAT_ERROR |
+| 12 | `V8_ORG_TIME_OUT_WAITING_FOR_JM` | 0x381e | DPSTAT_ERROR |
+| 13 | `V8_ORG_SEND_CJ` | 0x3832 (handoff) | DPSTAT_CHANGEDP |
+| 14 | `V8_OK` | 0x37c0 | DPSTAT_OK |
+| 15 | `V8_ORG_SEND_QC` | 0x37c0 | DPSTAT_OK |
+| 16 | `V8_ORG_WAITING_FOR_QCA1d` | 0x3895 (QC handoff) | DPSTAT_CHANGEDP |
+| 17 | `V8_ORG_BAD_QCA1d_MESSAGE` | 0x381e | DPSTAT_ERROR |
+| 18 | `V8_LAST_ENUM` | (out of table) | — |
+
+Note: the earlier document section named status 13 as `V8_ORG_SEND_CJ` and
+status 14 as `V8_OK`. This is confirmed by the `v8StatusName` strings. The
+handoff happens at CJ-send time, not at OK time.
+
+## `dp_runtime` flags — complete bit map
+
+### `flags0` (byte at dp_runtime+0x00)
+
+| Bit | Mask | Set by | Meaning |
+|-----|------|--------|---------|
+| 0 | 0x01 | open stub handoff | Handoff complete flag |
+| 1 | 0x02 | v8_create (clear) | Unknown — cleared before negotiation |
+| 3 | 0x08 | v8_create / V8UpdateModemParameters | V.90 negotiated/capable |
+| 5 | 0x20 | v8_create / V8UpdateModemParameters | V.34 negotiated/capable |
+| 7 | 0x80 | v8_create / V8UpdateModemParameters | V.32 negotiated/capable |
+
+### `flags1` (byte at dp_runtime+0x01)
+
+| Bit | Mask | Set by | Meaning |
+|-----|------|--------|---------|
+| 6 | 0x40 | v8_create | LAPM capability seeded |
+
+### `flags2` (byte at dp_runtime+0x02)
+
+| Bit | Mask | Set by | Meaning |
+|-----|------|--------|---------|
+| 4 | 0x10 | v8_create / v8_process | Quick Connect enabled |
+| 6 | 0x40 | V8UpdateModemParameters | LAPM negotiated (copied to dsp_info.qc_lapm) |
+
+`v8_create` seeds flags0 with capability bits based on `target_dp_id`.
+After V.8 negotiation completes, `V8UpdateModemParameters()` overwrites
+the flags with actual negotiated values. The adapter then reads these to
+determine the next datapump.
+
+## V.8 internal DSP symbol inventory
+
+All V.8-related symbols in `dsplibs.o` grouped by layer:
+
+### Adapter layer (local symbols, `t`)
+
+| Symbol | Address | Size | Role |
+|--------|---------|------|------|
+| `v8_create` | 0x3540 | 457 | dp_operations create callback |
+| `v8_delete` | 0x3710 | 86 | dp_operations delete callback |
+| `v8_process` | 0x3770 | 590 | dp_operations process callback |
+| `dp_v8_init` | 0x39c0 | 30 | Registration: `modem_dp_register(DP_V8, &v8_op)` |
+| `dp_v8_exit` | 0x39e0 | 28 | Deregistration |
+
+### Engine API (exported, `T`)
+
+| Symbol | Address | Size | Role |
+|--------|---------|------|------|
+| `V8Create` | 0x73e20 | 1124 | Allocate and initialize V.8 engine |
+| `V8Delete` | 0x74290 | 17 | Destroy V.8 engine |
+| `V8Process` | 0x74560 | 731 | Per-frame processing, returns status |
+| `V8Control` | 0x74440 | 280 | Engine control commands |
+| `V8SetMessage` | 0x742b0 | 392 | Set TX message sequence |
+| `V8GetMessage` | 0x74c60 | 179 | Get RX message data |
+| `V8UpdateModemParameters` | 0x74840 | 1042 | Copy negotiation results to dp_runtime |
+
+### Handshake state machine
+
+| Symbol | Address | Size | Role |
+|--------|---------|------|------|
+| `v8handshakinit` | 0x76cf0 | 1203 | Initialize answer/originate state machine |
+| `v8handshak` | 0x77310 | 4243 | Main handshake tick function |
+
+### DSP: tone generation
+
+| Symbol | Address | Size | Role |
+|--------|---------|------|------|
+| `v8_TONEq_init` | 0x76c70 | 26 | Tone generator init |
+| `v8_TONEq_generate` | 0x771b0 | 90 | Tone generator tick |
+| `v8_ansaminit` | 0x76c90 | 85 | ANSam (2100 Hz + phase reversal) init |
+| `v8_ansamgenerate` | 0x77210 | 249 | ANSam generator tick |
+| `v8_costbl` | 0x5740 | 512 | Cosine lookup table (256 entries × 2 bytes) |
+| `v8_cosread` | 0x78c00 | 14 | Cosine table reader |
+
+### DSP: FSK modulation/demodulation (V.21 channel 2, 300 baud)
+
+| Symbol | Address | Size | Role |
+|--------|---------|------|------|
+| `v8_fskmodulate` | 0x79340 | 222 | V.21 FSK modulator |
+| `v8_fsktxfilter` | 0x790d0 | 116 | FSK TX bandpass filter |
+| `v8_fskdemodulate` | 0x78c80 | 1100 | V.21 FSK demodulator |
+| `V8_V21_reset` | 0x78c10 | 57 | Reset V.21 modem state |
+| `V8_setFilters` | 0x78c50 | 45 | Configure FSK filter coefficients |
+| `v8_V21_Init` | 0x79150 | 492 | Full V.21 modem initialization |
+
+### DSP: signal detection
+
+| Symbol | Address | Size | Role |
+|--------|---------|------|------|
+| `v8_detectorinit` | 0x78540 | 267 | Energy/tone detector init |
+| `v8_tone_detect` | 0x78650 | 603 | Tone presence detector |
+| `v8_phase_rev_init` | 0x788b0 | 77 | Phase reversal detector init |
+| `v8_phase_rev_detect` | 0x78900 | 502 | Phase reversal detector tick |
+| `v8_dftupdate` | 0x78b00 | 164 | DFT bin accumulator |
+| `v8_dftenergy` | 0x78bb0 | 74 | DFT energy computation |
+
+### DSP: AGC and bitstream
+
+| Symbol | Address | Size | Role |
+|--------|---------|------|------|
+| `V8agc` | 0x74f10 | 1350 | Automatic gain control |
+| `v8_agcadapt` | 0x74e20 | 225 | AGC adaptation step |
+| `v8_getbit` | 0x754b0 | 453 | Extract bit from demodulated stream |
+| `v8_rxreadqueue` | 0x74dc0 | 94 | RX queue read |
+| `v8_txwritequeue` | 0x75450 | 94 | TX queue write |
+| `v8_copycoeff` | 0x75680 | 45 | Copy filter coefficients |
+| `v8_rxinit` | 0x75770 | 226 | RX path init |
+| `v8_txinit` | 0x756b0 | 181 | TX path init |
+| `v8_mpyint` | 0x74d50 | 18 | Integer multiply helper |
+| `v8_absfn` | 0x74d70 | 22 | Absolute value helper |
+| `v8_crc` | 0x74d90 | 41 | CRC computation |
+
+### Data tables (read-only)
+
+| Symbol | Address | Size | Type | Role |
+|--------|---------|------|------|------|
+| `v8_costbl` | 0x5740 | 512 | `.rodata` | 256-entry cosine LUT |
+| `v8ControlName` | 0x5380 | 44 | `.rodata` | 11 control command strings |
+| `v8SequenceName` | 0x53ac | 16 | `.rodata` | 4 sequence type strings |
+| `v8StatusName` | 0x53c0 | 76 | `.rodata` | 19 status name strings |
+
+**Total**: 37 V.8-specific symbols in the blob. The open stub (`v8_open_stub.c`,
+1355 lines) replaces all of them.
+
+## Comparison: blob V.8 vs open stub (`v8_open_stub.c`)
+
+### What matches
+
+| Aspect | Blob | Open Stub | Match? |
+|--------|------|-----------|--------|
+| Wrapper struct layout | 0x34 bytes, offsets 0x00–0x30 | `v8_blob_wrapper` in `dp_v8_shim.c` | Exact |
+| Status code values | 0=INIT, 1=ANS_SEND_ANSAM, 3=ANS_SEND_JM, 9=ORG_SEND_CM, 10=ORG_JM_DETECTED, 13=OK | `V8_OPEN_STATUS_*` defines in `v8_open.h` | Exact |
+| V8Create config | {answer, reserved, sig_timeout=12, msg_timeout=7, srate=9600, runtime} | `v8_open_create_cfg` struct | Exact |
+| Delete flow | `V8Delete(engine)` + `sysdep_free(wrapper)` | `v8_open_delete(engine)` + `free(wrapper)` | Exact |
+| Sample rate | 9600 Hz only | 9600 Hz only | Exact |
+
+### What differs
+
+| Aspect | Blob | Open Stub | Impact |
+|--------|------|-----------|--------|
+| Handoff delay constant | `IODELAY + 0x2a0` (672 samples, 70ms) | `IODELAY + 0x270` (624 samples, 65ms) | Minor timing difference |
+| First CHANGEDP | Returns `DPSTAT_CHANGEDP` immediately on status 13 | Returns `DPSTAT_OK` until delay expires | Different handoff signaling pattern |
+| Final DP_REQUESTED clear | Sets `MDMPRM_DP_REQUESTED = 0` when delay expires | Does not clear | Blob has two-phase handoff |
+| V.92 QC handoff (status 16) | Fully implemented | Not implemented | V.92 QC not supported in stub |
+| Next DP selection | Reads flags0 bits (0x08→V90, 0x20→V34, 0x80→V32) | Priority search through advertise_cfg caps | Open stub is more flexible |
+| Capability encoding | Bit flags in dp_runtime->flags0/flags2 | Explicit `v8_open_advertise_cfg` struct | Different internal representation, same wire behavior |
+| Error statuses | 4, 5, 11, 12, 17 all return DPSTAT_ERROR | Only status 13 (OK) triggers handoff | Stub has fewer intermediate states |
+
+### Handoff protocol difference (detailed)
+
+The blob uses a **two-CHANGEDP** pattern:
+
+```
+call N:   V8Process→13, set DP_REQUESTED=V34, delay=IODELAY+672, return CHANGEDP
+call N+1: delay > 0, return DPSTAT_OK
+...
+call N+k: delay expires, set DP_REQUESTED=0, return CHANGEDP
+```
+
+The open stub uses a **single-CHANGEDP** pattern:
+
+```
+call N:   v8_open_process→13, set DP_REQUESTED=V34, delay=IODELAY+624
+call N+1: delay > cnt, return DPSTAT_OK
+...
+call N+k: delay expires, return CHANGEDP
+```
+
+The modem core in `modem.c` handles `DPSTAT_CHANGEDP` by reading
+`MDMPRM_DP_REQUESTED` and creating the next datapump. The blob's pattern
+of first CHANGEDP (with target set) followed by OK countdown followed by
+final CHANGEDP (with target=0) suggests the modem core may use the first
+CHANGEDP to prepare and the final one to actually switch. The open stub's
+simpler approach works because by the time CHANGEDP is returned, the target
+is already set.
+
+### Patterns applicable to VPCM reimplementation
+
+1. **Wrapper structure**: VPCM uses the same pattern — `struct dp` header
+   followed by protocol-specific state, with `dp_data = self`.
+
+2. **Status jump table**: Both V.8 and VPCM adapters use a `.rodata` jump table
+   to dispatch on the internal engine's status return value.
+
+3. **Handoff delay**: The V.8 adapter's `IODELAY + 0x2a0` delay pattern appears
+   in VPCM as well (VPCM uses a connect_delay countdown).
+
+4. **dp_runtime interaction**: Both adapters read and write dp_runtime flags.
+   The V.8 adapter seeds capability flags before negotiation; VPCM passes
+   dp_runtime directly to `VPcmV34Create`.
+
+5. **Shim architecture**: The `dp_v8_shim.c` pattern (intercept registration,
+   optionally route to open stub or blob based on env var) is directly
+   reusable for VPCM via `dp_vpcm_shim.c`.

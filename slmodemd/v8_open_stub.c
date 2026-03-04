@@ -1481,7 +1481,7 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 	if (engine->cm_predetecting) {
 		if (v8_open_detector_active(avg_abs, peak_abs))
 			engine->cm_seen_count++;
-		if (engine->samples_in_phase < engine->cm_predetect_deadline)
+		if ((engine->samples_in_phase + (unsigned)cnt) < engine->cm_predetect_deadline)
 			return;
 
 		engine->cm_predetecting = 0U;
@@ -1552,7 +1552,7 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 	if (engine->cj_predetecting) {
 		if (v8_open_detector_active(avg_abs, peak_abs))
 			engine->cj_seen_count++;
-		if (engine->samples_in_phase < engine->cj_predetect_deadline)
+		if ((engine->samples_in_phase + (unsigned)cnt) < engine->cj_predetect_deadline)
 			return;
 
 		engine->cj_predetecting = 0U;
