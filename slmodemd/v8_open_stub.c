@@ -211,6 +211,10 @@ struct v8_open_engine {
 	unsigned rx_bits_to_word;
 	unsigned rx_demod_hist_fill;
 	unsigned rx_phase_offset;
+	unsigned short rx_c30;
+	unsigned short rx_c32;
+	unsigned short rx_c38;
+	unsigned short rx_c3a;
 	unsigned rx_mark_ticks;
 	unsigned rx_space_ticks;
 	short rx_demod_history[V8OPEN_DEMOD_HISTORY_SAMPLES];
@@ -875,7 +879,7 @@ static unsigned long long v8_open_rx_window_score(const struct v8_open_engine *e
 	return energy0 >= energy1 ? (energy0 - energy1) : (energy1 - energy0);
 }
 
-static unsigned v8_open_rx_quantize_counter(unsigned *counter)
+static unsigned v8_open_rx_quantize_transition_keep(unsigned *counter)
 {
 	unsigned phase_count;
 	unsigned whole_bits;
@@ -896,13 +900,56 @@ static unsigned v8_open_rx_quantize_counter(unsigned *counter)
 	return whole_bits + (remainder >= threshold ? 1U : 0U);
 }
 
+static unsigned v8_open_rx_quantize_transition_clear(unsigned *counter)
+{
+	unsigned phase_count;
+	unsigned whole_bits;
+	unsigned remainder;
+	unsigned limit;
+	unsigned threshold;
+	unsigned emit_count;
+
+	phase_count = *counter;
+	if (!phase_count)
+		return 0U;
+
+	remainder = phase_count & 0x03U;
+	whole_bits = phase_count >> 2;
+	*counter = 0U;
+
+	limit = whole_bits > 2U ? 3U : (whole_bits + 1U);
+	threshold = 4U - limit;
+	emit_count = whole_bits + (remainder >= threshold ? 1U : 0U);
+	return emit_count;
+}
+
+static unsigned v8_open_rx_quantize_block_flush(unsigned *counter)
+{
+	unsigned phase_count;
+	unsigned whole_bits;
+
+	phase_count = *counter;
+	if (phase_count <= 4U)
+		return 0U;
+
+	whole_bits = phase_count >> 2;
+	*counter = phase_count & 0x03U;
+	return whole_bits;
+}
+
 static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit);
 
-static int v8_open_rx_emit_recovered_bits(struct v8_open_engine *engine,
-					  unsigned bit,
-					  unsigned count)
+static int v8_open_rx_emit_symbol_bits(struct v8_open_engine *engine,
+				       unsigned short symbol_bit,
+				       unsigned count)
 {
+	unsigned bit;
+
+	bit = symbol_bit & 0x01U;
 	while (count-- > 0U) {
+		engine->rx_c38 = (unsigned short)(engine->rx_c38 + 1U);
+		engine->rx_c3a = (unsigned short)(((engine->rx_c3a << 1) |
+						(symbol_bit & 0x01U)) & 0xffffU);
 		if (v8_open_rx_push_bit(engine, bit))
 			return 1;
 	}
@@ -926,6 +973,10 @@ static void v8_open_rx_reset_collect(struct v8_open_engine *engine)
 	engine->rx_bits_to_word = 0U;
 	engine->rx_demod_hist_fill = 0U;
 	engine->rx_phase_offset = 0U;
+	engine->rx_c30 = 0U;
+	engine->rx_c32 = 1U;
+	engine->rx_c38 = 0U;
+	engine->rx_c3a = 0U;
 	engine->rx_mark_ticks = 0U;
 	engine->rx_space_ticks = 0U;
 	engine->cm_collect_deadline = 0U;
@@ -956,6 +1007,10 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 	engine->rx_bits_to_word = 0U;
 	engine->rx_demod_hist_fill = 0U;
 	engine->rx_phase_offset = 0U;
+	engine->rx_c30 = 0U;
+	engine->rx_c32 = 1U;
+	engine->rx_c38 = 0U;
+	engine->rx_c3a = 0U;
 	engine->rx_mark_ticks = 0U;
 	engine->rx_space_ticks = 0U;
 }
@@ -1127,20 +1182,25 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 		{
 			unsigned phase;
 			unsigned idx;
+			unsigned stage_base;
 
 			phase = engine->rx_phase_offset;
+			stage_base = engine->rx_demod_hist_fill >= V8OPEN_DEMOD_STAGE_SAMPLES ?
+				(engine->rx_demod_hist_fill - V8OPEN_DEMOD_STAGE_SAMPLES) : 0U;
 			for (idx = 0U; idx < V8OPEN_DEMOD_STAGE_SAMPLES; ++idx) {
 				unsigned long long mark_energy;
 				unsigned long long space_energy;
 				unsigned bit;
+				unsigned window_end;
 
 				if (phase > idx)
 					continue;
 
 				phase += 8U;
+				window_end = stage_base + idx + 1U;
 				v8_open_rx_window_score(engine,
-							engine->rx_bit_window,
-							idx + 1U,
+							engine->rx_demod_history,
+							window_end,
 							&mark_energy,
 							&space_energy,
 							&bit);
@@ -1153,20 +1213,44 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 				if (bit) {
 					unsigned emit_count;
 
-					emit_count = v8_open_rx_quantize_counter(&engine->rx_space_ticks);
+					emit_count =
+						v8_open_rx_quantize_transition_keep(&engine->rx_space_ticks);
 					if (emit_count &&
-					    v8_open_rx_emit_recovered_bits(engine, 0U, emit_count))
+					    v8_open_rx_emit_symbol_bits(engine,
+									 engine->rx_c30,
+									 emit_count))
 						return 1;
 					engine->rx_mark_ticks++;
 				} else {
 					unsigned emit_count;
 
-					emit_count = v8_open_rx_quantize_counter(&engine->rx_mark_ticks);
+					emit_count =
+						v8_open_rx_quantize_transition_clear(&engine->rx_mark_ticks);
 					if (emit_count &&
-					    v8_open_rx_emit_recovered_bits(engine, 1U, emit_count))
+					    v8_open_rx_emit_symbol_bits(engine,
+									 engine->rx_c32,
+									 emit_count))
 						return 1;
 					engine->rx_space_ticks++;
 				}
+			}
+
+			{
+				unsigned emit_count;
+
+				emit_count = v8_open_rx_quantize_block_flush(&engine->rx_space_ticks);
+				if (emit_count &&
+				    v8_open_rx_emit_symbol_bits(engine,
+								 engine->rx_c30,
+								 emit_count))
+					return 1;
+
+				emit_count = v8_open_rx_quantize_block_flush(&engine->rx_mark_ticks);
+				if (emit_count &&
+				    v8_open_rx_emit_symbol_bits(engine,
+								 engine->rx_c32,
+								 emit_count))
+					return 1;
 			}
 
 			engine->rx_phase_offset =
