@@ -561,6 +561,21 @@ static unsigned short v8_open_find_rx_token(const struct v8_open_engine *engine,
 	unsigned i;
 	unsigned seen;
 
+	if (category_masked == 0x0141U && nth == 1U) {
+		for (i = 0; i < engine->rx_token_count; ++i) {
+			unsigned short token;
+
+			token = engine->rx_tokens[i];
+			if ((token & 0xfff1U) != 0x0141U)
+				continue;
+			if (i + 1U < engine->rx_token_count &&
+			    (engine->rx_tokens[i + 1U] & 0x0039U) == 0x0011U)
+				return engine->rx_tokens[i + 1U];
+			return 0U;
+		}
+		return 0U;
+	}
+
 	seen = 0U;
 	for (i = 0; i < engine->rx_token_count; ++i) {
 		unsigned short token;
@@ -593,7 +608,13 @@ static void v8_open_apply_remote_cm_defaults(struct v8_open_engine *engine)
 	engine->matched_call_word = 0U;
 	engine->matched_proto_word = 0U;
 
-	v8_open_rx_push_token(engine, 0x0109U);
+	/*
+	 * The proprietary answer trace commonly reports the remote CM call
+	 * function as 0x0107 while still classifying it as a DATA call.
+	 * Preserve that token in the synthetic receive model so the answer-side
+	 * JM can mirror the received call function instead of forcing 0x0109.
+	 */
+	v8_open_rx_push_token(engine, 0x0107U);
 
 	remote_mod0_octet = 0x05U;
 	if (engine->remote_pcm_present)
@@ -873,7 +894,8 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	engine->matched_call_word = 0U;
 	engine->matched_proto_word = 0U;
 
-	if (jm->data_supported && rx_call == 0x0109U) {
+	if (jm->data_supported &&
+	    (rx_call == 0x0107U || rx_call == 0x0109U)) {
 		jm->call_function_code = rx_call;
 		engine->have_call_match = 1U;
 		engine->matched_call_word = rx_call;
