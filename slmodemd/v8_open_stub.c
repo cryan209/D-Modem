@@ -35,6 +35,7 @@ enum v8_open_phase {
 	V8_OPEN_PHASE_ANS_SEND_ANSAM,
 	V8_OPEN_PHASE_ANS_WAIT_FOR_CM,
 	V8_OPEN_PHASE_ANS_SEND_JM,
+	V8_OPEN_PHASE_ANS_WAIT_FOR_CJ,
 	V8_OPEN_PHASE_ORG_SEND_CM,
 	V8_OPEN_PHASE_ORG_WAIT_FOR_ANSAM,
 	V8_OPEN_PHASE_ORG_WAIT_FOR_JM,
@@ -105,6 +106,20 @@ struct v8_open_engine {
 	unsigned tx_bit_pos;
 	unsigned tx_bit_samples;
 	unsigned tx_bit_len;
+	unsigned remote_call_data;
+	unsigned remote_v34;
+	unsigned remote_v32;
+	unsigned remote_lapm;
+	unsigned remote_access_present;
+	unsigned remote_pcm_present;
+	unsigned cm_seen_count;
+	unsigned cm_signature;
+	unsigned cm_detected;
+	unsigned cm_guard_budget;
+	unsigned cj_seen_count;
+	unsigned cj_signature;
+	unsigned cj_detected;
+	unsigned cj_guard_budget;
 	unsigned char tx_bits[256];
 };
 
@@ -119,6 +134,8 @@ static const char *v8_open_phase_name(enum v8_open_phase phase)
 		return "ANS_WAIT_FOR_CM";
 	case V8_OPEN_PHASE_ANS_SEND_JM:
 		return "ANS_SEND_JM";
+	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
+		return "ANS_WAIT_FOR_CJ";
 	case V8_OPEN_PHASE_ORG_SEND_CM:
 		return "ORG_SEND_CM";
 	case V8_OPEN_PHASE_ORG_WAIT_FOR_ANSAM:
@@ -409,6 +426,7 @@ static void v8_open_emit_phase(struct v8_open_engine *engine, void *out, int cnt
 		v8_open_emit_ansam(engine, pcm, cnt);
 		break;
 	case V8_OPEN_PHASE_ANS_SEND_JM:
+	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
 		v8_open_emit_v21(engine, pcm, cnt, 1);
 		break;
 	case V8_OPEN_PHASE_ORG_SEND_CM:
@@ -434,10 +452,16 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 		 */
 		return v8_open_samples_from_ms(engine, 2220U);
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CM:
+		if (engine->cm_detected && engine->cm_guard_budget)
+			return engine->cm_guard_budget;
 		return v8_open_samples_from_ms(engine, 160U);
 	case V8_OPEN_PHASE_ANS_SEND_JM:
 		/* Real JM dwell is about 0.82 s before V8_OK. */
 		return v8_open_samples_from_ms(engine, 820U);
+	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
+		if (engine->cj_detected && engine->cj_guard_budget)
+			return engine->cj_guard_budget;
+		return v8_open_samples_from_ms(engine, 420U);
 	case V8_OPEN_PHASE_ORG_SEND_CM:
 		return v8_open_samples_from_ms(engine, 160U);
 	case V8_OPEN_PHASE_ORG_WAIT_FOR_ANSAM:
@@ -448,6 +472,193 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 	default:
 		return 0U;
 	}
+}
+
+static unsigned v8_open_capture_signature(const short *samples,
+					  int cnt,
+					  unsigned *avg_abs_out,
+					  unsigned *peak_abs_out)
+{
+	unsigned sum_abs;
+	unsigned peak_abs;
+	unsigned zero_crossings;
+	unsigned last_sign;
+	int i;
+
+	sum_abs = 0U;
+	peak_abs = 0U;
+	zero_crossings = 0U;
+	last_sign = 0U;
+
+	for (i = 0; i < cnt; ++i) {
+		short sample;
+		unsigned mag;
+		unsigned sign;
+
+		sample = samples[i];
+		mag = (unsigned)(sample < 0 ? -sample : sample);
+		sum_abs += mag;
+		if (mag > peak_abs)
+			peak_abs = mag;
+		if (!sample)
+			continue;
+		sign = sample < 0 ? 2U : 1U;
+		if (last_sign && sign != last_sign)
+			zero_crossings++;
+		last_sign = sign;
+	}
+
+	if (avg_abs_out)
+		*avg_abs_out = cnt > 0 ? (sum_abs / (unsigned)cnt) : 0U;
+	if (peak_abs_out)
+		*peak_abs_out = peak_abs;
+
+	return (((sum_abs / (unsigned)(cnt > 0 ? cnt : 1)) >> 6) & 0xffU) |
+	       ((zero_crossings & 0xffU) << 8);
+}
+
+static int v8_open_signature_within(unsigned prev_signature,
+				    unsigned curr_signature,
+				    unsigned avg_tol,
+				    unsigned zc_tol)
+{
+	unsigned prev_avg;
+	unsigned prev_zc;
+	unsigned curr_avg;
+	unsigned curr_zc;
+	unsigned avg_delta;
+	unsigned zc_delta;
+
+	prev_avg = prev_signature & 0xffU;
+	prev_zc = (prev_signature >> 8) & 0xffU;
+	curr_avg = curr_signature & 0xffU;
+	curr_zc = (curr_signature >> 8) & 0xffU;
+	avg_delta = prev_avg > curr_avg ? (prev_avg - curr_avg) : (curr_avg - prev_avg);
+	zc_delta = prev_zc > curr_zc ? (prev_zc - curr_zc) : (curr_zc - prev_zc);
+
+	return avg_delta <= avg_tol && zc_delta <= zc_tol;
+}
+
+static void v8_open_apply_remote_cm_defaults(struct v8_open_engine *engine)
+{
+	engine->remote_call_data = 1U;
+	engine->remote_v34 = 1U;
+	engine->remote_v32 = 1U;
+	engine->remote_lapm = 1U;
+	engine->remote_pcm_present = 1U;
+	engine->remote_access_present = 1U;
+}
+
+static void v8_open_observe_cm(struct v8_open_engine *engine,
+			       const void *in,
+			       int cnt)
+{
+	const short *samples;
+	unsigned peak_abs;
+	unsigned avg_abs;
+	unsigned signature;
+
+	if (!engine || !in || cnt <= 0)
+		return;
+	if (engine->phase != V8_OPEN_PHASE_ANS_WAIT_FOR_CM)
+		return;
+	if (engine->cm_detected)
+		return;
+
+	samples = (const short *)in;
+	signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
+	if (avg_abs < 1200U && peak_abs < 6000U)
+		return;
+	if (((signature >> 8) & 0xffU) < 8U)
+		return;
+
+	if (engine->cm_seen_count == 0U) {
+		engine->cm_signature = signature;
+	} else if (!v8_open_signature_within(engine->cm_signature,
+					       signature,
+					       8U,
+					       6U)) {
+		engine->cm_seen_count = 0U;
+		engine->cm_signature = signature;
+	}
+
+	if (engine->cm_seen_count < 2U)
+		engine->cm_seen_count++;
+
+	if (engine->cm_seen_count < 2U) {
+		V8OPEN_DBG("cm-stub: candidate %u/2 avg=%u peak=%u\n",
+			  engine->cm_seen_count,
+			  avg_abs,
+			  peak_abs);
+		return;
+	}
+
+	engine->cm_detected = 1U;
+	engine->cm_guard_budget = v8_open_samples_from_ms(engine, 40U);
+	engine->samples_in_phase = 0U;
+	v8_open_apply_remote_cm_defaults(engine);
+	V8OPEN_DBG("cm-stub: detected 2/2 avg=%u peak=%u remote=data:1 v34:1 v32:1 pcm:a:1 d:0\n",
+		  avg_abs,
+		  peak_abs);
+}
+
+static void v8_open_observe_cj(struct v8_open_engine *engine,
+			       const void *in,
+			       int cnt)
+{
+	const short *samples;
+	unsigned peak_abs;
+	unsigned avg_abs;
+	unsigned signature;
+	unsigned min_dwell;
+
+	if (!engine || !in || cnt <= 0)
+		return;
+	if (engine->phase != V8_OPEN_PHASE_ANS_WAIT_FOR_CJ)
+		return;
+	if (engine->cj_detected)
+		return;
+	min_dwell = v8_open_samples_from_ms(engine, 120U);
+	if (engine->samples_in_phase < min_dwell)
+		return;
+
+	samples = (const short *)in;
+	signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
+	if (avg_abs < 1200U && peak_abs < 6000U)
+		return;
+	/* Require an actual oscillatory V.21-like burst, not just generic energy. */
+	if (((signature >> 8) & 0xffU) < 10U)
+		return;
+
+	if (engine->cj_seen_count == 0U) {
+		engine->cj_signature = signature;
+	} else {
+		if (!v8_open_signature_within(engine->cj_signature,
+					       signature,
+					       8U,
+					       4U)) {
+			engine->cj_seen_count = 0U;
+			engine->cj_signature = signature;
+		}
+	}
+
+	if (engine->cj_seen_count < 2U)
+		engine->cj_seen_count++;
+
+	if (engine->cj_seen_count < 2U) {
+		V8OPEN_DBG("cj-stub: candidate %u/2 avg=%u peak=%u\n",
+			  engine->cj_seen_count,
+			  avg_abs,
+			  peak_abs);
+		return;
+	}
+
+	engine->cj_detected = 1U;
+	engine->cj_guard_budget = v8_open_samples_from_ms(engine, 40U);
+	engine->samples_in_phase = 0U;
+	V8OPEN_DBG("cj-stub: detected 2/2 avg=%u peak=%u\n",
+		  avg_abs,
+		  peak_abs);
 }
 
 static unsigned v8_open_phase_status(const struct v8_open_engine *engine,
@@ -463,6 +674,7 @@ static unsigned v8_open_phase_status(const struct v8_open_engine *engine,
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CM:
 		return V8_OPEN_STATUS_ANS_SEND_ANSAM;
 	case V8_OPEN_PHASE_ANS_SEND_JM:
+	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
 		return V8_OPEN_STATUS_ANS_SEND_JM;
 	case V8_OPEN_PHASE_ORG_SEND_CM:
 		return V8_OPEN_STATUS_ORG_SEND_CM;
@@ -480,15 +692,19 @@ static enum DP_ID v8_open_preferred_dp(const struct v8_open_engine *engine)
 {
 	if (engine->cfg.advertise.v92 &&
 	    engine->cfg.advertise.access_digital &&
-	    engine->cfg.advertise.pcm_digital)
+	    engine->cfg.advertise.pcm_digital &&
+	    (!engine->cm_detected || engine->remote_pcm_present))
 		return DP_V92;
 	if (engine->cfg.advertise.v90 &&
 	    engine->cfg.advertise.access_digital &&
-	    engine->cfg.advertise.pcm_digital)
+	    engine->cfg.advertise.pcm_digital &&
+	    (!engine->cm_detected || engine->remote_pcm_present))
 		return DP_V90;
-	if (engine->cfg.advertise.v34)
+	if (engine->cfg.advertise.v34 &&
+	    (!engine->cm_detected || engine->remote_v34))
 		return DP_V34;
-	if (engine->cfg.advertise.v32)
+	if (engine->cfg.advertise.v32 &&
+	    (!engine->cm_detected || engine->remote_v32))
 		return DP_V32;
 	if (engine->cfg.advertise.v22)
 		return DP_V22;
@@ -503,8 +719,8 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	jm = &engine->jm;
 	memset(jm, 0, sizeof(*jm));
 
-	jm->data_supported = engine->cfg.advertise.data;
-	jm->lapm_supported = engine->cfg.advertise.lapm;
+	jm->data_supported = engine->cfg.advertise.data && engine->remote_call_data;
+	jm->lapm_supported = engine->cfg.advertise.lapm && engine->remote_lapm;
 	jm->quick_connect_supported = engine->cfg.advertise.quick_connect;
 	jm->preferred_dp = v8_open_preferred_dp(engine);
 	jm->modulation_mask = 0;
@@ -526,19 +742,21 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	jm->access_answer_cellular = engine->cfg.advertise.access_answer_cellular;
 	jm->access_digital = engine->cfg.advertise.access_digital;
 	jm->pcm_octet = 0x07U;
-	jm->pcm_analog = engine->cfg.advertise.pcm_analog;
-	jm->pcm_digital = engine->cfg.advertise.pcm_digital;
-	jm->pcm_v91 = engine->cfg.advertise.pcm_v91;
+	jm->pcm_analog = engine->cfg.advertise.pcm_analog && engine->remote_pcm_present;
+	jm->pcm_digital = engine->cfg.advertise.pcm_digital && engine->remote_pcm_present;
+	jm->pcm_v91 = engine->cfg.advertise.pcm_v91 && engine->remote_pcm_present;
 
-	if (engine->cfg.advertise.v92)
+	if (engine->cfg.advertise.v92 && engine->cfg.advertise.access_digital &&
+	    engine->cfg.advertise.pcm_digital && engine->remote_pcm_present)
 		jm->modulation_mask |= 0x10U;
-	if (engine->cfg.advertise.v90)
+	if (engine->cfg.advertise.v90 && engine->cfg.advertise.access_digital &&
+	    engine->cfg.advertise.pcm_digital && engine->remote_pcm_present)
 		jm->modulation_mask |= 0x08U;
-	if (engine->cfg.advertise.v34) {
+	if (engine->cfg.advertise.v34 && engine->remote_v34) {
 		jm->modulation_mask |= 0x04U;
 		jm->modulation0_octet |= 0x40U;
 	}
-	if (engine->cfg.advertise.v32) {
+	if (engine->cfg.advertise.v32 && engine->remote_v32) {
 		jm->modulation_mask |= 0x02U;
 		jm->modulation1_octet |= 0x01U;
 		jm->has_modulation1 = 1U;
@@ -568,6 +786,13 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	if (jm->access_digital)
 		jm->access_octet |= 0x80U;
 
+	if (!engine->cfg.advertise.access_call_cellular &&
+	    !engine->cfg.advertise.access_answer_cellular &&
+	    !engine->cfg.advertise.access_digital &&
+	    !engine->remote_access_present &&
+	    !jm->has_pcm)
+		jm->access_tag = 0U;
+
 	jm->modulation0_word = v8_open_encode_octet(jm->modulation0_octet);
 	if (jm->has_modulation1)
 		jm->modulation1_word = v8_open_encode_octet(jm->modulation1_octet);
@@ -581,10 +806,12 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	v8_open_jm_push(jm, jm->modulation0_word, 1);
 	if (jm->has_modulation1)
 		v8_open_jm_push(jm, jm->modulation1_word, 1);
-	v8_open_jm_push(jm, jm->access_tag, 1);
-	if (jm->has_pcm)
-		v8_open_jm_push(jm, jm->pcm_word, 1);
-	v8_open_jm_push(jm, jm->access_word, 1);
+	if (jm->access_tag) {
+		v8_open_jm_push(jm, jm->access_tag, 1);
+		if (jm->has_pcm)
+			v8_open_jm_push(jm, jm->pcm_word, 1);
+		v8_open_jm_push(jm, jm->access_word, 1);
+	}
 	if (jm->protocol_code)
 		v8_open_jm_push(jm, jm->protocol_code, 1);
 
@@ -648,6 +875,8 @@ static enum v8_open_phase v8_open_next_phase(const struct v8_open_engine *engine
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CM:
 		return V8_OPEN_PHASE_ANS_SEND_JM;
 	case V8_OPEN_PHASE_ANS_SEND_JM:
+		return V8_OPEN_PHASE_ANS_WAIT_FOR_CJ;
+	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
 		return V8_OPEN_PHASE_COMPLETE;
 	case V8_OPEN_PHASE_ORG_SEND_CM:
 		return V8_OPEN_PHASE_ORG_WAIT_FOR_ANSAM;
@@ -665,6 +894,16 @@ static void v8_open_transition(struct v8_open_engine *engine,
 			       enum v8_open_phase next_phase)
 {
 	enum v8_open_phase old_phase;
+
+	if (next_phase == V8_OPEN_PHASE_ANS_SEND_JM &&
+	    !engine->cm_detected &&
+	    engine->cm_seen_count > 0U) {
+		engine->cm_detected = 1U;
+		engine->cm_guard_budget = 0U;
+		v8_open_apply_remote_cm_defaults(engine);
+		V8OPEN_DBG("cm-stub: timeout fallback after %u candidate(s); using conservative remote CM model\n",
+			  engine->cm_seen_count);
+	}
 
 	old_phase = engine->phase;
 	engine->phase = next_phase;
@@ -716,6 +955,20 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->tx_bit_pos = 0U;
 	engine->tx_bit_samples = 0U;
 	engine->tx_bit_len = 0U;
+	engine->remote_call_data = 0U;
+	engine->remote_v34 = 0U;
+	engine->remote_v32 = 0U;
+	engine->remote_lapm = 0U;
+	engine->remote_access_present = 0U;
+	engine->remote_pcm_present = 0U;
+	engine->cm_seen_count = 0U;
+	engine->cm_signature = 0U;
+	engine->cm_detected = 0U;
+	engine->cm_guard_budget = 0U;
+	engine->cj_seen_count = 0U;
+	engine->cj_signature = 0U;
+	engine->cj_detected = 0U;
+	engine->cj_guard_budget = 0U;
 	v8_open_capture_runtime(engine);
 	V8OPEN_DBG("create: side=%s target=%u srate=%u caps=data:%u v92:%u v90:%u v34:%u v32:%u v22:%u qc:%u lapm:%u access=call:%u ans:%u dig:%u pcm=a:%u d:%u v91:%u flags=%02x/%02x/%02x\n",
 		  cfg->answer_mode ? "answer" : "originate",
@@ -752,10 +1005,11 @@ int v8_open_process(void *engine_ptr, void *in, void *out, int cnt)
 	struct v8_open_engine *engine = engine_ptr;
 	unsigned budget;
 
-	(void)in;
-
 	if (!engine)
 		return V8_OPEN_STATUS_INIT;
+
+	v8_open_observe_cm(engine, in, cnt);
+	v8_open_observe_cj(engine, in, cnt);
 
 	v8_open_emit_phase(engine, out, cnt);
 
