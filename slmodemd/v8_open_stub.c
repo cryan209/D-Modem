@@ -94,6 +94,7 @@ enum v8_open_phase {
 
 enum v8_open_rx_collect_mode {
 	V8_OPEN_RX_COLLECT_NONE = 0,
+	V8_OPEN_RX_COLLECT_SEARCH,
 	V8_OPEN_RX_COLLECT_CM,
 	V8_OPEN_RX_COLLECT_CJ
 };
@@ -156,6 +157,31 @@ struct v8_open_engine {
 	unsigned char initial_flags0;
 	unsigned char initial_flags1;
 	unsigned char initial_flags2;
+	unsigned short ans_det_04;
+	short ans_det_08;
+	unsigned short ans_det_0a;
+	unsigned short ans_det_0c;
+	unsigned short ans_det_0e;
+	unsigned short ans_det_10;
+	unsigned short ans_det_12;
+	unsigned short ans_det_30;
+	unsigned short ans_rx_14;
+	unsigned short ans_rx_1a;
+	unsigned short ans_rx_1c;
+	unsigned short ans_rx_1e;
+	unsigned short ans_rx_20;
+	unsigned short ans_rx_82;
+	unsigned short ans_rx_84;
+	unsigned short ans_rx_86;
+	unsigned short ans_rx_88;
+	unsigned short ans_rx_8a;
+	unsigned short ans_rx_ac;
+	unsigned short ans_rx_c2;
+	unsigned short ans_rx_c6;
+	unsigned short ans_rx_c8;
+	unsigned short ans_rx_d8;
+	unsigned short ans_rx_da;
+	unsigned ans_predetector_seeded;
 	struct v8_open_jm_shim jm;
 	unsigned tone_phase_q16;
 	unsigned ansam_phase_samples;
@@ -723,6 +749,71 @@ static unsigned v8_open_capture_signature(const short *samples,
 static unsigned v8_open_detector_active(unsigned avg_abs, unsigned peak_abs)
 {
 	return avg_abs >= 1024U || peak_abs >= 2048U;
+}
+
+static void v8_open_answer_rx_init(struct v8_open_engine *engine)
+{
+	engine->ans_rx_14 = 0U;
+	engine->ans_rx_1a = 0U;
+	engine->ans_rx_1c = 0x0200U;
+	engine->ans_rx_1e = 0U;
+	engine->ans_rx_20 = 0x3333U;
+	engine->ans_rx_82 = 0U;
+	engine->ans_rx_84 = 0U;
+	engine->ans_rx_86 = 0x0200U;
+	engine->ans_rx_88 = 0U;
+	engine->ans_rx_8a = 0U;
+	engine->ans_rx_ac = 0U;
+	engine->ans_rx_c2 = 0x0050U;
+	engine->ans_rx_c6 = 0U;
+	engine->ans_rx_c8 = 0U;
+	engine->ans_rx_d8 = 0U;
+	engine->ans_rx_da = 0U;
+}
+
+static void v8_open_answer_detector_init(struct v8_open_engine *engine)
+{
+	/*
+	 * Mirror the answer-side v8_detectorinit call site from v8handshakinit:
+	 * args include 0x64, 0x32, 0x5dc, 0. Keep those literal thresholds in
+	 * the local detector workspace so the open path uses blob-shaped seeds.
+	 */
+	engine->ans_det_04 = 0x0032U;
+	engine->ans_det_08 = 0;
+	engine->ans_det_0a = 0x0064U;
+	engine->ans_det_0c = 1U;
+	engine->ans_det_0e = 0x05dcU;
+	engine->ans_det_10 = 0U;
+	engine->ans_det_12 = 0U;
+	engine->ans_det_30 = 0U;
+}
+
+static void v8_open_answer_predetector_seed(struct v8_open_engine *engine)
+{
+	if (!engine || !engine->cfg.answer_mode)
+		return;
+
+	v8_open_answer_rx_init(engine);
+	v8_open_answer_detector_init(engine);
+	engine->ans_predetector_seeded = 1U;
+}
+
+static void v8_open_answer_predetector_arm(struct v8_open_engine *engine)
+{
+	if (!engine || !engine->cfg.answer_mode)
+		return;
+
+	if (!engine->ans_predetector_seeded)
+		v8_open_answer_predetector_seed(engine);
+	else
+		v8_open_answer_rx_init(engine);
+
+	engine->ans_det_12 = 0U;
+	engine->ans_det_30 = 0U;
+	engine->ans_rx_1a = 0U;
+	engine->ans_rx_14 = 0U;
+	engine->ans_rx_c8 = 0U;
+	engine->ans_rx_c6 = 0U;
 }
 
 static void v8_open_rx_push_token(struct v8_open_engine *engine,
@@ -1479,8 +1570,15 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 	signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
 
 	if (engine->cm_predetecting) {
-		if (v8_open_detector_active(avg_abs, peak_abs))
+		if (v8_open_detector_active(avg_abs, peak_abs)) {
 			engine->cm_seen_count++;
+			engine->ans_det_12++;
+			engine->ans_rx_1a = (unsigned short)(engine->ans_rx_1a + (unsigned short)cnt);
+			if (peak_abs > engine->ans_rx_c8)
+				engine->ans_rx_c8 = (unsigned short)peak_abs;
+		} else {
+			engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
+		}
 		if ((engine->samples_in_phase + (unsigned)cnt) < engine->cm_predetect_deadline)
 			return;
 
@@ -1518,16 +1616,22 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 			  engine->rx_seq_b_count);
 		return;
 	}
+	v8_open_answer_predetector_arm(engine);
 	engine->cm_seen_count = v8_open_detector_active(avg_abs, peak_abs) ? 1U : 0U;
+	engine->ans_det_12 = (unsigned short)engine->cm_seen_count;
+	engine->ans_rx_1a = engine->cm_seen_count ? (unsigned short)cnt : 0U;
+	engine->ans_rx_c8 = (unsigned short)peak_abs;
 	engine->cm_signature = signature;
 	engine->cm_predetecting = 1U;
 	engine->cm_predetect_deadline = engine->samples_in_phase +
-		v8_open_samples_from_ms(engine, 120U);
-	V8OPEN_DBG("cm-stub: detector armed avg=%u peak=%u hold=%u hits=%u\n",
+		v8_open_samples_from_ms(engine, engine->ans_det_0a);
+	V8OPEN_DBG("cm-stub: detector armed avg=%u peak=%u hold=%u hits=%u thresh=%u window=%u\n",
 		  avg_abs,
 		  peak_abs,
-		  v8_open_samples_from_ms(engine, 120U),
-		  engine->cm_seen_count);
+		  v8_open_samples_from_ms(engine, engine->ans_det_0a),
+		  engine->cm_seen_count,
+		  engine->ans_det_0a,
+		  engine->ans_det_04);
 }
 
 static void v8_open_observe_cj(struct v8_open_engine *engine,
@@ -1550,8 +1654,15 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 	signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
 
 	if (engine->cj_predetecting) {
-		if (v8_open_detector_active(avg_abs, peak_abs))
+		if (v8_open_detector_active(avg_abs, peak_abs)) {
 			engine->cj_seen_count++;
+			engine->ans_det_12++;
+			engine->ans_rx_1a = (unsigned short)(engine->ans_rx_1a + (unsigned short)cnt);
+			if (peak_abs > engine->ans_rx_c8)
+				engine->ans_rx_c8 = (unsigned short)peak_abs;
+		} else {
+			engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
+		}
 		if ((engine->samples_in_phase + (unsigned)cnt) < engine->cj_predetect_deadline)
 			return;
 
@@ -1589,16 +1700,22 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 			  engine->cj_variant_bit);
 		return;
 	}
+	v8_open_answer_predetector_arm(engine);
 	engine->cj_seen_count = v8_open_detector_active(avg_abs, peak_abs) ? 1U : 0U;
+	engine->ans_det_12 = (unsigned short)engine->cj_seen_count;
+	engine->ans_rx_1a = engine->cj_seen_count ? (unsigned short)cnt : 0U;
+	engine->ans_rx_c8 = (unsigned short)peak_abs;
 	engine->cj_signature = signature;
 	engine->cj_predetecting = 1U;
 	engine->cj_predetect_deadline = engine->samples_in_phase +
-		v8_open_samples_from_ms(engine, 80U);
-	V8OPEN_DBG("cj-stub: detector armed avg=%u peak=%u hold=%u hits=%u\n",
+		v8_open_samples_from_ms(engine, engine->ans_det_04);
+	V8OPEN_DBG("cj-stub: detector armed avg=%u peak=%u hold=%u hits=%u thresh=%u window=%u\n",
 		  avg_abs,
 		  peak_abs,
-		  v8_open_samples_from_ms(engine, 80U),
-		  engine->cj_seen_count);
+		  v8_open_samples_from_ms(engine, engine->ans_det_04),
+		  engine->cj_seen_count,
+		  engine->ans_det_0a,
+		  engine->ans_det_04);
 }
 
 static unsigned v8_open_phase_status(const struct v8_open_engine *engine,
@@ -2022,6 +2139,8 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->cj_sequence_valid = 0U;
 	engine->cj_variant_bit = 0U;
 	v8_open_rx_reset_collect(engine);
+	if (cfg->answer_mode)
+		v8_open_answer_predetector_seed(engine);
 	v8_open_capture_runtime(engine);
 	V8OPEN_DBG("create: side=%s target=%u srate=%u caps=data:%u v92:%u v90:%u v34:%u v32:%u v22:%u qc:%u lapm:%u access=call:%u ans:%u dig:%u pcm=a:%u d:%u v91:%u flags=%02x/%02x/%02x\n",
 		  cfg->answer_mode ? "answer" : "originate",
