@@ -1394,6 +1394,9 @@ static void v8_open_rx_reset_collect(struct v8_open_engine *engine)
 	engine->cj_collect_deadline = 0U;
 }
 
+static int v8_open_rx_try_lock_preamble(struct v8_open_engine *engine,
+					unsigned short raw_word);
+
 static void v8_open_rx_start_search(struct v8_open_engine *engine)
 {
 	v8_open_rx_reset_collect(engine);
@@ -1478,6 +1481,13 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 		engine->rx_c246 = preserved_c246;
 		engine->rx_mark_ticks = preserved_mark_ticks;
 		engine->rx_space_ticks = preserved_space_ticks;
+		if (!v8_open_rx_try_lock_preamble(
+				engine,
+				(unsigned short)(engine->rx_c23a & 0x0fffU))) {
+			v8_open_rx_try_lock_preamble(
+				engine,
+				(unsigned short)(engine->rx_shift_reg & 0x0fffU));
+		}
 	} else {
 		engine->rx_demod_hist_fill = 0U;
 		engine->rx_phase_offset = 0U;
@@ -1502,6 +1512,62 @@ static unsigned short v8_open_rx_normalize_word(const struct v8_open_engine *eng
 	return word;
 }
 
+static void v8_open_rx_seed_sync_sequence(struct v8_open_engine *engine)
+{
+	unsigned idx;
+
+	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM) {
+		engine->rx_seq_b_count = 0U;
+		v8_open_rx_seq_b_push(engine, 0x000fU);
+		for (idx = 1U; idx <= 14U; ++idx)
+			v8_open_rx_seq_b_push(engine, 0x03ffU);
+		engine->cm_collect_index = 1U;
+		engine->cm_collect_pass = 1U;
+		engine->rx_sequence_len = 0xffffU;
+	} else if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CJ) {
+		engine->rx_seq_a_count = 0U;
+		v8_open_rx_seq_a_push(engine, 0x0155U);
+		for (idx = 1U; idx < V8OPEN_CJ_WORDS; ++idx)
+			v8_open_rx_seq_a_push(engine, 0x03ffU);
+		engine->cj_collect_index = 1U;
+	}
+}
+
+static int v8_open_rx_try_lock_preamble(struct v8_open_engine *engine,
+					unsigned short raw_word)
+{
+	unsigned inv_word;
+	unsigned rev_word;
+	unsigned rev_inv_word;
+
+	inv_word = raw_word ^ 0x0fffU;
+	rev_word = v8_open_reverse_word12(raw_word);
+	rev_inv_word = rev_word ^ 0x0fffU;
+
+	if (raw_word == engine->rx_preamble_expected) {
+		engine->rx_reverse_word_bits = 0U;
+		engine->rx_invert_bits = 0U;
+	} else if (inv_word == engine->rx_preamble_expected) {
+		engine->rx_reverse_word_bits = 0U;
+		engine->rx_invert_bits = 1U;
+	} else if (rev_word == engine->rx_preamble_expected) {
+		engine->rx_reverse_word_bits = 1U;
+		engine->rx_invert_bits = 0U;
+	} else if (rev_inv_word == engine->rx_preamble_expected) {
+		engine->rx_reverse_word_bits = 1U;
+		engine->rx_invert_bits = 1U;
+	} else {
+		return 0;
+	}
+
+	engine->rx_probe_bits = 0U;
+	engine->rx_word_sync = 1U;
+	engine->rx_bits_to_word = 10U;
+	engine->rx_shift_reg = 0U;
+	v8_open_rx_seed_sync_sequence(engine);
+	return 1;
+}
+
 static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 {
 	unsigned raw_word;
@@ -1512,8 +1578,7 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 	unsigned idx;
 
 	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_SEARCH) {
-		engine->rx_shift_reg = (unsigned short)(((engine->rx_shift_reg << 1) |
-						(bit & 0x01U)) & 0x0fffU);
+		engine->rx_shift_reg = (unsigned short)(engine->rx_c23a & 0x0fffU);
 		return 0;
 	}
 
@@ -1538,42 +1603,9 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 			engine->rx_probe_bits = 0U;
 		}
 
-		if (raw_word == engine->rx_preamble_expected) {
-			engine->rx_reverse_word_bits = 0U;
-			engine->rx_invert_bits = 0U;
-		} else if (inv_word == engine->rx_preamble_expected) {
-			engine->rx_reverse_word_bits = 0U;
-			engine->rx_invert_bits = 1U;
-		} else if (rev_word == engine->rx_preamble_expected) {
-			engine->rx_reverse_word_bits = 1U;
-			engine->rx_invert_bits = 0U;
-		} else if (rev_inv_word == engine->rx_preamble_expected) {
-			engine->rx_reverse_word_bits = 1U;
-			engine->rx_invert_bits = 1U;
-		} else {
+		if (!v8_open_rx_try_lock_preamble(engine,
+				(unsigned short)raw_word))
 			return 0;
-		}
-
-		engine->rx_probe_bits = 0U;
-		engine->rx_word_sync = 1U;
-		engine->rx_bits_to_word = 10U;
-		engine->rx_shift_reg = 0U;
-
-		if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM) {
-			engine->rx_seq_b_count = 0U;
-			v8_open_rx_seq_b_push(engine, 0x000fU);
-			for (idx = 1U; idx <= 14U; ++idx)
-				v8_open_rx_seq_b_push(engine, 0x03ffU);
-			engine->cm_collect_index = 1U;
-			engine->cm_collect_pass = 1U;
-			engine->rx_sequence_len = 0xffffU;
-		} else if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CJ) {
-			engine->rx_seq_a_count = 0U;
-			v8_open_rx_seq_a_push(engine, 0x0155U);
-			for (idx = 1U; idx < V8OPEN_CJ_WORDS; ++idx)
-				v8_open_rx_seq_a_push(engine, 0x03ffU);
-			engine->cj_collect_index = 1U;
-		}
 		return 0;
 	}
 
