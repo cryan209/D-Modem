@@ -21,6 +21,14 @@
 #define V8OPEN_V21_ANS_SPACE 1850U
 #define V8OPEN_V21_ORG_MARK 980U
 #define V8OPEN_V21_ORG_SPACE 1180U
+#define V8OPEN_ANSAM_REVERSAL_MS 450U
+
+static const short v8_open_sine_32[32] = {
+	0, 1951, 3827, 5556, 7071, 8315, 9239, 9808,
+	10000, 9808, 9239, 8315, 7071, 5556, 3827, 1951,
+	0, -1951, -3827, -5556, -7071, -8315, -9239, -9808,
+	-10000, -9808, -9239, -8315, -7071, -5556, -3827, -1951
+};
 
 enum v8_open_phase {
 	V8_OPEN_PHASE_BOOT = 0,
@@ -92,6 +100,8 @@ struct v8_open_engine {
 	unsigned char initial_flags2;
 	struct v8_open_jm_shim jm;
 	unsigned tone_phase_q16;
+	unsigned ansam_phase_samples;
+	unsigned ansam_phase_invert;
 	unsigned tx_bit_pos;
 	unsigned tx_bit_samples;
 	unsigned tx_bit_len;
@@ -254,6 +264,8 @@ static unsigned v8_open_samples_from_ms(const struct v8_open_engine *engine,
 static void v8_open_reset_tx(struct v8_open_engine *engine)
 {
 	engine->tone_phase_q16 = 0U;
+	engine->ansam_phase_samples = 0U;
+	engine->ansam_phase_invert = 0U;
 	engine->tx_bit_pos = 0U;
 	engine->tx_bit_samples = 0U;
 }
@@ -299,19 +311,22 @@ static void v8_open_prepare_jm_bits(struct v8_open_engine *engine)
 	V8OPEN_DBG("jm-bits: bits=%u\n", engine->tx_bit_len);
 }
 
-static short v8_open_square_sample(struct v8_open_engine *engine,
-				   unsigned freq_hz)
+static short v8_open_wave_sample(struct v8_open_engine *engine,
+				 unsigned freq_hz,
+				 int invert)
 {
 	unsigned rate;
 	unsigned step;
+	unsigned index;
 	short sample;
 
 	rate = engine->cfg.sample_rate ? engine->cfg.sample_rate : 9600U;
 	step = (unsigned)(((unsigned long long)freq_hz << 16) / rate);
 	engine->tone_phase_q16 += step;
-	sample = (engine->tone_phase_q16 & 0x8000U) ?
-		(short)V8OPEN_PCM_AMPLITUDE :
-		(short)-V8OPEN_PCM_AMPLITUDE;
+	index = (engine->tone_phase_q16 >> 11) & 0x1fU;
+	sample = v8_open_sine_32[index];
+	if (invert)
+		sample = (short)-sample;
 	return sample;
 }
 
@@ -319,10 +334,23 @@ static void v8_open_emit_ansam(struct v8_open_engine *engine,
 			       short *pcm,
 			       int cnt)
 {
+	unsigned reversal_samples;
 	int i;
 
-	for (i = 0; i < cnt; ++i)
-		pcm[i] = v8_open_square_sample(engine, V8OPEN_ANSAM_FREQ);
+	reversal_samples = v8_open_samples_from_ms(engine, V8OPEN_ANSAM_REVERSAL_MS);
+	if (!reversal_samples)
+		reversal_samples = 1U;
+
+	for (i = 0; i < cnt; ++i) {
+		pcm[i] = v8_open_wave_sample(engine,
+					     V8OPEN_ANSAM_FREQ,
+					     (int)engine->ansam_phase_invert);
+		engine->ansam_phase_samples++;
+		if (engine->ansam_phase_samples >= reversal_samples) {
+			engine->ansam_phase_samples = 0U;
+			engine->ansam_phase_invert ^= 1U;
+		}
+	}
 }
 
 static void v8_open_emit_v21(struct v8_open_engine *engine,
@@ -357,7 +385,7 @@ static void v8_open_emit_v21(struct v8_open_engine *engine,
 			bit = engine->tx_bits[engine->tx_bit_pos];
 
 		freq_hz = bit ? mark_hz : space_hz;
-		pcm[i] = v8_open_square_sample(engine, freq_hz);
+		pcm[i] = v8_open_wave_sample(engine, freq_hz, 0);
 
 		engine->tx_bit_samples++;
 		if (engine->tx_bit_samples >= samples_per_bit) {
@@ -484,7 +512,14 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	jm->modulation0_octet = 0x05U;
 	jm->modulation1_octet = 0x10U;
 	jm->access_tag = 0x0161;
-	jm->access_octet = 0x0dU;
+	/*
+	 * The blob seeds the access/PCM cluster as:
+	 *   0x161, [optional 0x1c9], 0x0011
+	 * and then patches the placeholder word in place.
+	 * Model that payload octet with the same 0x10 base instead of
+	 * encoding the access tag twice.
+	 */
+	jm->access_octet = 0x10U;
 	jm->call_function_code = jm->data_supported ? 0x0109 : 0x0000;
 	jm->protocol_code = jm->lapm_supported ? 0x00a9 : 0x0000;
 	jm->access_call_cellular = engine->cfg.advertise.access_call_cellular;
@@ -547,11 +582,11 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	if (jm->has_modulation1)
 		v8_open_jm_push(jm, jm->modulation1_word, 1);
 	v8_open_jm_push(jm, jm->access_tag, 1);
+	if (jm->has_pcm)
+		v8_open_jm_push(jm, jm->pcm_word, 1);
 	v8_open_jm_push(jm, jm->access_word, 1);
 	if (jm->protocol_code)
 		v8_open_jm_push(jm, jm->protocol_code, 1);
-	if (jm->has_pcm)
-		v8_open_jm_push(jm, jm->pcm_word, 1);
 
 	jm->octet_count = jm->word_count >= 2U ? jm->word_count - 2U : 0U;
 	jm->prepared = 1U;
@@ -676,6 +711,8 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->total_samples = 0U;
 	engine->last_status = V8_OPEN_STATUS_INIT;
 	engine->tone_phase_q16 = 0U;
+	engine->ansam_phase_samples = 0U;
+	engine->ansam_phase_invert = 0U;
 	engine->tx_bit_pos = 0U;
 	engine->tx_bit_samples = 0U;
 	engine->tx_bit_len = 0U;
