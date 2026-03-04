@@ -681,8 +681,6 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 		 */
 		return v8_open_samples_from_ms(engine, 2220U);
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CM:
-		if (engine->cm_predetecting && engine->cm_predetect_deadline)
-			return engine->cm_predetect_deadline;
 		if (engine->cm_collecting && engine->cm_collect_deadline)
 			return engine->cm_collect_deadline;
 		if (engine->cm_detected && engine->cm_guard_budget)
@@ -692,8 +690,6 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 		/* Real JM dwell is about 0.82 s before V8_OK. */
 		return v8_open_samples_from_ms(engine, 820U);
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
-		if (engine->cj_predetecting && engine->cj_predetect_deadline)
-			return engine->cj_predetect_deadline;
 		if (engine->cj_collecting && engine->cj_collect_deadline)
 			return engine->cj_collect_deadline;
 		if (engine->cj_detected && engine->cj_guard_budget)
