@@ -398,23 +398,319 @@ The branch debug strings line up with this behavior:
 - `"V8: call function FAX RX to caller indication..."`
 - `"V8: Got Call Function Match (in call function range) !!!"`
 
-### Answer-side rebuild behavior
+### `rebuildJMSequence()` decompilation
 
-The high-level answer-side `JM` flow in the blob is:
+`rebuildJMSequence()` is large, but its structure is regular enough to recover
+with good confidence. The high-level shape is:
 
-1. Parse the remote call-function token from the received sequence.
-2. Compare it against the local call-function table.
-3. If there is no match:
-   - log `"NO Call Function Match !!! zeroing all modulation capabilities..."`
-   - keep the call-function section but suppress advertised modulation
-     capability
-4. Build the protocol section:
-   - prefer explicit protocol-table matches
-   - otherwise emit the default LAPM indication (`0x00a9`) when allowed
-5. If V.90/V.92 is in play and the local conditions match, rebuild the JM again
-   with the PCM modem availability block (`0x01c9`)
+1. Reset the transmit JM word stream.
+2. Resolve and emit a call-function section.
+3. Resolve and emit a modulation section, intersected against the received
+   sequence.
+4. Resolve and emit a PSTN access / PCM availability section, again using the
+   received sequence as a mask.
+5. Resolve and emit a protocol section.
+6. Finalize the transmit scheduler trailer.
 
-The debug strings that anchor those branches are:
+The key engine fields it uses are:
+
+- `engine+0x0a58`: local V.8 config block
+- `engine+0x0c48`: transmit JM token buffer
+- `engine+0x0c54`: received token buffer (the parsed remote CM/JM-like stream)
+- `engine+0x0c7c`: received token count
+- `engine+0x0ebc`: call-function match latch
+- `engine+0x0ebe`: protocol match latch
+- `engine+0x0ec0`: matched call-function token
+- `engine+0x0ec2`: matched protocol token
+
+The stack temporaries that matter are:
+
+- `emit_idx` (`[esp+0x38]`): next transmit token slot, starts at `2`
+- `call_match_seen` (`[esp+0x30]`): whether a call-function token was emitted
+- `protocol_match_seen` (`[esp+0x18]` / `[esp+0x1c]` in different loops)
+- `rx_pcm_bits` (`[esp+0x20]`): bits derived from the received `0x01c1` token
+- `rx_access_bit` (`[esp+0x24]`): one bit derived from the received
+  `0x0161` token
+- `rx_mod_pcm_bit` (`[esp+0x28]`): one bit derived from the received
+  `0x0141` token
+
+In pseudocode, the function behaves like:
+
+```c
+static inline uint16_t make_token(uint8_t octet)
+{
+    return (charFlip(octet) << 1) | 1;
+}
+
+void rebuildJMSequence(struct v8_engine *e)
+{
+    struct v8_cfg *cfg = e->cfg;
+    uint16_t *tx = e->tx_words;          // +0x0c48
+    uint16_t *rx = e->rx_words;          // +0x0c54
+    int rx_count = e->rx_count;          // +0x0c7c
+    int emit_idx = 2;
+    int call_match_seen = 0;
+    int protocol_match_seen = 0;
+    unsigned rx_pcm_bits = 0;
+    unsigned rx_access_bit = 0;
+    unsigned rx_mod_pcm_bit = 0;
+
+    tx[0] = 0x03ff;
+    tx[1] = 0x000f;
+
+    /*
+     * Pass 1: call-function category.
+     *
+     * Find the first received token in the 0x0101 category.
+     */
+    for (int i = 0; i < rx_count; ++i) {
+        uint16_t tok = rx[i];
+        if ((tok & 0xfff1) != 0x0101)
+            continue;
+
+        /*
+         * If cfg byte +2 has bit 0x04 set, the blob prefers the explicit
+         * local call-function table at cfg+0x18..+0x1b.
+         */
+        if (cfg->flags2 & 0x04) {
+            for (int j = 0; j < 4 && cfg->call_fn[j]; ++j) {
+                if (tok == make_token(cfg->call_fn[j])) {
+                    tx[emit_idx++] = tok;
+                    e->matched_call_fn = tok;   // +0x0ec0
+                    e->have_call_match = 1;     // +0x0ebc
+                    call_match_seen = 1;
+                    goto call_done;
+                }
+            }
+
+            /*
+             * No explicit match: fall back to a locally selected call-function
+             * token chosen from config permission bits.
+             */
+            if (cfg->byte1 & 0x40) {
+                tx[emit_idx++] = 0x0107;
+            } else if (cfg->flags2 & 0x01) {
+                tx[emit_idx++] = 0x0103;
+            } else if (cfg->byte1 & 0x80) {
+                tx[emit_idx++] = 0x010b;
+            } else if (cfg->flags2 & 0x02) {
+                tx[emit_idx++] = 0x0109;
+            } else {
+                /*
+                 * Last-resort fallback: force-enable the 0x0107 path in the
+                 * config and emit 0x0107.
+                 */
+                cfg->byte1 |= 0x40;
+                tx[emit_idx++] = 0x0107;
+            }
+        } else {
+            /*
+             * Alternate path: accept only a received call-function token that
+             * is permitted by the local config bits, then try to confirm it
+             * against the secondary comparison table at cfg+0x20..+0x27.
+             */
+            if (!local_call_token_is_permitted(cfg, tok))
+                goto call_done;
+
+            call_match_seen = 1;
+
+            if (!e->have_call_match) {
+                uint8_t flipped = charFlip(tok >> 1);
+                if (byte_in_table(cfg->secondary_call_table, 8, flipped)) {
+                    tx[emit_idx++] = tok;
+                    e->matched_call_fn = tok;
+                    e->have_call_match = 1;
+                }
+            }
+        }
+
+        break;
+    }
+
+call_done:
+    /*
+     * Pass 2: modulation section.
+     *
+     * If no call-function match was latched, emit the local modulation
+     * skeleton first and optionally rebuild it later after parsing the received
+     * categories.
+     */
+    if (!e->have_call_match) {
+        tx[emit_idx + 0] = 0x0141;
+        tx[emit_idx + 1] = 0x0011;
+        tx[emit_idx + 2] = 0x0011;
+        emit_idx += 3;
+    }
+
+    /*
+     * If both the local config and the received sequence indicate PCM/V.90-ish
+     * capability, and the extracted received bits line up, the blob tries to
+     * match explicit local protocol bytes against a received 0x00a1 category
+     * token before the access block is emitted.
+     */
+    if ((cfg->byte0 & 0x08) &&
+        rx_mod_pcm_bit &&
+        rx_access_bit &&
+        rx_pcm_bits == 1 &&
+        (cfg->flags2 & 0x08)) {
+        for (int i = 0; i < rx_count; ++i) {
+            if ((rx[i] & 0xfff1) != 0x00a1)
+                continue;
+            for (int j = 0; j < 4 && cfg->proto[j]; ++j) {
+                if (rx[i] == make_token(cfg->proto[j])) {
+                    tx[emit_idx++] = rx[i];
+                    protocol_match_seen = 1;
+                    e->have_proto_match = 1;
+                    break;
+                }
+            }
+        }
+    }
+
+    /*
+     * Pass 3: scan the received sequence and intersect categories against the
+     * local skeleton.
+     *
+     * - 0x0141: AND the local modulation words with the received words
+     * - 0x0161: capture a single received access-derived bit
+     * - 0x01c1: capture two received PCM-derived bits
+     */
+    for (int i = 0; i < rx_count; ++i) {
+        uint16_t tok = rx[i];
+        switch (tok & 0xfff1) {
+        case 0x0141:
+            tx[first_mod_slot] &= tok;
+            rx_mod_pcm_bit = (tok >> 3) & 1;
+
+            if (i + 1 < rx_count && ((rx[i + 1] & 0x39) == 0x11)) {
+                tx[first_mod_slot + 1] &= rx[i + 1];
+                i++;
+            }
+            break;
+
+        case 0x0161:
+            rx_access_bit = (tok >> 1) & 1;
+            break;
+
+        case 0x01c1:
+            rx_pcm_bits = (tok >> 2) & 0x3;
+            break;
+        }
+    }
+
+    /*
+     * If the received sequence says PCM is in play and the local config allows
+     * it, set bit 0x0008 in the local modulation word. This is the blob’s
+     * "rebuilding JM with V90 capabilities" path.
+     */
+    if ((cfg->byte0 & 0x08) &&
+        rx_mod_pcm_bit &&
+        rx_access_bit &&
+        rx_pcm_bits == 1) {
+        tx[first_mod_slot] |= 0x0008;
+    }
+
+    /*
+     * Pass 4: access / PCM section.
+     */
+    tx[emit_idx++] = 0x0161;
+
+    if ((cfg->byte0 & 0x08) &&
+        rx_mod_pcm_bit &&
+        rx_access_bit &&
+        rx_pcm_bits == 1) {
+        tx[emit_idx + 0] = 0x01c9;
+        tx[emit_idx + 2] = 0x0011;
+        emit_idx += 3;
+    }
+
+    /*
+     * Pass 5: protocol section.
+     *
+     * First try to intersect against a received 0x00a1 token and explicit
+     * local protocol bytes. If that fails, either emit the received token
+     * directly, or fall back to the default LAPM token 0x00a9 when the local
+     * / received conditions allow it.
+     */
+    if (!e->have_proto_match) {
+        int copied_explicit_proto = 0;
+
+        for (int i = 0; i < rx_count; ++i) {
+            uint16_t tok = rx[i];
+            if ((tok & 0xfff1) != 0x00a1)
+                continue;
+
+            if (!(cfg->flags2 & 0x08)) {
+                if (cfg->secondary_proto_table[0] &&
+                    byte_in_table(cfg->secondary_proto_table,
+                                  8,
+                                  charFlip(tok >> 1))) {
+                    tx[emit_idx++] = tok;
+                    e->matched_proto = tok;
+                    e->have_proto_match = 1;
+                    copied_explicit_proto = 1;
+                } else if (tok == 0x00a9) {
+                    protocol_match_seen = 1;
+                }
+            } else {
+                for (int j = 0; j < 4 && cfg->proto[j]; ++j) {
+                    if (tok == make_token(cfg->proto[j])) {
+                        tx[emit_idx++] = tok;
+                        e->matched_proto = tok;
+                        protocol_match_seen = 1;
+                        copied_explicit_proto = 1;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!copied_explicit_proto) {
+            int want_default_lapm;
+
+            want_default_lapm =
+                (!(cfg->flags2 & 0x08) && (cfg->byte0 & 0x08) &&
+                 rx_mod_pcm_bit && rx_access_bit && rx_pcm_bits == 1) ||
+                ((cfg->flags2 & 0x08) == 0 && protocol_match_seen);
+
+            if (want_default_lapm) {
+                tx[emit_idx++] = 0x00a9;
+                e->matched_proto = 0x00a9;
+            }
+        }
+    }
+
+    /*
+     * Final trailer. The function stores a transmit-side scheduling block after
+     * the JM words. One field is:
+     *
+     *   length_metric = emit_idx * 10
+     */
+    tx[0x0f] = 0xffff;
+    tx[0x11] = emit_idx * 10;
+    tx[0x13] = 0x000a;
+    tx[0x10] = 0x0000;
+    tx[0x12] = 0x0000;
+    tx[0x14] = 0x0000;
+    tx[0x15] = 0x0001;
+    *(uint32_t *)&tx[0x18] = 0;
+    *(uint32_t *)&tx[0x1c] = 0;
+}
+```
+
+The important thing for the open stub is that the blob is not simply
+"encoding final octets". It:
+
+- seeds a skeleton (`0x0141, 0x0011, 0x0011`, `0x0161`, optional `0x01c9`)
+- parses the received sequence
+- latches explicit category matches into `0x0ebc/0x0ebe`
+- patches the skeleton in place using received tokens and config gates
+- only then finalizes the outgoing JM
+
+That means the open stub should eventually derive its outgoing JM from a
+stored parsed-CM model, not from a fixed precomputed template.
+
+The debug strings that anchor the main branches are:
 
 - `"V8: Final JM message length is %d octets"`
 - `"V8: on ANSWER: rebuilding JM with V90 capabilities..."`
