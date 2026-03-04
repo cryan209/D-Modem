@@ -25,6 +25,9 @@
 #define V8OPEN_CM_COLLECT_BURST 2U
 #define V8OPEN_CJ_COLLECT_BURST 2U
 #define V8OPEN_MAX_SAMPLES_PER_BIT 64U
+#define V8OPEN_DEMOD_STAGE_SAMPLES 12U
+#define V8OPEN_DEMOD_HISTORY_SAMPLES 40U
+#define V8OPEN_DEMOD_LOCK_TICKS 5U
 #define V8OPEN_CM_WORDS 10U
 #define V8OPEN_CJ_WORDS 6U
 
@@ -33,6 +36,38 @@ static const short v8_open_sine_32[32] = {
 	10000, 9808, 9239, 8315, 7071, 5556, 3827, 1951,
 	0, -1951, -3827, -5556, -7071, -8315, -9239, -9808,
 	-10000, -9808, -9239, -8315, -7071, -5556, -3827, -1951
+};
+
+static const short v8_open_v21_filt_0[40] = {
+	0x00dc, 0x0054, 0xff28, 0xfeba, 0x003f, 0x025c, 0x01b4, 0xfdca,
+	0xfb90, 0xff77, 0x05aa, 0x0540, 0xfceb, 0xf71f, 0xfce6, 0x07fd,
+	0x0975, 0xfe25, 0xf47c, 0xf9b0, 0x0752, 0x0b70, 0x00c5, 0xf59f,
+	0xf847, 0x0444, 0x09a0, 0x0294, 0xf99c, 0xf9e4, 0x013b, 0x055e,
+	0x024c, 0xfd97, 0xfd18, 0xffec, 0x01bc, 0x00fc, 0xff81, 0xff13
+};
+
+static const short v8_open_v21_filt_1[40] = {
+	0x0000, 0x00df, 0x00be, 0xff52, 0xfe24, 0xff73, 0x028d, 0x0316,
+	0xfed0, 0xfa96, 0xfd35, 0x04eb, 0x0772, 0xffb6, 0xf6dd, 0xf972,
+	0x0576, 0x0b3e, 0x024a, 0xf5d9, 0xf676, 0x0378, 0x0bb7, 0x04b4,
+	0xf847, 0xf697, 0x00a2, 0x0880, 0x04e8, 0xfc34, 0xf9cf, 0xff1d,
+	0x03fb, 0x02ef, 0xff04, 0xfd94, 0xff48, 0x010d, 0x0102, 0xffe9
+};
+
+static const short v8_open_v21_filt_2[40] = {
+	0x0000, 0x00d2, 0x00ef, 0xffdc, 0xfe44, 0xfe20, 0x0099, 0x03a2,
+	0x0340, 0xfe6c, 0xf9cf, 0xfb70, 0x0315, 0x08d7, 0x055c, 0xfb21,
+	0xf515, 0xfaa1, 0x0686, 0x0be5, 0x049a, 0xf86b, 0xf47c, 0xfcb1,
+	0x07b9, 0x09e3, 0x01e2, 0xf922, 0xf88e, 0xff4b, 0x0540, 0x04cc,
+	0x0000, 0xfca7, 0xfd73, 0x003d, 0x01bc, 0x011d, 0xffc8, 0xff1c
+};
+
+static const short v8_open_v21_filt_3[40] = {
+	0x00dc, 0x0070, 0xff60, 0xfe91, 0xff48, 0x018a, 0x0302, 0x011a,
+	0xfcc0, 0xfacb, 0xfec5, 0x0590, 0x0772, 0x00df, 0xf7fb, 0xf6e3,
+	0x0000, 0x0a0c, 0x09c3, 0xfed4, 0xf4e4, 0xf6c3, 0x024a, 0x0ae7,
+	0x07b9, 0xfd00, 0xf68a, 0xfa5e, 0x0315, 0x0729, 0x0382, 0xfd6f,
+	0xfb68, 0xfe36, 0x01b4, 0x0269, 0x00b8, 0xff16, 0xfee6, 0xffbb
 };
 
 static const unsigned short v8_open_cm_rx_template[] = {
@@ -166,10 +201,19 @@ struct v8_open_engine {
 	unsigned rx_skip_samples;
 	unsigned rx_bit_window_len;
 	unsigned short rx_shift_reg;
+	unsigned short rx_preamble_expected;
+	unsigned short rx_sequence_len;
+	unsigned rx_probe_bits;
+	unsigned rx_probe_words_logged;
 	unsigned rx_invert_bits;
 	unsigned rx_reverse_word_bits;
 	unsigned rx_word_sync;
 	unsigned rx_bits_to_word;
+	unsigned rx_demod_hist_fill;
+	unsigned rx_phase_offset;
+	unsigned rx_mark_ticks;
+	unsigned rx_space_ticks;
+	short rx_demod_history[V8OPEN_DEMOD_HISTORY_SAMPLES];
 	short rx_bit_window[V8OPEN_MAX_SAMPLES_PER_BIT];
 	unsigned char tx_bits[256];
 };
@@ -274,6 +318,20 @@ static unsigned short v8_open_reverse_word10(unsigned short word)
 
 	out = 0U;
 	for (i = 0U; i < 10U; ++i) {
+		out <<= 1;
+		out |= (unsigned short)(word & 0x01U);
+		word >>= 1;
+	}
+	return out;
+}
+
+static unsigned short v8_open_reverse_word12(unsigned short word)
+{
+	unsigned short out;
+	unsigned i;
+
+	out = 0U;
+	for (i = 0U; i < 12U; ++i) {
 		out <<= 1;
 		out |= (unsigned short)(word & 0x01U);
 		word >>= 1;
@@ -635,28 +693,6 @@ static unsigned v8_open_capture_signature(const short *samples,
 	       ((zero_crossings & 0xffU) << 8);
 }
 
-static int v8_open_signature_within(unsigned prev_signature,
-				    unsigned curr_signature,
-				    unsigned avg_tol,
-				    unsigned zc_tol)
-{
-	unsigned prev_avg;
-	unsigned prev_zc;
-	unsigned curr_avg;
-	unsigned curr_zc;
-	unsigned avg_delta;
-	unsigned zc_delta;
-
-	prev_avg = prev_signature & 0xffU;
-	prev_zc = (prev_signature >> 8) & 0xffU;
-	curr_avg = curr_signature & 0xffU;
-	curr_zc = (curr_signature >> 8) & 0xffU;
-	avg_delta = prev_avg > curr_avg ? (prev_avg - curr_avg) : (curr_avg - prev_avg);
-	zc_delta = prev_zc > curr_zc ? (prev_zc - curr_zc) : (curr_zc - prev_zc);
-
-	return avg_delta <= avg_tol && zc_delta <= zc_tol;
-}
-
 static void v8_open_rx_push_token(struct v8_open_engine *engine,
 				  unsigned short token)
 {
@@ -763,112 +799,114 @@ static unsigned v8_open_rx_samples_per_bit(const struct v8_open_engine *engine)
 	return samples_per_bit;
 }
 
-static void v8_open_rx_tones(const struct v8_open_engine *engine,
-			     unsigned *mark_hz,
-			     unsigned *space_hz)
-{
-	if (engine->cfg.answer_mode) {
-		*mark_hz = V8OPEN_V21_ORG_MARK;
-		*space_hz = V8OPEN_V21_ORG_SPACE;
-	} else {
-		*mark_hz = V8OPEN_V21_ANS_MARK;
-		*space_hz = V8OPEN_V21_ANS_SPACE;
-	}
-}
-
 static unsigned long long v8_open_rx_window_score(const struct v8_open_engine *engine,
 						  const short *samples,
 						  unsigned window_len,
+						  unsigned long long *mark_energy_out,
+						  unsigned long long *space_energy_out,
 						  unsigned *bit_out)
 {
-	unsigned mark_hz;
-	unsigned space_hz;
-	unsigned sample_rate;
-	unsigned long long mark_energy;
-	unsigned long long space_energy;
-	unsigned freq;
-	unsigned phase;
-	unsigned step;
-	long long i_acc;
-	long long q_acc;
+	long long acc0;
+	long long acc1;
+	long long acc2;
+	long long acc3;
+	long long filt0;
+	long long filt1;
+	long long filt2;
+	long long filt3;
+	unsigned count;
+	unsigned long long energy0;
+	unsigned long long energy1;
 	unsigned i;
 
-	v8_open_rx_tones(engine, &mark_hz, &space_hz);
-	sample_rate = engine->cfg.sample_rate ? engine->cfg.sample_rate : 9600U;
-
-	mark_energy = 0U;
-	space_energy = 0U;
-	for (freq = 0U; freq < 2U; ++freq) {
-		unsigned tone_hz;
-		unsigned long long energy;
-
-		tone_hz = freq == 0U ? mark_hz : space_hz;
-		phase = 0U;
-		step = (unsigned)(((unsigned long long)tone_hz << 16) / sample_rate);
-		i_acc = 0;
-		q_acc = 0;
-		for (i = 0U; i < window_len; ++i) {
-			unsigned index;
-			short sin_ref;
-			short cos_ref;
-
-			index = (phase >> 11) & 0x1fU;
-			sin_ref = v8_open_sine_32[index];
-			cos_ref = v8_open_sine_32[(index + 8U) & 0x1fU];
-			i_acc += ((long long)samples[i] * (long long)cos_ref) >> 7;
-			q_acc += ((long long)samples[i] * (long long)sin_ref) >> 7;
-			phase += step;
-		}
-
-		energy = (unsigned long long)(i_acc * i_acc) +
-			(unsigned long long)(q_acc * q_acc);
-		if (freq == 0U)
-			mark_energy = energy;
-		else
-			space_energy = energy;
+	(void)engine;
+	if (!samples || !window_len) {
+		if (mark_energy_out)
+			*mark_energy_out = 0U;
+		if (space_energy_out)
+			*space_energy_out = 0U;
+		if (bit_out)
+			*bit_out = 0U;
+		return 0U;
 	}
 
+	count = window_len;
+	if (count > V8OPEN_DEMOD_HISTORY_SAMPLES)
+		count = V8OPEN_DEMOD_HISTORY_SAMPLES;
+	if (!count) {
+		if (mark_energy_out)
+			*mark_energy_out = 0U;
+		if (space_energy_out)
+			*space_energy_out = 0U;
+		if (bit_out)
+			*bit_out = 0U;
+		return 0U;
+	}
+
+	acc0 = 0x2000;
+	acc1 = 0x2000;
+	acc2 = 0x2000;
+	acc3 = 0x2000;
+	for (i = 0U; i < count; ++i) {
+		short sample;
+
+		sample = samples[count - 1U - i];
+		acc0 += (long long)sample * (long long)v8_open_v21_filt_0[i];
+		acc1 += (long long)sample * (long long)v8_open_v21_filt_1[i];
+		acc2 += (long long)sample * (long long)v8_open_v21_filt_2[i];
+		acc3 += (long long)sample * (long long)v8_open_v21_filt_3[i];
+	}
+
+	filt0 = acc0 >> 14;
+	filt1 = acc1 >> 14;
+	filt2 = acc2 >> 14;
+	filt3 = acc3 >> 14;
+	energy0 = (unsigned long long)(filt0 * filt0) +
+		(unsigned long long)(filt1 * filt1);
+	energy1 = (unsigned long long)(filt2 * filt2) +
+		(unsigned long long)(filt3 * filt3);
+
+	if (mark_energy_out)
+		*mark_energy_out = energy0;
+	if (space_energy_out)
+		*space_energy_out = energy1;
 	if (bit_out)
-		*bit_out = mark_energy >= space_energy ? 1U : 0U;
-	return mark_energy >= space_energy ?
-		(mark_energy - space_energy) :
-		(space_energy - mark_energy);
+		*bit_out = energy1 > energy0 ? 1U : 0U;
+	return energy0 >= energy1 ? (energy0 - energy1) : (energy1 - energy0);
 }
 
-static unsigned v8_open_rx_best_align(const struct v8_open_engine *engine,
-				      const short *samples,
-				      int cnt)
+static unsigned v8_open_rx_quantize_counter(unsigned *counter)
 {
-	unsigned window_len;
-	unsigned max_offset;
-	unsigned best_offset;
-	unsigned offset;
-	unsigned long long best_score;
+	unsigned phase_count;
+	unsigned whole_bits;
+	unsigned remainder;
+	unsigned limit;
+	unsigned threshold;
 
-	window_len = v8_open_rx_samples_per_bit(engine);
-	if (cnt <= 0 || (unsigned)cnt <= window_len)
+	phase_count = *counter;
+	if (!phase_count)
 		return 0U;
 
-	max_offset = (unsigned)cnt - window_len;
-	if (max_offset > window_len)
-		max_offset = window_len;
+	whole_bits = phase_count >> 2;
+	remainder = phase_count & 0x03U;
+	*counter = remainder;
 
-	best_offset = 0U;
-	best_score = 0U;
-	for (offset = 0U; offset <= max_offset; ++offset) {
-		unsigned long long score;
+	limit = whole_bits > 2U ? 3U : (whole_bits + 1U);
+	threshold = 4U - limit;
+	return whole_bits + (remainder >= threshold ? 1U : 0U);
+}
 
-		score = v8_open_rx_window_score(engine,
-						samples + offset,
-						window_len,
-						NULL);
-		if (score > best_score) {
-			best_score = score;
-			best_offset = offset;
-		}
+static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit);
+
+static int v8_open_rx_emit_recovered_bits(struct v8_open_engine *engine,
+					  unsigned bit,
+					  unsigned count)
+{
+	while (count-- > 0U) {
+		if (v8_open_rx_push_bit(engine, bit))
+			return 1;
 	}
-
-	return best_offset;
+	return 0;
 }
 
 static void v8_open_rx_reset_collect(struct v8_open_engine *engine)
@@ -878,10 +916,18 @@ static void v8_open_rx_reset_collect(struct v8_open_engine *engine)
 	engine->rx_skip_samples = 0U;
 	engine->rx_bit_window_len = 0U;
 	engine->rx_shift_reg = 0U;
+	engine->rx_preamble_expected = 0U;
+	engine->rx_sequence_len = 0U;
+	engine->rx_probe_bits = 0U;
+	engine->rx_probe_words_logged = 0U;
 	engine->rx_invert_bits = 0U;
 	engine->rx_reverse_word_bits = 0U;
 	engine->rx_word_sync = 0U;
 	engine->rx_bits_to_word = 0U;
+	engine->rx_demod_hist_fill = 0U;
+	engine->rx_phase_offset = 0U;
+	engine->rx_mark_ticks = 0U;
+	engine->rx_space_ticks = 0U;
 	engine->cm_collect_deadline = 0U;
 	engine->cj_collect_deadline = 0U;
 }
@@ -899,43 +945,19 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 	engine->rx_skip_samples = 0U;
 	engine->rx_bit_window_len = 0U;
 	engine->rx_shift_reg = 0U;
+	engine->rx_preamble_expected =
+		mode == V8_OPEN_RX_COLLECT_CM ? 0x0c0fU : 0x0d55U;
+	engine->rx_sequence_len = 0U;
+	engine->rx_probe_bits = 0U;
+	engine->rx_probe_words_logged = 0U;
 	engine->rx_invert_bits = 0U;
 	engine->rx_reverse_word_bits = 0U;
 	engine->rx_word_sync = 0U;
 	engine->rx_bits_to_word = 0U;
-}
-
-static int v8_open_cm_sequence_valid(const struct v8_open_engine *engine)
-{
-	unsigned i;
-	unsigned have_call;
-	unsigned have_mod;
-	unsigned have_access;
-	unsigned have_proto;
-
-	if (engine->rx_seq_b_count < V8OPEN_CM_WORDS)
-		return 0;
-
-	have_call = 0U;
-	have_mod = 0U;
-	have_access = 0U;
-	have_proto = 0U;
-
-	for (i = 0U; i < engine->rx_seq_b_count; ++i) {
-		unsigned short word;
-
-		word = engine->rx_seq_b[i];
-		if ((word & 0xfff1U) == 0x0101U)
-			have_call = 1U;
-		else if ((word & 0xfff1U) == 0x0141U)
-			have_mod = 1U;
-		else if ((word & 0xfff1U) == 0x0161U || (word & 0xfff1U) == 0x01c1U)
-			have_access = 1U;
-		else if ((word & 0xfff1U) == 0x00a1U)
-			have_proto = 1U;
-	}
-
-	return have_call && have_mod && have_access && have_proto;
+	engine->rx_demod_hist_fill = 0U;
+	engine->rx_phase_offset = 0U;
+	engine->rx_mark_ticks = 0U;
+	engine->rx_space_ticks = 0U;
 }
 
 static int v8_open_cj_sequence_valid(struct v8_open_engine *engine);
@@ -953,96 +975,124 @@ static unsigned short v8_open_rx_normalize_word(const struct v8_open_engine *eng
 	return word;
 }
 
-static int v8_open_cm_sync_candidate(unsigned short word)
-{
-	if (word == 0x03ffU || word == 0x000fU)
-		return 1;
-	if (word == 0x0107U || word == 0x0109U)
-		return 1;
-	if ((word & 0xfff1U) == 0x0141U)
-		return 1;
-	if ((word & 0xfff1U) == 0x0161U)
-		return 1;
-	if ((word & 0xfff1U) == 0x01c1U)
-		return 1;
-	if ((word & 0xfff1U) == 0x00a1U)
-		return 1;
-	return 0;
-}
-
 static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 {
 	unsigned raw_word;
 	unsigned inv_word;
 	unsigned rev_word;
 	unsigned rev_inv_word;
-	unsigned short sync_word;
-
-	engine->rx_shift_reg = (unsigned short)(((engine->rx_shift_reg << 1) |
-						(bit & 0x01U)) & 0x03ffU);
-	raw_word = engine->rx_shift_reg;
-	inv_word = raw_word ^ 0x03ffU;
-	rev_word = v8_open_reverse_word10((unsigned short)raw_word);
-	rev_inv_word = rev_word ^ 0x03ffU;
+	unsigned short word;
+	unsigned idx;
 
 	if (!engine->rx_word_sync) {
-		if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM &&
-		    (v8_open_cm_sync_candidate((unsigned short)raw_word) ||
-		     v8_open_cm_sync_candidate((unsigned short)inv_word) ||
-		     v8_open_cm_sync_candidate((unsigned short)rev_word) ||
-		     v8_open_cm_sync_candidate((unsigned short)rev_inv_word))) {
-			engine->rx_reverse_word_bits =
-				(v8_open_cm_sync_candidate((unsigned short)rev_word) ||
-				 v8_open_cm_sync_candidate((unsigned short)rev_inv_word)) ? 1U : 0U;
-			engine->rx_invert_bits =
-				(v8_open_cm_sync_candidate((unsigned short)inv_word) ||
-				 v8_open_cm_sync_candidate((unsigned short)rev_inv_word)) ? 1U : 0U;
-			sync_word = v8_open_rx_normalize_word(engine, (unsigned short)raw_word);
+		engine->rx_shift_reg = (unsigned short)(((engine->rx_shift_reg << 1) |
+						(bit & 0x01U)) & 0x0fffU);
+		raw_word = engine->rx_shift_reg & 0x0fffU;
+		inv_word = raw_word ^ 0x0fffU;
+		rev_word = v8_open_reverse_word12((unsigned short)raw_word);
+		rev_inv_word = rev_word ^ 0x0fffU;
+		engine->rx_probe_bits++;
+		if (engine->rx_probe_bits >= 12U) {
+			if (engine->rx_probe_words_logged < 6U) {
+				V8OPEN_DBG("rx-probe: mode=%s raw=%03x inv=%03x rev=%03x rinv=%03x\n",
+					  engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM ? "cm" : "cj",
+					  raw_word,
+					  inv_word,
+					  rev_word,
+					  rev_inv_word);
+				engine->rx_probe_words_logged++;
+			}
+			engine->rx_probe_bits = 0U;
+		}
+
+		if (raw_word == engine->rx_preamble_expected) {
+			engine->rx_reverse_word_bits = 0U;
+			engine->rx_invert_bits = 0U;
+		} else if (inv_word == engine->rx_preamble_expected) {
+			engine->rx_reverse_word_bits = 0U;
+			engine->rx_invert_bits = 1U;
+		} else if (rev_word == engine->rx_preamble_expected) {
+			engine->rx_reverse_word_bits = 1U;
+			engine->rx_invert_bits = 0U;
+		} else if (rev_inv_word == engine->rx_preamble_expected) {
+			engine->rx_reverse_word_bits = 1U;
+			engine->rx_invert_bits = 1U;
+		} else {
+			return 0;
+		}
+
+		engine->rx_probe_bits = 0U;
+		engine->rx_word_sync = 1U;
+		engine->rx_bits_to_word = 10U;
+		engine->rx_shift_reg = 0U;
+
+		if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM) {
 			engine->rx_seq_b_count = 0U;
-			v8_open_rx_seq_b_push(engine, sync_word);
-			engine->rx_word_sync = 1U;
-			engine->rx_bits_to_word = 10U;
-		} else if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CJ &&
-			   (raw_word == 0x0155U || inv_word == 0x0155U ||
-			    rev_word == 0x0155U || rev_inv_word == 0x0155U)) {
-			engine->rx_reverse_word_bits =
-				(rev_word == 0x0155U || rev_inv_word == 0x0155U) ? 1U : 0U;
-			engine->rx_invert_bits =
-				(inv_word == 0x0155U || rev_inv_word == 0x0155U) ? 1U : 0U;
-			sync_word = v8_open_rx_normalize_word(engine, (unsigned short)raw_word);
+			v8_open_rx_seq_b_push(engine, 0x000fU);
+			for (idx = 1U; idx <= 14U; ++idx)
+				v8_open_rx_seq_b_push(engine, 0x03ffU);
+			engine->cm_collect_index = 1U;
+			engine->cm_collect_pass = 1U;
+			engine->rx_sequence_len = 0xffffU;
+		} else if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CJ) {
 			engine->rx_seq_a_count = 0U;
-			v8_open_rx_seq_a_push(engine, sync_word);
-			engine->rx_word_sync = 1U;
-			engine->rx_bits_to_word = 10U;
+			v8_open_rx_seq_a_push(engine, 0x0155U);
+			for (idx = 1U; idx < V8OPEN_CJ_WORDS; ++idx)
+				v8_open_rx_seq_a_push(engine, 0x03ffU);
+			engine->cj_collect_index = 1U;
 		}
 		return 0;
 	}
 
+	engine->rx_shift_reg = (unsigned short)(((engine->rx_shift_reg << 1) |
+						(bit & 0x01U)) & 0x03ffU);
 	if (engine->rx_bits_to_word > 0U)
 		engine->rx_bits_to_word--;
 	if (engine->rx_bits_to_word > 0U)
 		return 0;
 
 	engine->rx_bits_to_word = 10U;
+	word = v8_open_rx_normalize_word(engine, engine->rx_shift_reg);
 	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM) {
-		sync_word = v8_open_rx_normalize_word(engine, engine->rx_shift_reg);
-		if (engine->rx_seq_b_count < (sizeof(engine->rx_seq_b) / sizeof(engine->rx_seq_b[0])))
-			v8_open_rx_seq_b_push(engine, sync_word);
-		if (engine->rx_seq_b_count >= V8OPEN_CM_WORDS) {
-			if (v8_open_cm_sequence_valid(engine))
+		if (word == 0x000fU) {
+			if (engine->rx_sequence_len == engine->cm_collect_pass) {
+				engine->rx_seq_b_count = engine->rx_sequence_len;
 				return 1;
-			engine->rx_word_sync = 0U;
-			engine->rx_seq_b_count = 0U;
+			}
+			engine->rx_seq_b[0] = 0x000fU;
+			engine->rx_sequence_len = (unsigned short)engine->cm_collect_index;
+			engine->cm_collect_index = 1U;
+			engine->cm_collect_pass = 1U;
+			return 0;
+		}
+
+		idx = engine->cm_collect_index;
+		if (idx <= 14U) {
+			if (engine->rx_seq_b[idx] == word)
+				engine->cm_collect_pass++;
+			else
+				engine->rx_seq_b[idx] = word;
+			engine->cm_collect_index++;
 		}
 	} else if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CJ) {
-		sync_word = v8_open_rx_normalize_word(engine, engine->rx_shift_reg);
-		if (engine->rx_seq_a_count < (sizeof(engine->rx_seq_a) / sizeof(engine->rx_seq_a[0])))
-			v8_open_rx_seq_a_push(engine, sync_word);
-		if (engine->rx_seq_a_count >= V8OPEN_CJ_WORDS) {
+		if (engine->cj_collect_index < V8OPEN_CJ_WORDS)
+			engine->rx_seq_a[engine->cj_collect_index++] = word;
+		if (engine->cj_collect_index >= V8OPEN_CJ_WORDS) {
+			engine->rx_seq_a_count = V8OPEN_CJ_WORDS;
 			if (v8_open_cj_sequence_valid(engine))
 				return 1;
 			engine->rx_word_sync = 0U;
+			engine->rx_align_locked = 0U;
+			engine->rx_skip_samples = 0U;
+			engine->rx_bit_window_len = 0U;
+			engine->rx_shift_reg = 0U;
+			engine->rx_preamble_expected = 0x0d55U;
+			engine->rx_sequence_len = 0U;
+			engine->rx_probe_bits = 0U;
+			engine->rx_probe_words_logged = 0U;
+			engine->rx_bits_to_word = 0U;
 			engine->rx_seq_a_count = 0U;
+			engine->cj_collect_index = 0U;
 			engine->cj_sequence_valid = 0U;
 			engine->cj_variant_bit = 0U;
 		}
@@ -1055,50 +1105,75 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 				      const short *samples,
 				      int cnt)
 {
-	unsigned window_len;
-	int index;
+	unsigned i;
 
 	if (!samples || cnt <= 0)
 		return 0;
 
-	window_len = v8_open_rx_samples_per_bit(engine);
-	index = 0;
-
-	if (!engine->rx_word_sync) {
-		engine->rx_skip_samples = v8_open_rx_best_align(engine, samples, cnt);
-		engine->rx_align_locked = 1U;
-		engine->rx_bit_window_len = 0U;
-		engine->rx_shift_reg = 0U;
-		engine->rx_bits_to_word = 0U;
-	}
-
-	while (index < cnt) {
-		unsigned take;
-
-		if (engine->rx_skip_samples > 0U) {
-			take = engine->rx_skip_samples;
-			if ((int)take > (cnt - index))
-				take = (unsigned)(cnt - index);
-			index += (int)take;
-			engine->rx_skip_samples -= take;
-			continue;
+	for (i = 0U; i < (unsigned)cnt; ++i) {
+		if (engine->rx_demod_hist_fill < V8OPEN_DEMOD_HISTORY_SAMPLES) {
+			engine->rx_demod_history[engine->rx_demod_hist_fill++] = samples[i];
+		} else {
+			memmove(engine->rx_demod_history,
+				engine->rx_demod_history + 1,
+				(V8OPEN_DEMOD_HISTORY_SAMPLES - 1U) * sizeof(engine->rx_demod_history[0]));
+			engine->rx_demod_history[V8OPEN_DEMOD_HISTORY_SAMPLES - 1U] = samples[i];
 		}
 
-		engine->rx_bit_window[engine->rx_bit_window_len++] = samples[index++];
-		if (engine->rx_bit_window_len < window_len)
+		engine->rx_bit_window[engine->rx_bit_window_len++] = samples[i];
+		if (engine->rx_bit_window_len < V8OPEN_DEMOD_STAGE_SAMPLES)
 			continue;
 
 		{
-			unsigned bit;
+			unsigned phase;
+			unsigned idx;
 
-			(void)v8_open_rx_window_score(engine,
-						      engine->rx_bit_window,
-						      window_len,
-						      &bit);
-			engine->rx_bit_window_len = 0U;
-			if (v8_open_rx_push_bit(engine, bit))
-				return 1;
+			phase = engine->rx_phase_offset;
+			for (idx = 0U; idx < V8OPEN_DEMOD_STAGE_SAMPLES; ++idx) {
+				unsigned long long mark_energy;
+				unsigned long long space_energy;
+				unsigned bit;
+
+				if (phase > idx)
+					continue;
+
+				phase += 8U;
+				v8_open_rx_window_score(engine,
+							engine->rx_bit_window,
+							idx + 1U,
+							&mark_energy,
+							&space_energy,
+							&bit);
+				if (mark_energy <= 0xc34fULL && space_energy <= 0xc34fULL) {
+					engine->rx_mark_ticks = 0U;
+					engine->rx_space_ticks = 0U;
+					continue;
+				}
+
+				if (bit) {
+					unsigned emit_count;
+
+					emit_count = v8_open_rx_quantize_counter(&engine->rx_space_ticks);
+					if (emit_count &&
+					    v8_open_rx_emit_recovered_bits(engine, 0U, emit_count))
+						return 1;
+					engine->rx_mark_ticks++;
+				} else {
+					unsigned emit_count;
+
+					emit_count = v8_open_rx_quantize_counter(&engine->rx_mark_ticks);
+					if (emit_count &&
+					    v8_open_rx_emit_recovered_bits(engine, 1U, emit_count))
+						return 1;
+					engine->rx_space_ticks++;
+				}
+			}
+
+			engine->rx_phase_offset =
+				phase >= V8OPEN_DEMOD_STAGE_SAMPLES ?
+					(phase - V8OPEN_DEMOD_STAGE_SAMPLES) : 0U;
 		}
+		engine->rx_bit_window_len = 0U;
 	}
 
 	return 0;
@@ -1117,7 +1192,7 @@ static void v8_open_cm_collect_start(struct v8_open_engine *engine,
 	engine->rx_token_count = 0U;
 	samples_per_bit = v8_open_rx_samples_per_bit(engine);
 	engine->cm_collect_deadline = engine->samples_in_phase +
-		((V8OPEN_CM_WORDS + 2U) * 10U * samples_per_bit);
+		(((V8OPEN_CM_WORDS * 2U) + 4U) * 10U * samples_per_bit);
 	v8_open_rx_start_collect(engine, V8_OPEN_RX_COLLECT_CM, samples, cnt);
 }
 
@@ -1268,6 +1343,7 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 		return;
 
 	samples = (const short *)in;
+	signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
 
 	if (engine->cm_collecting) {
 		if (!v8_open_rx_consume_samples(engine, samples, cnt))
@@ -1280,7 +1356,6 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 		engine->samples_in_phase = 0U;
 		v8_open_rx_reset_collect(engine);
 		v8_open_parse_rx_sequence(engine);
-		signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
 		(void)signature;
 		V8OPEN_DBG("cm-stub: detected 2/2 avg=%u peak=%u remote=data:1 v34:1 v32:1 pcm:a:1 d:0 rxwords=%u\n",
 			  avg_abs,
@@ -1288,38 +1363,11 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 			  engine->rx_seq_b_count);
 		return;
 	}
-
-	samples = (const short *)in;
-	signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
-	if (avg_abs < 1200U && peak_abs < 6000U)
-		return;
-	if (((signature >> 8) & 0xffU) < 8U)
-		return;
-
-	if (engine->cm_seen_count == 0U) {
-		engine->cm_signature = signature;
-	} else if (!v8_open_signature_within(engine->cm_signature,
-					       signature,
-					       8U,
-					       6U)) {
-		engine->cm_seen_count = 0U;
-		engine->cm_signature = signature;
-	}
-
-	if (engine->cm_seen_count < 2U)
-		engine->cm_seen_count++;
-
-	if (engine->cm_seen_count < 2U) {
-		V8OPEN_DBG("cm-stub: candidate %u/2 avg=%u peak=%u\n",
-			  engine->cm_seen_count,
-			  avg_abs,
-			  peak_abs);
-		return;
-	}
-
+	engine->cm_seen_count = 2U;
+	engine->cm_signature = signature;
 	v8_open_cm_collect_start(engine, samples, cnt);
 	(void)v8_open_rx_consume_samples(engine, samples, cnt);
-	V8OPEN_DBG("cm-stub: detected 2/2 avg=%u peak=%u starting long collector %u/%u\n",
+	V8OPEN_DBG("cm-stub: entering raw preamble search avg=%u peak=%u starting long collector %u/%u\n",
 		  avg_abs,
 		  peak_abs,
 		  engine->rx_seq_b_count,
@@ -1334,7 +1382,6 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 	unsigned peak_abs;
 	unsigned avg_abs;
 	unsigned signature;
-	unsigned min_dwell;
 
 	if (!engine || !in || cnt <= 0)
 		return;
@@ -1344,6 +1391,7 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 		return;
 
 	samples = (const short *)in;
+	signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
 
 	if (engine->cj_collecting) {
 		if (!v8_open_rx_consume_samples(engine, samples, cnt))
@@ -1355,7 +1403,6 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 		engine->cj_guard_budget = v8_open_samples_from_ms(engine, 40U);
 		engine->samples_in_phase = 0U;
 		v8_open_rx_reset_collect(engine);
-		signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
 		(void)signature;
 		V8OPEN_DBG("cj-stub: detected 2/2 avg=%u peak=%u rxwords=%u variant=%u\n",
 			  avg_abs,
@@ -1364,45 +1411,11 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 			  engine->cj_variant_bit);
 		return;
 	}
-
-	min_dwell = v8_open_samples_from_ms(engine, 120U);
-	if (engine->samples_in_phase < min_dwell)
-		return;
-
-	samples = (const short *)in;
-	signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
-	if (avg_abs < 1200U && peak_abs < 6000U)
-		return;
-	/* Require an actual oscillatory V.21-like burst, not just generic energy. */
-	if (((signature >> 8) & 0xffU) < 10U)
-		return;
-
-	if (engine->cj_seen_count == 0U) {
-		engine->cj_signature = signature;
-	} else {
-		if (!v8_open_signature_within(engine->cj_signature,
-					       signature,
-					       8U,
-					       4U)) {
-			engine->cj_seen_count = 0U;
-			engine->cj_signature = signature;
-		}
-	}
-
-	if (engine->cj_seen_count < 2U)
-		engine->cj_seen_count++;
-
-	if (engine->cj_seen_count < 2U) {
-		V8OPEN_DBG("cj-stub: candidate %u/2 avg=%u peak=%u\n",
-			  engine->cj_seen_count,
-			  avg_abs,
-			  peak_abs);
-		return;
-	}
-
+	engine->cj_seen_count = 2U;
+	engine->cj_signature = signature;
 	v8_open_cj_collect_start(engine, samples, cnt);
 	(void)v8_open_rx_consume_samples(engine, samples, cnt);
-	V8OPEN_DBG("cj-stub: detected 2/2 avg=%u peak=%u starting short collector %u/%u\n",
+	V8OPEN_DBG("cj-stub: entering raw preamble search avg=%u peak=%u starting short collector %u/%u\n",
 		  avg_abs,
 		  peak_abs,
 		  engine->rx_seq_a_count,
