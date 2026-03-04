@@ -472,11 +472,6 @@ static unsigned v8_open_samples_from_ms(const struct v8_open_engine *engine,
 	return (rate * ms) / 1000U;
 }
 
-static unsigned v8_open_answer_stage2_budget(const struct v8_open_engine *engine)
-{
-	return v8_open_rx_samples_per_bit(engine) * engine->ans_det_0a;
-}
-
 static void v8_open_reset_tx(struct v8_open_engine *engine)
 {
 	engine->tone_phase_q16 = 0U;
@@ -692,6 +687,8 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 		return v8_open_samples_from_ms(engine, 2220U);
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CM:
 		if (engine->cm_predetecting) {
+			if (engine->ans_det_06 && engine->cm_predetect_deadline)
+				return engine->cm_predetect_deadline;
 			if (engine->det_e5c)
 				return engine->det_e5c;
 			if (engine->cm_predetect_deadline)
@@ -707,6 +704,8 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 		return v8_open_samples_from_ms(engine, 820U);
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
 		if (engine->cj_predetecting) {
+			if (engine->ans_det_06 && engine->cj_predetect_deadline)
+				return engine->cj_predetect_deadline;
 			if (engine->det_e60)
 				return engine->det_e60;
 			if (engine->cj_predetect_deadline)
@@ -1345,11 +1344,14 @@ static void v8_open_v21_workspace_init(struct v8_open_engine *engine)
 	/*
 	 * Mirror the explicit v8_V21_Init(..., 1, 0) workspace constants:
 	 * c220/c226/c228/c22c/c22e/c230/c232/c234/c236/c238 and companions.
+	 *
+	 * Note that V8_V21_Init also sets parent +0x26 |= 0x0800, separately from
+	 * the detector's parent +0x26 |= 0x0200 path.
 	 */
 	engine->rx_c220 = 0U;
 	engine->rx_c222 = 0x062bU;
 	engine->rx_c224 = 0x0580U;
-	engine->rx_c226 = 0x0820U;
+	engine->rx_c226 = 0x0020U;
 	engine->rx_c228 = 0U;
 	engine->rx_c22a = 0x3224U;
 	engine->rx_c22c = 0x0007U;
@@ -1365,6 +1367,7 @@ static void v8_open_v21_workspace_init(struct v8_open_engine *engine)
 	engine->rx_c242 = 0U;
 	engine->rx_c244 = 0U;
 	engine->rx_c246 = 0U;
+	engine->ans_rx_0a = (unsigned short)(engine->ans_rx_0a | 0x0800U);
 }
 
 static void v8_open_rx_reset_collect(struct v8_open_engine *engine)
@@ -1927,7 +1930,8 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 			engine->ans_rx_c8 = (unsigned short)detector_peak;
 		if (!stage2_before && engine->ans_det_06) {
 			engine->cm_predetect_deadline = engine->samples_in_phase +
-				v8_open_answer_stage2_budget(engine);
+				(engine->det_e5c ? engine->det_e5c :
+				 v8_open_samples_from_ms(engine, 160U));
 			V8OPEN_DBG("cm-stub: detector stage2 entered run=%u metric=%u\n",
 				  engine->ans_det_30,
 				  engine->ans_det_12);
@@ -1997,7 +2001,8 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 		engine->ans_rx_c8 = (unsigned short)detector_peak;
 	if (!stage2_before && engine->ans_det_06) {
 		engine->cm_predetect_deadline = engine->samples_in_phase +
-			v8_open_answer_stage2_budget(engine);
+			(engine->det_e5c ? engine->det_e5c :
+			 v8_open_samples_from_ms(engine, 160U));
 		V8OPEN_DBG("cm-stub: detector stage2 entered run=%u metric=%u\n",
 			  engine->ans_det_30,
 			  engine->ans_det_12);
@@ -2068,7 +2073,8 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 			engine->ans_rx_c8 = (unsigned short)detector_peak;
 		if (!stage2_before && engine->ans_det_06) {
 			engine->cj_predetect_deadline = engine->samples_in_phase +
-				v8_open_answer_stage2_budget(engine);
+				(engine->det_e60 ? engine->det_e60 :
+				 v8_open_samples_from_ms(engine, 420U));
 			V8OPEN_DBG("cj-stub: detector stage2 entered run=%u metric=%u\n",
 				  engine->ans_det_30,
 				  engine->ans_det_12);
@@ -2138,7 +2144,8 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 		engine->ans_rx_c8 = (unsigned short)detector_peak;
 	if (!stage2_before && engine->ans_det_06) {
 		engine->cj_predetect_deadline = engine->samples_in_phase +
-			v8_open_answer_stage2_budget(engine);
+			(engine->det_e60 ? engine->det_e60 :
+			 v8_open_samples_from_ms(engine, 420U));
 		V8OPEN_DBG("cj-stub: detector stage2 entered run=%u metric=%u\n",
 			  engine->ans_det_30,
 			  engine->ans_det_12);
