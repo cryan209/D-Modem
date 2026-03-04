@@ -116,6 +116,12 @@ struct v8_open_engine {
 	unsigned cm_signature;
 	unsigned cm_detected;
 	unsigned cm_guard_budget;
+	unsigned have_call_match;
+	unsigned have_proto_match;
+	unsigned short matched_call_word;
+	unsigned short matched_proto_word;
+	unsigned rx_token_count;
+	unsigned short rx_tokens[12];
 	unsigned cj_seen_count;
 	unsigned cj_signature;
 	unsigned cj_detected;
@@ -539,14 +545,78 @@ static int v8_open_signature_within(unsigned prev_signature,
 	return avg_delta <= avg_tol && zc_delta <= zc_tol;
 }
 
+static void v8_open_rx_push_token(struct v8_open_engine *engine,
+				  unsigned short token)
+{
+	if (engine->rx_token_count >=
+	    (sizeof(engine->rx_tokens) / sizeof(engine->rx_tokens[0])))
+		return;
+	engine->rx_tokens[engine->rx_token_count++] = token;
+}
+
+static unsigned short v8_open_find_rx_token(const struct v8_open_engine *engine,
+					    unsigned short category_masked,
+					    unsigned nth)
+{
+	unsigned i;
+	unsigned seen;
+
+	seen = 0U;
+	for (i = 0; i < engine->rx_token_count; ++i) {
+		unsigned short token;
+
+		token = engine->rx_tokens[i];
+		if ((token & 0xfff1U) != category_masked)
+			continue;
+		if (seen == nth)
+			return token;
+		seen++;
+	}
+	return 0U;
+}
+
 static void v8_open_apply_remote_cm_defaults(struct v8_open_engine *engine)
 {
+	unsigned char remote_mod0_octet;
+	unsigned char remote_mod1_octet;
+	unsigned char remote_pcm_octet;
+
+	engine->rx_token_count = 0U;
 	engine->remote_call_data = 1U;
 	engine->remote_v34 = 1U;
 	engine->remote_v32 = 1U;
 	engine->remote_lapm = 1U;
 	engine->remote_pcm_present = 1U;
 	engine->remote_access_present = 1U;
+	engine->have_call_match = 0U;
+	engine->have_proto_match = 0U;
+	engine->matched_call_word = 0U;
+	engine->matched_proto_word = 0U;
+
+	v8_open_rx_push_token(engine, 0x0109U);
+
+	remote_mod0_octet = 0x05U;
+	if (engine->remote_pcm_present)
+		remote_mod0_octet |= 0x20U;
+	if (engine->remote_v34)
+		remote_mod0_octet |= 0x40U;
+	v8_open_rx_push_token(engine, v8_open_encode_octet(remote_mod0_octet));
+
+	if (engine->remote_v32) {
+		remote_mod1_octet = 0x10U | 0x01U;
+		v8_open_rx_push_token(engine, v8_open_encode_octet(remote_mod1_octet));
+	}
+
+	if (engine->remote_access_present)
+		v8_open_rx_push_token(engine, 0x0161U);
+
+	if (engine->remote_pcm_present) {
+		remote_pcm_octet = 0x07U | 0x20U;
+		v8_open_rx_push_token(engine, v8_open_encode_octet(remote_pcm_octet));
+	}
+
+	if (engine->remote_lapm)
+		v8_open_rx_push_token(engine, 0x00a9U);
 }
 
 static void v8_open_observe_cm(struct v8_open_engine *engine,
@@ -716,6 +786,21 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	struct v8_open_jm_shim *jm;
 	char mod1_desc[24];
 	char pcm_desc[24];
+	unsigned char local_mod0_octet;
+	unsigned char local_mod1_octet;
+	unsigned char local_pcm_octet;
+	unsigned short rx_call;
+	unsigned short rx_mod0;
+	unsigned short rx_mod1;
+	unsigned short rx_access;
+	unsigned short rx_pcm;
+	unsigned short rx_proto;
+	unsigned local_has_mod1;
+	unsigned want_pcm;
+	unsigned want_access;
+	unsigned short local_mod0_word;
+	unsigned short local_mod1_word;
+	unsigned short local_pcm_word;
 	jm = &engine->jm;
 	memset(jm, 0, sizeof(*jm));
 
@@ -723,28 +808,20 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	jm->lapm_supported = engine->cfg.advertise.lapm && engine->remote_lapm;
 	jm->quick_connect_supported = engine->cfg.advertise.quick_connect;
 	jm->preferred_dp = v8_open_preferred_dp(engine);
-	jm->modulation_mask = 0;
 	jm->modulation_tag = 0x0141;
-	jm->modulation0_octet = 0x05U;
-	jm->modulation1_octet = 0x10U;
 	jm->access_tag = 0x0161;
-	/*
-	 * The blob seeds the access/PCM cluster as:
-	 *   0x161, [optional 0x1c9], 0x0011
-	 * and then patches the placeholder word in place.
-	 * Model that payload octet with the same 0x10 base instead of
-	 * encoding the access tag twice.
-	 */
 	jm->access_octet = 0x10U;
-	jm->call_function_code = jm->data_supported ? 0x0109 : 0x0000;
-	jm->protocol_code = jm->lapm_supported ? 0x00a9 : 0x0000;
 	jm->access_call_cellular = engine->cfg.advertise.access_call_cellular;
 	jm->access_answer_cellular = engine->cfg.advertise.access_answer_cellular;
 	jm->access_digital = engine->cfg.advertise.access_digital;
-	jm->pcm_octet = 0x07U;
 	jm->pcm_analog = engine->cfg.advertise.pcm_analog && engine->remote_pcm_present;
 	jm->pcm_digital = engine->cfg.advertise.pcm_digital && engine->remote_pcm_present;
 	jm->pcm_v91 = engine->cfg.advertise.pcm_v91 && engine->remote_pcm_present;
+
+	local_mod0_octet = 0x05U;
+	local_mod1_octet = 0x10U;
+	local_pcm_octet = 0x07U;
+	local_has_mod1 = 0U;
 
 	if (engine->cfg.advertise.v92 && engine->cfg.advertise.access_digital &&
 	    engine->cfg.advertise.pcm_digital && engine->remote_pcm_present)
@@ -754,29 +831,56 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 		jm->modulation_mask |= 0x08U;
 	if (engine->cfg.advertise.v34 && engine->remote_v34) {
 		jm->modulation_mask |= 0x04U;
-		jm->modulation0_octet |= 0x40U;
+		local_mod0_octet |= 0x40U;
 	}
 	if (engine->cfg.advertise.v32 && engine->remote_v32) {
 		jm->modulation_mask |= 0x02U;
-		jm->modulation1_octet |= 0x01U;
-		jm->has_modulation1 = 1U;
+		local_mod1_octet |= 0x01U;
+		local_has_mod1 = 1U;
 	}
 	if (engine->cfg.advertise.v22) {
 		jm->modulation_mask |= 0x01U;
-		jm->modulation1_octet |= 0x02U;
-		jm->has_modulation1 = 1U;
+		local_mod1_octet |= 0x02U;
+		local_has_mod1 = 1U;
 	}
 
 	if (jm->pcm_analog || jm->pcm_digital || jm->pcm_v91) {
-		jm->has_pcm = 1U;
-		jm->modulation0_octet |= 0x20U;
+		local_mod0_octet |= 0x20U;
 		if (jm->pcm_analog)
-			jm->pcm_octet |= 0x20U;
+			local_pcm_octet |= 0x20U;
 		if (jm->pcm_digital)
-			jm->pcm_octet |= 0x40U;
+			local_pcm_octet |= 0x40U;
 		if (jm->pcm_v91)
-			jm->pcm_octet |= 0x80U;
-		jm->pcm_word = v8_open_encode_octet(jm->pcm_octet);
+			local_pcm_octet |= 0x80U;
+	}
+
+	jm->modulation0_octet = local_mod0_octet;
+	jm->modulation1_octet = local_mod1_octet;
+	jm->pcm_octet = local_pcm_octet;
+	local_mod0_word = v8_open_encode_octet(local_mod0_octet);
+	local_mod1_word = v8_open_encode_octet(local_mod1_octet);
+	local_pcm_word = v8_open_encode_octet(local_pcm_octet);
+
+	rx_call = v8_open_find_rx_token(engine, 0x0101U, 0U);
+	rx_mod0 = v8_open_find_rx_token(engine, 0x0141U, 0U);
+	rx_mod1 = v8_open_find_rx_token(engine, 0x0141U, 1U);
+	rx_access = v8_open_find_rx_token(engine, 0x0161U, 0U);
+	rx_pcm = v8_open_find_rx_token(engine, 0x01c1U, 0U);
+	rx_proto = v8_open_find_rx_token(engine, 0x00a1U, 0U);
+
+	engine->have_call_match = 0U;
+	engine->have_proto_match = 0U;
+	engine->matched_call_word = 0U;
+	engine->matched_proto_word = 0U;
+
+	if (jm->data_supported && rx_call == 0x0109U) {
+		jm->call_function_code = rx_call;
+		engine->have_call_match = 1U;
+		engine->matched_call_word = rx_call;
+	} else if (jm->data_supported) {
+		jm->call_function_code = 0x0109U;
+	} else {
+		jm->call_function_code = 0x0000U;
 	}
 
 	if (jm->access_call_cellular)
@@ -785,18 +889,45 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 		jm->access_octet |= 0x40U;
 	if (jm->access_digital)
 		jm->access_octet |= 0x80U;
+	jm->access_word = v8_open_encode_octet(jm->access_octet);
 
-	if (!engine->cfg.advertise.access_call_cellular &&
-	    !engine->cfg.advertise.access_answer_cellular &&
-	    !engine->cfg.advertise.access_digital &&
-	    !engine->remote_access_present &&
-	    !jm->has_pcm)
+	if (rx_mod0)
+		jm->modulation0_word = (unsigned short)(local_mod0_word & rx_mod0);
+	else
+		jm->modulation0_word = 0x0011U;
+
+	if (rx_mod1 || local_has_mod1) {
+		jm->has_modulation1 = 1U;
+		if (rx_mod1)
+			jm->modulation1_word = (unsigned short)(local_mod1_word & rx_mod1);
+		else
+			jm->modulation1_word = 0x0011U;
+	}
+
+	want_pcm = (rx_pcm != 0U) && (jm->pcm_analog || jm->pcm_digital || jm->pcm_v91);
+	if (want_pcm) {
+		jm->has_pcm = 1U;
+		jm->pcm_word = (unsigned short)(local_pcm_word & rx_pcm);
+	}
+
+	want_access =
+		jm->has_pcm ||
+		(rx_access != 0U) ||
+		engine->cfg.advertise.access_call_cellular ||
+		engine->cfg.advertise.access_answer_cellular ||
+		engine->cfg.advertise.access_digital;
+	if (!want_access)
 		jm->access_tag = 0U;
 
-	jm->modulation0_word = v8_open_encode_octet(jm->modulation0_octet);
-	if (jm->has_modulation1)
-		jm->modulation1_word = v8_open_encode_octet(jm->modulation1_octet);
-	jm->access_word = v8_open_encode_octet(jm->access_octet);
+	if (jm->lapm_supported && rx_proto == 0x00a9U) {
+		jm->protocol_code = rx_proto;
+		engine->have_proto_match = 1U;
+		engine->matched_proto_word = rx_proto;
+	} else if (jm->lapm_supported) {
+		jm->protocol_code = 0x00a9U;
+	} else {
+		jm->protocol_code = 0x0000U;
+	}
 
 	v8_open_jm_push(jm, 0x03ffU, 0);
 	v8_open_jm_push(jm, 0x000fU, 0);
@@ -965,6 +1096,11 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->cm_signature = 0U;
 	engine->cm_detected = 0U;
 	engine->cm_guard_budget = 0U;
+	engine->have_call_match = 0U;
+	engine->have_proto_match = 0U;
+	engine->matched_call_word = 0U;
+	engine->matched_proto_word = 0U;
+	engine->rx_token_count = 0U;
 	engine->cj_seen_count = 0U;
 	engine->cj_signature = 0U;
 	engine->cj_detected = 0U;
