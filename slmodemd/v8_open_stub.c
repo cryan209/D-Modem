@@ -1568,6 +1568,25 @@ static int v8_open_rx_try_lock_preamble(struct v8_open_engine *engine,
 	return 1;
 }
 
+static void v8_open_rx_update_runs(struct v8_open_engine *engine, unsigned bit)
+{
+	if (bit & 0x01U) {
+		engine->rx_c23e = 0U;
+		engine->rx_c240 = (unsigned short)(engine->rx_c240 + 1U);
+		engine->rx_c242 = engine->rx_c240;
+		return;
+	}
+
+	engine->rx_c23e = (unsigned short)(engine->rx_c23e + 1U);
+	if (engine->rx_c23e == 6U) {
+		if (engine->rx_c242 > 9U) {
+			engine->rx_c244 = engine->rx_c240;
+			engine->rx_c246 = engine->rx_c242;
+		}
+		engine->rx_c240 = 0U;
+	}
+}
+
 static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 {
 	unsigned raw_word;
@@ -1577,27 +1596,40 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 	unsigned short word;
 	unsigned idx;
 
+	v8_open_rx_update_runs(engine, bit);
+
 	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_SEARCH) {
 		engine->rx_shift_reg = (unsigned short)(engine->rx_c23a & 0x0fffU);
 		return 0;
 	}
 
 	if (!engine->rx_word_sync) {
-		engine->rx_shift_reg = (unsigned short)(((engine->rx_shift_reg << 1) |
-						(bit & 0x01U)) & 0x0fffU);
-		raw_word = engine->rx_shift_reg & 0x0fffU;
+		/*
+		 * The blob's state-0x29 preamble checks read the live V.21 shifter
+		 * (c3a), not a fresh collector-local register. Keep probing the low
+		 * 12 bits of c3a here so the post-detector handoff preserves the
+		 * recently recovered history instead of collapsing immediately to a
+		 * zeroed collector shift register.
+		 */
+		engine->rx_shift_reg = (unsigned short)(engine->rx_c23a & 0x0fffU);
+		raw_word = engine->rx_shift_reg;
 		inv_word = raw_word ^ 0x0fffU;
 		rev_word = v8_open_reverse_word12((unsigned short)raw_word);
 		rev_inv_word = rev_word ^ 0x0fffU;
 		engine->rx_probe_bits++;
 		if (engine->rx_probe_bits >= 12U) {
 			if (engine->rx_probe_words_logged < 6U) {
-				V8OPEN_DBG("rx-probe: mode=%s raw=%03x inv=%03x rev=%03x rinv=%03x\n",
+				V8OPEN_DBG("rx-probe: mode=%s raw=%03x inv=%03x rev=%03x rinv=%03x runs=%u/%u/%u mark=%u delim=%u\n",
 					  engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM ? "cm" : "cj",
 					  raw_word,
 					  inv_word,
 					  rev_word,
-					  rev_inv_word);
+					  rev_inv_word,
+					  engine->rx_c23e,
+					  engine->rx_c240,
+					  engine->rx_c242,
+					  engine->rx_c244,
+					  engine->rx_c246);
 				engine->rx_probe_words_logged++;
 			}
 			engine->rx_probe_bits = 0U;
