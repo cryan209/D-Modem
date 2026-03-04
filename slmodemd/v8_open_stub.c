@@ -158,6 +158,7 @@ struct v8_open_engine {
 	unsigned char initial_flags1;
 	unsigned char initial_flags2;
 	unsigned short ans_det_04;
+	unsigned short ans_det_06;
 	short ans_det_08;
 	unsigned short ans_det_0a;
 	unsigned short ans_det_0c;
@@ -751,6 +752,88 @@ static unsigned v8_open_detector_active(unsigned avg_abs, unsigned peak_abs)
 	return avg_abs >= 1024U || peak_abs >= 2048U;
 }
 
+static void v8_open_rx_start_search(struct v8_open_engine *engine);
+
+static unsigned v8_open_answer_detector_step(struct v8_open_engine *engine,
+					     const short *samples,
+					     int cnt,
+					     unsigned *hit_count_out,
+					     unsigned *peak_abs_out)
+{
+	unsigned hit_count;
+	unsigned peak_abs;
+	int i;
+
+	if (!engine || !samples || cnt <= 0) {
+		if (hit_count_out)
+			*hit_count_out = 0U;
+		if (peak_abs_out)
+			*peak_abs_out = 0U;
+		return 0U;
+	}
+
+	hit_count = 0U;
+	peak_abs = 0U;
+
+	for (i = 0; i < cnt; ++i) {
+		unsigned mag;
+
+		mag = (unsigned)(samples[i] < 0 ? -samples[i] : samples[i]);
+		if (mag > peak_abs)
+			peak_abs = mag;
+		engine->ans_det_12 = (unsigned short)mag;
+
+		if (engine->ans_det_04 != 0U) {
+			if (engine->ans_det_12 < engine->ans_det_0e)
+				engine->ans_det_08++;
+			if (engine->ans_det_12 > engine->ans_det_10)
+				engine->ans_det_08 = 0;
+			if ((unsigned short)engine->ans_det_08 > engine->ans_det_0a) {
+				hit_count++;
+				if (hit_count_out)
+					*hit_count_out = hit_count;
+				if (peak_abs_out)
+					*peak_abs_out = peak_abs;
+				return 1U;
+			}
+			continue;
+		}
+
+		if (engine->ans_det_06 != 0U) {
+			if (engine->ans_det_12 > engine->ans_det_10)
+				engine->ans_det_08++;
+			if ((unsigned short)engine->ans_det_08 > engine->ans_det_0a) {
+				hit_count++;
+				if (hit_count_out)
+					*hit_count_out = hit_count;
+				if (peak_abs_out)
+					*peak_abs_out = peak_abs;
+				return 1U;
+			}
+			if (engine->ans_det_12 > engine->ans_det_10)
+				hit_count++;
+			continue;
+		}
+
+		if (engine->ans_det_12 > 0x30U) {
+			hit_count++;
+			engine->ans_det_30 = (unsigned short)(engine->ans_det_30 + 1U);
+			if (engine->ans_det_30 == 0x33U) {
+				engine->ans_det_06 = 1U;
+				engine->ans_det_08 = 0;
+			}
+		} else {
+			engine->ans_det_30 = 0U;
+		}
+	}
+
+	if (hit_count_out)
+		*hit_count_out = hit_count;
+	if (peak_abs_out)
+		*peak_abs_out = peak_abs;
+	return 0U;
+}
+
 static void v8_open_answer_rx_init(struct v8_open_engine *engine)
 {
 	engine->ans_rx_14 = 0U;
@@ -775,15 +858,26 @@ static void v8_open_answer_detector_init(struct v8_open_engine *engine)
 {
 	/*
 	 * Mirror the answer-side v8_detectorinit call site from v8handshakinit:
-	 * args include 0x64, 0x32, 0x5dc, 0. Keep those literal thresholds in
-	 * the local detector workspace so the open path uses blob-shaped seeds.
+	 * v8_detectorinit(engine, &engine->det, 0x5670, 0, 0x64, 0x32, 0x5dc, 0)
+	 *
+	 * The detector fields land as:
+	 * +0x04 = 0
+	 * +0x06 = 0
+	 * +0x08 = -(0x32)
+	 * +0x0a = 0x64
+	 * +0x0c = 1
+	 * +0x0e = 0
+	 * +0x10 = 0x5dc
+	 * +0x12 = 0
+	 * +0x30 = 0
 	 */
-	engine->ans_det_04 = 0x0032U;
-	engine->ans_det_08 = 0;
+	engine->ans_det_04 = 0U;
+	engine->ans_det_06 = 0U;
+	engine->ans_det_08 = (short)-0x32;
 	engine->ans_det_0a = 0x0064U;
 	engine->ans_det_0c = 1U;
-	engine->ans_det_0e = 0x05dcU;
-	engine->ans_det_10 = 0U;
+	engine->ans_det_0e = 0U;
+	engine->ans_det_10 = 0x05dcU;
 	engine->ans_det_12 = 0U;
 	engine->ans_det_30 = 0U;
 }
@@ -805,15 +899,16 @@ static void v8_open_answer_predetector_arm(struct v8_open_engine *engine)
 
 	if (!engine->ans_predetector_seeded)
 		v8_open_answer_predetector_seed(engine);
-	else
+	else {
 		v8_open_answer_rx_init(engine);
+		v8_open_answer_detector_init(engine);
+	}
 
-	engine->ans_det_12 = 0U;
-	engine->ans_det_30 = 0U;
 	engine->ans_rx_1a = 0U;
 	engine->ans_rx_14 = 0U;
 	engine->ans_rx_c8 = 0U;
 	engine->ans_rx_c6 = 0U;
+	v8_open_rx_start_search(engine);
 }
 
 static void v8_open_rx_push_token(struct v8_open_engine *engine,
@@ -1126,13 +1221,57 @@ static void v8_open_rx_reset_collect(struct v8_open_engine *engine)
 	engine->cj_collect_deadline = 0U;
 }
 
+static void v8_open_rx_start_search(struct v8_open_engine *engine)
+{
+	v8_open_rx_reset_collect(engine);
+	engine->rx_collect_mode = V8_OPEN_RX_COLLECT_SEARCH;
+}
+
 static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 				     enum v8_open_rx_collect_mode mode,
 				     const short *samples,
 				     int cnt)
 {
+	unsigned preserve_frontend;
+	unsigned preserved_hist_fill;
+	unsigned preserved_phase_offset;
+	unsigned preserved_bit_window_len;
+	unsigned short preserved_shift_reg;
+	unsigned short preserved_c230;
+	unsigned short preserved_c232;
+	unsigned short preserved_c234;
+	unsigned short preserved_c236;
+	unsigned short preserved_c238;
+	unsigned short preserved_c23a;
+	unsigned short preserved_c23e;
+	unsigned short preserved_c240;
+	unsigned short preserved_c242;
+	unsigned short preserved_c244;
+	unsigned short preserved_c246;
+	unsigned preserved_mark_ticks;
+	unsigned preserved_space_ticks;
+
 	(void)samples;
 	(void)cnt;
+
+	preserve_frontend = (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_SEARCH);
+	preserved_hist_fill = engine->rx_demod_hist_fill;
+	preserved_phase_offset = engine->rx_phase_offset;
+	preserved_bit_window_len = engine->rx_bit_window_len;
+	preserved_shift_reg = engine->rx_shift_reg;
+	preserved_c230 = engine->rx_c230;
+	preserved_c232 = engine->rx_c232;
+	preserved_c234 = engine->rx_c234;
+	preserved_c236 = engine->rx_c236;
+	preserved_c238 = engine->rx_c238;
+	preserved_c23a = engine->rx_c23a;
+	preserved_c23e = engine->rx_c23e;
+	preserved_c240 = engine->rx_c240;
+	preserved_c242 = engine->rx_c242;
+	preserved_c244 = engine->rx_c244;
+	preserved_c246 = engine->rx_c246;
+	preserved_mark_ticks = engine->rx_mark_ticks;
+	preserved_space_ticks = engine->rx_space_ticks;
 
 	engine->rx_collect_mode = mode;
 	engine->rx_align_locked = 0U;
@@ -1148,11 +1287,31 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 	engine->rx_reverse_word_bits = 0U;
 	engine->rx_word_sync = 0U;
 	engine->rx_bits_to_word = 0U;
-	engine->rx_demod_hist_fill = 0U;
-	engine->rx_phase_offset = 0U;
-	v8_open_v21_workspace_init(engine);
-	engine->rx_mark_ticks = 0U;
-	engine->rx_space_ticks = 0U;
+	if (preserve_frontend) {
+		engine->rx_demod_hist_fill = preserved_hist_fill;
+		engine->rx_phase_offset = preserved_phase_offset;
+		engine->rx_bit_window_len = preserved_bit_window_len;
+		engine->rx_shift_reg = preserved_shift_reg;
+		engine->rx_c230 = preserved_c230;
+		engine->rx_c232 = preserved_c232;
+		engine->rx_c234 = preserved_c234;
+		engine->rx_c236 = preserved_c236;
+		engine->rx_c238 = preserved_c238;
+		engine->rx_c23a = preserved_c23a;
+		engine->rx_c23e = preserved_c23e;
+		engine->rx_c240 = preserved_c240;
+		engine->rx_c242 = preserved_c242;
+		engine->rx_c244 = preserved_c244;
+		engine->rx_c246 = preserved_c246;
+		engine->rx_mark_ticks = preserved_mark_ticks;
+		engine->rx_space_ticks = preserved_space_ticks;
+	} else {
+		engine->rx_demod_hist_fill = 0U;
+		engine->rx_phase_offset = 0U;
+		v8_open_v21_workspace_init(engine);
+		engine->rx_mark_ticks = 0U;
+		engine->rx_space_ticks = 0U;
+	}
 }
 
 static int v8_open_cj_sequence_valid(struct v8_open_engine *engine);
@@ -1178,6 +1337,12 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 	unsigned rev_inv_word;
 	unsigned short word;
 	unsigned idx;
+
+	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_SEARCH) {
+		engine->rx_shift_reg = (unsigned short)(((engine->rx_shift_reg << 1) |
+						(bit & 0x01U)) & 0x0fffU);
+		return 0;
+	}
 
 	if (!engine->rx_word_sync) {
 		engine->rx_shift_reg = (unsigned short)(((engine->rx_shift_reg << 1) |
@@ -1570,6 +1735,7 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 	signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
 
 	if (engine->cm_predetecting) {
+		(void)v8_open_rx_consume_samples(engine, samples, cnt);
 		if (v8_open_detector_active(avg_abs, peak_abs)) {
 			engine->cm_seen_count++;
 			engine->ans_det_12++;
@@ -1586,7 +1752,6 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 		engine->cm_predetect_deadline = 0U;
 		engine->cm_signature = signature;
 		v8_open_cm_collect_start(engine, samples, cnt);
-		(void)v8_open_rx_consume_samples(engine, samples, cnt);
 		V8OPEN_DBG("cm-stub: detector tripped avg=%u peak=%u hits=%u starting long collector %u/%u\n",
 			  avg_abs,
 			  peak_abs,
@@ -1625,6 +1790,7 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 	engine->cm_predetecting = 1U;
 	engine->cm_predetect_deadline = engine->samples_in_phase +
 		v8_open_samples_from_ms(engine, engine->ans_det_0a);
+	(void)v8_open_rx_consume_samples(engine, samples, cnt);
 	V8OPEN_DBG("cm-stub: detector armed avg=%u peak=%u hold=%u hits=%u thresh=%u window=%u\n",
 		  avg_abs,
 		  peak_abs,
@@ -1654,6 +1820,7 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 	signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
 
 	if (engine->cj_predetecting) {
+		(void)v8_open_rx_consume_samples(engine, samples, cnt);
 		if (v8_open_detector_active(avg_abs, peak_abs)) {
 			engine->cj_seen_count++;
 			engine->ans_det_12++;
@@ -1670,7 +1837,6 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 		engine->cj_predetect_deadline = 0U;
 		engine->cj_signature = signature;
 		v8_open_cj_collect_start(engine, samples, cnt);
-		(void)v8_open_rx_consume_samples(engine, samples, cnt);
 		V8OPEN_DBG("cj-stub: detector tripped avg=%u peak=%u hits=%u starting short collector %u/%u\n",
 			  avg_abs,
 			  peak_abs,
@@ -1709,6 +1875,7 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 	engine->cj_predetecting = 1U;
 	engine->cj_predetect_deadline = engine->samples_in_phase +
 		v8_open_samples_from_ms(engine, engine->ans_det_04);
+	(void)v8_open_rx_consume_samples(engine, samples, cnt);
 	V8OPEN_DBG("cj-stub: detector armed avg=%u peak=%u hold=%u hits=%u thresh=%u window=%u\n",
 		  avg_abs,
 		  peak_abs,
