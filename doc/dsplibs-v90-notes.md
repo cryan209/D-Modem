@@ -301,6 +301,216 @@ struct V90Parameters_partial {
 This is the first clean, directly evidenced `V90Parameters` field map recovered
 for the V.90 subsystem.
 
+## `V90Parameters` object model
+
+The `V90Parameters` class is the main configuration/state block shared by most
+V.90 components. Constructors for `V90Demodulator`, `V90Modulator`,
+`V90Phase3Demodulator`, `V90Phase4Modulator`, `V90PreFilter`,
+`V90ConstellationDesigner`, `V90ConnectionEvaluator`, `V90AutoDigitalImpDetector`,
+`V90Mapper`, `V90BitsToSymbol`, and `V90Resampler` all take a
+`V90Parameters *`.
+
+Unlike the signal-processing classes, `V90Parameters` itself is mostly:
+
+- a large constant-initialized record;
+- optionally overridden from a text parameter file; and
+- finally patched from a closed `_tagModemParameters` runtime source block.
+
+### Object size and lifecycle
+
+- The destructor is a trivial `ret`.
+- `setToDefault()` writes as far as offset `+0x554`, so the object is at least
+  `0x558` bytes long.
+- `initSession()` resets two session-scoped override fields:
+
+```c
+void V90Parameters::initSession(void)
+{
+    this->session_rate_cap_enabled = 0;   /* +0x4f8 */
+    this->session_rate_cap_index   = 14;  /* +0x4fc */
+}
+```
+
+### Constructor / `init()` behavior
+
+The constructor and `init()` are structurally identical:
+
+```c
+void V90Parameters::init_like_ctor(_tagModemParameters *src)
+{
+    this->src = src;                      /* +0x00 */
+    this->session_rate_cap_enabled = 0;  /* +0x4f8 */
+    this->session_rate_cap_index   = 14; /* +0x4fc */
+
+    this->setToDefault();
+
+    if (src->params_file != NULL)        /* src + 0x78 */
+        this->loadParams(src->params_file);
+
+    this->loadModemParamsData();
+}
+```
+
+This proves `V90Parameters` is not an algorithmic object with hidden dynamic
+state. It is primarily a parameter bank.
+
+### High-confidence leading layout
+
+The first part of the class is loaded directly by `loadParams()` via a flat
+sequence of `Vparser_read_int()` / `Vparser_read_float()` calls.
+
+```c
+struct V90Parameters_partial2 {
+    _tagModemParameters *src;            /* +0x00 */
+
+    int probing_mode;                    /* +0x04: "PROBING_MODE" */
+    int hw_codec_type;                   /* +0x08: "HW_CODEC_TYPE" */
+    int line_connection_type;            /* +0x0c: "LINE_CONNECTION_TYPE" */
+    int enable_equalizer_mmx;            /* +0x10: "ENABLE_EQUALIZER_MMX" */
+    int phase2_info_a_or_mu;             /* +0x14: "PHASE2_INFO_A_OR_MU" */
+    int eia6_enable_equalizer_mmx;       /* +0x18: "EIA6_ENABLE_EQUALIZER_MMX" */
+    int phase2_info_rtd;                 /* +0x1c: "PHASE2_INFO_RTD" */
+    int phase2_info_uinfo;               /* +0x20: "PHASE2_INFO_UINFO" */
+    int phase2_info_max_tx_power;        /* +0x24: "PHASE2_INFO_MAX_TX_POWER" */
+    int phase2_info_tx_power_measure_point; /* +0x28: "PHASE2_INFO_TX_POWER_MEASURE_POINT" */
+    int digital_rate_mask;               /* +0x2c: "DIGITAL_RATE_MASK" */
+    int max_spectral_shaper_lookahead;   /* +0x30: "MAX_SPECTRAL_SHAPER_LOOKAHEAD" */
+    int v34_phase4_constellation;        /* +0x34: "V34_PHASE4_CONSTELLATION" */
+    int v34_rrn_constellation;           /* +0x38: "V34_RRN_CONSTELLATION" */
+    int v92_digital_rate_mask;           /* +0x3c: "V92_DIGITAL_RATE_MASK" */
+    int v92_max_spectral_shaper_lookahead; /* +0x40: "V92_MAX_SPECTRAL_SHAPER_LOOKAHEAD" */
+    float v92_jd_phase;                  /* +0x44: "V92_JD_PHASE" (type inferred from parser call) */
+    int analog_rate_mask;                /* +0x48: "ANALOG_RATE_MASK" */
+    int pre_filter_gain;                 /* +0x4c: "PRE_FILTER_GAIN" (stored as integer/fixed-point) */
+    int pre_filter_coef_type;            /* +0x50: "PRE_FILTER_COEF_TYPE" */
+    int german_pbx_pre_filter_gain;      /* +0x54: "GERMAN_PBX_PRE_FILTER_GAIN" */
+
+    /* +0x58: parser-exposed field exists nearby but exact key/typing is still being reconciled */
+
+    float agc_nominal_energy;            /* +0x5c: "AGC_NOMINAL_ENERGY" */
+    float agc_k;                         /* +0x60: "AGC_K" */
+    int agc_block_len;                   /* +0x64: "AGC_BLOCK_LEN" */
+    int agc_adaptation_duration;         /* +0x68: "AGC_ADAPTATION_DURATION" */
+
+    /* +0x6c..+0x80: internal defaults present; not yet tied to parser keys */
+
+    float initial_baud_offset;           /* +0x84: "INITIAL_BAUD_OFFSET" */
+
+    /* +0x88..+0x170: BLL profile blocks, documented above */
+};
+```
+
+The types above are only marked high-confidence where either:
+
+- the parser function (`read_int` vs `read_float`) is visible, or
+- another class (`V90Resampler`) proves the consumer-side type.
+
+### BLL profile block confirmed by two independent paths
+
+The BLL section is now confirmed by:
+
+1. `V90Parameters::loadParams()`, which parses named keys such as
+   `BLL_INITIAL_K1`, `BLL_FAST_K2`, `BLL_TRN2_K1`,
+   `BLL_PRE_ANSPCM_K2`, `BLL_TRN1_QC_FAST_K1`, etc.
+2. `V90Resampler::setBllState()`, which reads those values back by fixed
+   offsets and uses them as active `k1` / `k2` coefficients.
+
+This makes the `+0x88..+0xf4` layout effectively established, not just guessed.
+
+`loadParams()` continues immediately into an alternate `EIA6` BLL block:
+
+- `EIA6_BLL_INITIAL_K1/K2`
+- `EIA6_BLL_FAST_K1/K2`
+- `EIA6_BLL_MEDIUM_K1/K2`
+- `EIA6_BLL_SLOW_K1/K2`
+- `EIA6_BLL_SLOW2_K1/K2`
+- `EIA6_BLL_DIL_K1/K2`
+- `EIA6_BLL_TRN2_INITIAL_K1/K2`
+- `EIA6_BLL_TRN2_K1/K2`
+- `EIA6_BLL_STEADY_STATE_K1/K2`
+
+That second bank occupies the next contiguous range after the primary BLL bank
+(through roughly `+0x170`).
+
+### Equalizer / timing-evaluation parameter banks
+
+After the BLL banks, `loadParams()` continues with large contiguous parameter
+groups for equalizer adaptation, DFE, and timing-history evaluation. The exact
+offset of every field is not fully pinned yet, but the namespaces are clear:
+
+- Linear equalizer:
+  `LINEAR_EQU_LENGTH`, `LINEAR_EQU_FADE_EDGES_CYCLE`,
+  `LINEAR_EQU_HISTORY_LENGTH`, `LINEAR_EQU_CURSOR_PLACE`,
+  `LINEAR_EQU_DIL_BETA`, `LINEAR_EQU_DIL_MED_UCODE_BETA`,
+  `LINEAR_EQU_TRN1D_BETA`, `LINEAR_EQU_ALT_DIL_BETA`,
+  `LINEAR_EQU_TRN2D_BETA`, `LINEAR_EQU_TRN2D_INITIAL_BETA`,
+  `LINEAR_EQU_DATA_BETA`
+- EIA6 linear equalizer:
+  `EIA6_LINEAR_EQU_DIL_BETA`, `EIA6_LINEAR_EQU_TRN1D_BETA`,
+  `EIA6_LINEAR_EQU_TRN2D_BETA`, `EIA6_LINEAR_EQU_DATA_BETA`
+- Timing / persistence:
+  `TIMING_HISTORY_EVALUATION_BUFFER_LENGTH`,
+  `TIMING_HISTORY_EVALUATION_ENABLED`,
+  `TIMING_HISTORY_EVALUATION_PERIOD`,
+  `TIMING_OFFESET_MIN_STD_FOR_SAVE`
+- Additional linear-equalizer refinements:
+  `LINEAR_EQU_FADE_RIGHT_EDGE_RATIO`,
+  `LINEAR_EQU_FADE_LEFT_EDGE_RATIO`,
+  `LINEAR_EQU_DIL_HIGH_UCODE_BETA`,
+  `LINEAR_EQU_DIL_ERROR_RELAX_BETA`
+- Regional / PBX special cases:
+  `GERMAN_PBX_LINEAR_EQU_DIL_BETA`,
+  `GERMAN_PBX_LINEAR_EQU_DIL_MED_UCODE_BETA`,
+  `GERMAN_PBX_LINEAR_EQU_DIL_HIGH_UCODE_BETA`
+
+This is enough to say the class is organized into parameter “banks” rather than
+random scalar state.
+
+### Proven modem-runtime overrides
+
+`loadModemParamsData()` applies a small number of runtime overrides from the
+closed `_tagModemParameters` source object stored at `+0x00`.
+
+Directly proven behaviors:
+
+- `src + 0x78`:
+  passed to `loadParams(char *)`, so this is the optional parameter-file path.
+- `src + 0x40`:
+  read as integer `tempPR`, converted to a signed decimal float, and stored at
+  `this + 0x380`.
+  This is the V.90 power-reduction setting.
+- `src + 0x50`, bit 1:
+  if set, forces `this + 0x04` (`PROBING_MODE`) to `1`.
+- `src + 0x48`:
+  read as `tempConnectionType`; if `LINE_CONNECTION_TYPE` is still `-1`,
+  copied into `this + 0x0c`.
+- `src + 0x50`, bit 0:
+  copied into `this + 0x420`, logged as
+  `trn2d_mean_error_std_evaluation_enable`.
+
+That gives the first directly evidenced meanings for later fields:
+
+```c
+float power_reduction_db;               /* +0x380 */
+int trn2d_mean_error_std_evaluation_enable; /* +0x420 */
+int session_rate_cap_enabled;           /* +0x4f8 */
+int session_rate_cap_index;             /* +0x4fc */
+```
+
+### Session-scoped rate-cap override
+
+The top of `setToDefault()` reads `+0x4f8/+0x4fc` before constructing one of
+the default rate masks.
+
+Behavior:
+
+- if `session_rate_cap_enabled == 0`, the normal computed bounds are used;
+- if nonzero, one side of the default mask generation is clamped by
+  `session_rate_cap_index`.
+
+That strongly suggests this pair is a temporary per-session rate-limit override,
+not a persistent config-file field.
+
 ## Why this matters
 
 This does not yet unlock the large demodulator/equalizer paths, but it gives us:
@@ -308,6 +518,8 @@ This does not yet unlock the large demodulator/equalizer paths, but it gives us:
 - a verified class boundary (`V90Resampler` extends `ResamplerTiming`);
 - a recovered enum (`V90BllState`);
 - the first nontrivial `V90Parameters` field block; and
+- a larger `V90Parameters` object model, including constructor/init flow,
+  parser-fed config banks, and modem-runtime override fields; and
 - a small, stable subsystem to use as an anchor while mapping
   `V90Equalizer::process()` and `V90Demodulator::progress()`.
 
@@ -315,9 +527,9 @@ This does not yet unlock the large demodulator/equalizer paths, but it gives us:
 
 The highest-leverage next functions are:
 
-1. `V90Parameters::setToDefault()` to recover default constants and confirm the
-   `V90Parameters` layout.
-2. `V90Equalizer::V90Equalizer(...)` to map how `V90Resampler`,
+1. `V90Equalizer::V90Equalizer(...)` to map how `V90Resampler`,
    `V90Parameters`, and the demodulator stages are wired together.
+2. Continue `V90Parameters::loadParams()` deeper into the DFE / spectral /
+   PDSNR banks so the remaining later offsets can be named precisely.
 3. `V90Demodulator::progress(...)` to recover the top-level receive state
    machine.

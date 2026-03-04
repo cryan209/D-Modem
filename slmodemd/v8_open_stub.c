@@ -180,6 +180,7 @@ struct v8_open_engine {
 	unsigned short ans_td_2a;
 	unsigned short ans_td_2c;
 	unsigned short ans_td_2e;
+	unsigned short ans_rx_0a;
 	unsigned short ans_rx_14;
 	unsigned short ans_rx_1a;
 	unsigned short ans_rx_1c;
@@ -281,6 +282,8 @@ struct v8_open_engine {
 	short rx_bit_window[V8OPEN_MAX_SAMPLES_PER_BIT];
 	unsigned char tx_bits[256];
 };
+
+static unsigned v8_open_rx_samples_per_bit(const struct v8_open_engine *engine);
 
 static const char *v8_open_phase_name(enum v8_open_phase phase)
 {
@@ -467,12 +470,13 @@ static unsigned v8_open_samples_from_ms(const struct v8_open_engine *engine,
 	return (rate * ms) / 1000U;
 }
 
-static unsigned v8_open_samples_from_secs(const struct v8_open_engine *engine,
-					  unsigned secs)
+static unsigned v8_open_answer_predetect_budget(const struct v8_open_engine *engine,
+						unsigned hold_samples)
 {
-	if (!secs)
-		secs = 1U;
-	return v8_open_samples_from_ms(engine, secs * 1000U);
+	unsigned stage2_samples;
+
+	stage2_samples = v8_open_rx_samples_per_bit(engine) * engine->ans_det_0a;
+	return hold_samples + stage2_samples;
 }
 
 static void v8_open_reset_tx(struct v8_open_engine *engine)
@@ -950,6 +954,8 @@ static unsigned v8_open_answer_detector_step(struct v8_open_engine *engine,
 			engine->ans_det_30 = (unsigned short)(engine->ans_det_30 + 1U);
 			if (engine->ans_det_30 == 0x33U) {
 				engine->ans_det_06 = 1U;
+				engine->ans_rx_0a =
+					(unsigned short)(engine->ans_rx_0a & ~0x0200U);
 				engine->ans_det_08 = 0;
 			}
 		} else {
@@ -966,6 +972,7 @@ static unsigned v8_open_answer_detector_step(struct v8_open_engine *engine,
 
 static void v8_open_answer_rx_init(struct v8_open_engine *engine)
 {
+	engine->ans_rx_0a = 0U;
 	engine->ans_rx_14 = 0U;
 	engine->ans_rx_1a = 0U;
 	engine->ans_rx_1c = 0x0200U;
@@ -1010,6 +1017,7 @@ static void v8_open_answer_detector_init(struct v8_open_engine *engine)
 	engine->ans_det_10 = 0x05dcU;
 	engine->ans_det_12 = 0U;
 	engine->ans_det_30 = 0U;
+	engine->ans_rx_0a = (unsigned short)(engine->ans_rx_0a | 0x0200U);
 	engine->ans_td_14 = 0U;
 	engine->ans_td_16 = 0U;
 	engine->ans_td_18 = 0U;
@@ -1954,8 +1962,9 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 	engine->cm_signature = signature;
 	engine->cm_predetecting = 1U;
 	engine->cm_predetect_deadline = engine->samples_in_phase +
-		v8_open_samples_from_secs(engine,
-					  engine->cfg.signal_detect_timeout_secs);
+		v8_open_answer_predetect_budget(engine,
+					  v8_open_samples_from_ms(engine,
+								  engine->ans_det_0a));
 	(void)v8_open_rx_consume_samples(engine, samples, cnt);
 	detector_hits = 0U;
 	detector_peak = 0U;
@@ -2075,8 +2084,9 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 	engine->cj_signature = signature;
 	engine->cj_predetecting = 1U;
 	engine->cj_predetect_deadline = engine->samples_in_phase +
-		v8_open_samples_from_secs(engine,
-					  engine->cfg.message_detect_timeout_secs);
+		v8_open_answer_predetect_budget(engine,
+					  v8_open_samples_from_ms(engine,
+								  v8_open_answer_detector_window(engine)));
 	(void)v8_open_rx_consume_samples(engine, samples, cnt);
 	detector_hits = 0U;
 	detector_peak = 0U;
