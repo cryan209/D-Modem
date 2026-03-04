@@ -384,8 +384,7 @@ struct V90Parameters_partial2 {
     int pre_filter_gain;                 /* +0x4c: "PRE_FILTER_GAIN" (stored as integer/fixed-point) */
     int pre_filter_coef_type;            /* +0x50: "PRE_FILTER_COEF_TYPE" */
     int german_pbx_pre_filter_gain;      /* +0x54: "GERMAN_PBX_PRE_FILTER_GAIN" */
-
-    /* +0x58: parser-exposed field exists nearby but exact key/typing is still being reconciled */
+    int german_isdn_nt1_box_filter_gain; /* +0x58: "GERMAN_ISDN_NT1_BOX_FILTER_GAIN" */
 
     float agc_nominal_energy;            /* +0x5c: "AGC_NOMINAL_ENERGY" */
     float agc_k;                         /* +0x60: "AGC_K" */
@@ -432,11 +431,40 @@ This makes the `+0x88..+0xf4` layout effectively established, not just guessed.
 That second bank occupies the next contiguous range after the primary BLL bank
 (through roughly `+0x170`).
 
+This pass also pins several exact anchor offsets inside and immediately after
+the BLL region:
+
+- `+0x0f8`: `BLL_TRN1D_INITIAL_TO_FAST_DURATION` (`Vparser_read_int`)
+- `+0x0fc`: `BLL_TRN1D_FAST_TO_SLOW_DURATION` (`Vparser_read_int`)
+- `+0x158`: `EIA6_BLL_TRN1D_INITIAL_TO_FAST_DURATION`
+  (`Vparser_read_int`)
+- `+0x15c`: `EIA6_BLL_TRN1D_FAST_TO_SLOW_DURATION`
+  (`Vparser_read_int`)
+- `+0x160`: `TIMING_HISTORY_EVALUATION_ENABLED` (`Vparser_read_int`)
+- `+0x164`: `TIMING_HISTORY_EVALUATION_BUFFER_LENGTH`
+  (`Vparser_read_int`)
+- `+0x168`: `TIMING_HISTORY_EVALUATION_PERIOD` (`Vparser_read_int`)
+- `+0x16c`: `TIMING_OFFESET_MIN_STD_FOR_SAVE` (`Vparser_read_float`)
+- `+0x170`: `LINEAR_EQU_LENGTH` (`Vparser_read_int`)
+- `+0x174`: `LINEAR_EQU_HISTORY_LENGTH` (`Vparser_read_int`)
+- `+0x178`: `LINEAR_EQU_FADE_EDGES_CYCLE` (`Vparser_read_int`)
+- `+0x17c`: `LINEAR_EQU_FADE_LEFT_EDGE_RATIO` (`Vparser_read_float`)
+- `+0x180`: `LINEAR_EQU_FADE_RIGHT_EDGE_RATIO` (`Vparser_read_float`)
+- `+0x184`: `LINEAR_EQU_CURSOR_PLACE` (`Vparser_read_int`)
+
+One structural correction matters here: `loadParams()` stops behaving like a
+strict one-key-to-one-field table once it gets into the equalizer banks.
+Regional keys are sometimes layered onto the same storage slot as the generic
+key. The cleanest proven example is `+0x18c`, which is first loaded from
+`LINEAR_EQU_DIL_BETA` and then later reloaded from
+`GERMAN_PBX_LINEAR_EQU_DIL_BETA`.
+
 ### Equalizer / timing-evaluation parameter banks
 
 After the BLL banks, `loadParams()` continues with large contiguous parameter
 groups for equalizer adaptation, DFE, and timing-history evaluation. The exact
-offset of every field is not fully pinned yet, but the namespaces are clear:
+offset of every field is not fully pinned yet, and the later regional keys
+sometimes alias onto earlier generic slots, but the namespaces are clear:
 
 - Linear equalizer:
   `LINEAR_EQU_LENGTH`, `LINEAR_EQU_FADE_EDGES_CYCLE`,
@@ -481,10 +509,11 @@ That means the function is best understood as a serialized schema for the whole
 
 The deeper half of the schema breaks down cleanly into these contiguous ranges:
 
-#### `+0x164 .. +0x16c`: timing-history persistence
+#### `+0x160 .. +0x16c`: timing-history persistence
 
 These fields directly connect to the `V90Resampler` / timing-history logic:
 
+- `+0x160`: `TIMING_HISTORY_EVALUATION_ENABLED`
 - `+0x164`: `TIMING_HISTORY_EVALUATION_BUFFER_LENGTH`
 - `+0x168`: `TIMING_HISTORY_EVALUATION_PERIOD`
 - `+0x16c`: `TIMING_OFFESET_MIN_STD_FOR_SAVE`
