@@ -467,6 +467,14 @@ static unsigned v8_open_samples_from_ms(const struct v8_open_engine *engine,
 	return (rate * ms) / 1000U;
 }
 
+static unsigned v8_open_samples_from_secs(const struct v8_open_engine *engine,
+					  unsigned secs)
+{
+	if (!secs)
+		secs = 1U;
+	return v8_open_samples_from_ms(engine, secs * 1000U);
+}
+
 static void v8_open_reset_tx(struct v8_open_engine *engine)
 {
 	engine->tone_phase_q16 = 0U;
@@ -681,6 +689,8 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 		 */
 		return v8_open_samples_from_ms(engine, 2220U);
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CM:
+		if (engine->cm_predetecting && engine->cm_predetect_deadline)
+			return engine->cm_predetect_deadline;
 		if (engine->cm_collecting && engine->cm_collect_deadline)
 			return engine->cm_collect_deadline;
 		if (engine->cm_detected && engine->cm_guard_budget)
@@ -690,6 +700,8 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 		/* Real JM dwell is about 0.82 s before V8_OK. */
 		return v8_open_samples_from_ms(engine, 820U);
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
+		if (engine->cj_predetecting && engine->cj_predetect_deadline)
+			return engine->cj_predetect_deadline;
 		if (engine->cj_collecting && engine->cj_collect_deadline)
 			return engine->cj_collect_deadline;
 		if (engine->cj_detected && engine->cj_guard_budget)
@@ -1942,7 +1954,8 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 	engine->cm_signature = signature;
 	engine->cm_predetecting = 1U;
 	engine->cm_predetect_deadline = engine->samples_in_phase +
-		v8_open_samples_from_ms(engine, engine->ans_det_0a);
+		v8_open_samples_from_secs(engine,
+					  engine->cfg.signal_detect_timeout_secs);
 	(void)v8_open_rx_consume_samples(engine, samples, cnt);
 	detector_hits = 0U;
 	detector_peak = 0U;
@@ -2062,7 +2075,8 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 	engine->cj_signature = signature;
 	engine->cj_predetecting = 1U;
 	engine->cj_predetect_deadline = engine->samples_in_phase +
-		v8_open_samples_from_ms(engine, v8_open_answer_detector_window(engine));
+		v8_open_samples_from_secs(engine,
+					  engine->cfg.message_detect_timeout_secs);
 	(void)v8_open_rx_consume_samples(engine, samples, cnt);
 	detector_hits = 0U;
 	detector_peak = 0U;
