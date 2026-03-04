@@ -166,6 +166,20 @@ struct v8_open_engine {
 	unsigned short ans_det_10;
 	unsigned short ans_det_12;
 	unsigned short ans_det_30;
+	unsigned short ans_td_14;
+	unsigned short ans_td_16;
+	unsigned short ans_td_18;
+	unsigned short ans_td_1a;
+	unsigned short ans_td_1c;
+	unsigned short ans_td_1e;
+	unsigned short ans_td_20;
+	unsigned short ans_td_22;
+	unsigned short ans_td_24;
+	unsigned short ans_td_26;
+	unsigned short ans_td_28;
+	unsigned short ans_td_2a;
+	unsigned short ans_td_2c;
+	unsigned short ans_td_2e;
 	unsigned short ans_rx_14;
 	unsigned short ans_rx_1a;
 	unsigned short ans_rx_1c;
@@ -749,6 +763,126 @@ static unsigned v8_open_capture_signature(const short *samples,
 
 static void v8_open_rx_start_search(struct v8_open_engine *engine);
 
+static short v8_open_mpyint(short sample, short coeff)
+{
+	int prod;
+
+	prod = (int)sample * (int)coeff;
+	if (prod >= 0)
+		prod += 0x4000;
+	else
+		prod -= 0x4000;
+	return (short)(prod >> 15);
+}
+
+static unsigned short v8_open_answer_detector_metric(struct v8_open_engine *engine,
+						     short sample)
+{
+	static const short fir_ff[3] = {
+		(short)0x3ccdU, (short)0xe087U, (short)0x3ccdU
+	};
+	static const short fir_fb[2] = {
+		(short)0xe087U, (short)0x39c3U
+	};
+	static const short sec0_ff[2] = {
+		0, 0
+	};
+	static const short sec0_fb[2] = {
+		(short)0xe630U, (short)0x3c38U
+	};
+	static const short sec1_ff[2] = {
+		0, 0
+	};
+	static const short sec1_fb[2] = {
+		(short)0xe960U, (short)0x3c38U
+	};
+	unsigned short old14;
+	unsigned short old18;
+	unsigned short old1c;
+	unsigned short old20;
+	int stage0;
+	int stage1;
+	int stage2;
+	int stage0_q;
+	int stage1_q;
+	int metric;
+	unsigned i;
+
+	engine->ans_td_24 = (unsigned short)sample;
+
+	stage0 = 0;
+	for (i = 0U; i < 3U; ++i) {
+		unsigned short hist;
+
+		hist = i == 0U ? engine->ans_td_24 :
+			(i == 1U ? engine->ans_td_26 : engine->ans_td_28);
+		stage0 += (int)v8_open_mpyint((short)hist, fir_ff[i]);
+	}
+	for (i = 0U; i < 2U; ++i) {
+		unsigned short hist;
+
+		hist = i == 0U ? engine->ans_td_2a : engine->ans_td_2c;
+		stage0 -= (int)v8_open_mpyint((short)hist, fir_fb[i]);
+	}
+
+	engine->ans_td_28 = engine->ans_td_26;
+	engine->ans_td_26 = engine->ans_td_24;
+	engine->ans_td_2e = engine->ans_td_2c;
+	engine->ans_td_2c = engine->ans_td_2a;
+	engine->ans_td_2a = (unsigned short)stage0;
+
+	stage0_q = (short)stage0;
+	stage0_q >>= 4;
+	stage1 = stage0_q;
+	for (i = 0U; i < 2U; ++i) {
+		unsigned short ff_state;
+		unsigned short fb_state;
+
+		ff_state = i == 0U ? engine->ans_td_14 : engine->ans_td_16;
+		fb_state = i == 0U ? engine->ans_td_1c : engine->ans_td_1e;
+		stage1 += (int)v8_open_mpyint((short)ff_state, sec0_ff[i]);
+		stage1 -= (int)v8_open_mpyint((short)fb_state, sec0_fb[i]);
+	}
+
+	old14 = engine->ans_td_14;
+	old1c = engine->ans_td_1c;
+	engine->ans_td_1c = (unsigned short)stage1;
+	engine->ans_td_14 = (unsigned short)stage0_q;
+	engine->ans_td_16 = old14;
+	engine->ans_td_1e = old1c;
+
+	stage1_q = (short)stage1;
+	stage1_q >>= 4;
+	stage2 = stage1_q;
+	for (i = 0U; i < 2U; ++i) {
+		unsigned short ff_state;
+		unsigned short fb_state;
+
+		ff_state = i == 0U ? engine->ans_td_18 : engine->ans_td_1a;
+		fb_state = i == 0U ? engine->ans_td_20 : engine->ans_td_22;
+		stage2 += (int)v8_open_mpyint((short)ff_state, sec1_ff[i]);
+		stage2 -= (int)v8_open_mpyint((short)fb_state, sec1_fb[i]);
+	}
+
+	old18 = engine->ans_td_18;
+	old20 = engine->ans_td_20;
+	engine->ans_td_20 = (unsigned short)stage2;
+	engine->ans_td_1a = old18;
+	engine->ans_td_18 = (unsigned short)stage1_q;
+	engine->ans_td_22 = old20;
+
+	metric = stage2;
+	metric >>= 4;
+	if (metric < 0)
+		metric = -metric;
+	metric += (int)v8_open_mpyint((short)engine->ans_det_12, (short)0x3ccdU);
+	if (metric < 0)
+		metric = 0;
+	if (metric > 0x7fff)
+		metric = 0x7fff;
+	return (unsigned short)metric;
+}
+
 static unsigned v8_open_answer_detector_step(struct v8_open_engine *engine,
 					     const short *samples,
 					     int cnt,
@@ -771,12 +905,9 @@ static unsigned v8_open_answer_detector_step(struct v8_open_engine *engine,
 	peak_abs = 0U;
 
 	for (i = 0; i < cnt; ++i) {
-		unsigned mag;
-
-		mag = (unsigned)(samples[i] < 0 ? -samples[i] : samples[i]);
-		if (mag > peak_abs)
-			peak_abs = mag;
-		engine->ans_det_12 = (unsigned short)mag;
+		engine->ans_det_12 = v8_open_answer_detector_metric(engine, samples[i]);
+		if (engine->ans_det_12 > peak_abs)
+			peak_abs = engine->ans_det_12;
 
 		if (engine->ans_det_04 != 0U) {
 			if (engine->ans_det_12 < engine->ans_det_0e)
@@ -875,6 +1006,20 @@ static void v8_open_answer_detector_init(struct v8_open_engine *engine)
 	engine->ans_det_10 = 0x05dcU;
 	engine->ans_det_12 = 0U;
 	engine->ans_det_30 = 0U;
+	engine->ans_td_14 = 0U;
+	engine->ans_td_16 = 0U;
+	engine->ans_td_18 = 0U;
+	engine->ans_td_1a = 0U;
+	engine->ans_td_1c = 0U;
+	engine->ans_td_1e = 0U;
+	engine->ans_td_20 = 0U;
+	engine->ans_td_22 = 0U;
+	engine->ans_td_24 = 0U;
+	engine->ans_td_26 = 0U;
+	engine->ans_td_28 = 0U;
+	engine->ans_td_2a = 0U;
+	engine->ans_td_2c = 0U;
+	engine->ans_td_2e = 0U;
 }
 
 static void v8_open_answer_predetector_seed(struct v8_open_engine *engine)
