@@ -1349,13 +1349,9 @@ static short v8_open_rx_agc_prefilter_sample(struct v8_open_engine *engine, shor
 	long long acc;
 	unsigned i;
 
-	/*
-	 * Blob V8agc: +a44==0 selects 0x5480, non-zero selects 0x5420.
-	 * In this stub/shim wiring, cfg.answer_mode is the logical side flag
-	 * and encodes opposite to blob +a44 for this AGC selector.
-	 */
+	/* Blob V8agc: +a44==0 selects 0x5480, non-zero selects 0x5420. */
 	coeffs = engine->cfg.answer_mode ?
-		v8_open_agc_filt_5480 : v8_open_agc_filt_5420;
+		v8_open_agc_filt_5420 : v8_open_agc_filt_5480;
 
 	engine->rx_agc_fir_hist[0] = sample;
 	acc = 0x2000;
@@ -1421,8 +1417,6 @@ static short v8_open_rx_agc_scale_sample(struct v8_open_engine *engine, short sa
 	int product;
 	unsigned top;
 	short scaled;
-	unsigned mag;
-	unsigned env;
 
 	gain = (int)(short)engine->rx_agc_gain_q15;
 
@@ -1436,21 +1430,55 @@ static short v8_open_rx_agc_scale_sample(struct v8_open_engine *engine, short sa
 			V8OPEN_RX_AGC_SCALE_SAT_NEG);
 		if (engine->ans_rx_ac < 0xffffU)
 			engine->ans_rx_ac = (unsigned short)(engine->ans_rx_ac + 1U);
-		if (engine->ans_rx_ac == V8OPEN_RX_AGC_SAT_COUNT_LIMIT) {
+		if (engine->ans_rx_ac == V8OPEN_RX_AGC_SAT_COUNT_LIMIT)
 			engine->rx_agc_gain_q15 = V8OPEN_RX_AGC_RECOVERY_GAIN;
-			engine->ans_rx_ac = 0U;
-			engine->rx_agc_integrator = 0;
-			engine->rx_agc_level = 0U;
-			engine->rx_agc_metric = 0U;
-		}
 	}
 
-	mag = (unsigned)(scaled < 0 ? -scaled : scaled);
-	env = engine->rx_agc_env;
-	env = ((env * 63U) + mag) >> 6;
-	engine->rx_agc_env = env;
-
 	return scaled;
+}
+
+static void v8_open_rx_agc_control_step(struct v8_open_engine *engine,
+					unsigned block_power_hi)
+{
+	int level_i;
+	unsigned level_top;
+	int error;
+	int control;
+	unsigned gain;
+
+	level_i = (int)(((long long)(short)engine->rx_agc_level * 0x6ccdLL) >> 15);
+	level_i += (int)block_power_hi;
+	level_top = ((unsigned)level_i) >> 15;
+	if (level_top != 0U && level_top != 0x1ffffU)
+		engine->rx_agc_level = 0x7f00U;
+	else
+		engine->rx_agc_level = (unsigned short)level_i;
+
+	if (engine->ans_rx_0a & 0x0200U)
+		return;
+
+	error = (int)(short)engine->rx_agc_level - (int)V8OPEN_RX_AGC_LEVEL_TARGET;
+	if (v8_open_abs_u32_from_i32(error) <= V8OPEN_RX_AGC_LEVEL_WINDOW)
+		return;
+
+	control = (int)(((long long)(short)engine->rx_agc_rate_q16 *
+			 (long long)error) >> 16);
+	control += (int)(short)engine->rx_agc_integrator;
+	if (v8_open_abs_u32_from_i32(control) <= V8OPEN_RX_AGC_CONTROL_LIMIT) {
+		engine->rx_agc_integrator = control;
+		return;
+	}
+
+	engine->rx_agc_integrator = 0;
+	gain = (unsigned short)engine->rx_agc_gain_q15;
+	if (control > 0) {
+		gain = (unsigned)(((unsigned long long)gain *
+				   (unsigned long long)V8OPEN_RX_AGC_GAIN_DECAY_COEFF) >> 14);
+	} else if (gain <= V8OPEN_RX_AGC_GAIN_GROW_LIMIT) {
+		gain = (unsigned)(((unsigned long long)gain *
+				   (unsigned long long)V8OPEN_RX_AGC_GAIN_GROW_COEFF) >> 14);
+	}
+	engine->rx_agc_gain_q15 = (unsigned short)gain;
 }
 
 static void v8_open_rx_agc_track(struct v8_open_engine *engine,
@@ -1482,50 +1510,10 @@ static void v8_open_rx_agc_track(struct v8_open_engine *engine,
 		block_power += (unsigned long long)(s * s);
 	}
 	engine->rx_agc_block_fill = 0U;
+	engine->rx_agc_env = (unsigned)(block_power >> 16);
 
-	if (metric > 0x1fU) {
-		unsigned level;
-		int error;
-		int level_i;
-		unsigned level_hi;
-
-		level_i = (int)(((unsigned long long)engine->rx_agc_level *
-			(unsigned long long)0x6ccdU) >> 15);
-		level_i += (int)(block_power >> 16);
-		level_hi = ((unsigned)level_i) >> 15;
-		if (level_hi != 0U && level_hi != 0x1ffffU)
-			level = 0x7f00U;
-		else
-			level = (unsigned short)level_i;
-		engine->rx_agc_level = level;
-
-		if ((engine->ans_rx_0a & 0x0200U) == 0U) {
-			error = (int)(short)level - (int)V8OPEN_RX_AGC_LEVEL_TARGET;
-			if (v8_open_abs_u32_from_i32(error) > V8OPEN_RX_AGC_LEVEL_WINDOW) {
-				int control;
-
-				control = (int)(((long long)engine->rx_agc_rate_q16 *
-					(long long)error) >> 16);
-				control += engine->rx_agc_integrator;
-				if (v8_open_abs_u32_from_i32(control) > V8OPEN_RX_AGC_CONTROL_LIMIT) {
-					unsigned gain;
-
-					engine->rx_agc_integrator = 0;
-					gain = (unsigned short)engine->rx_agc_gain_q15;
-					if (control > 0) {
-						gain = (unsigned)(((unsigned long long)gain *
-							(unsigned long long)V8OPEN_RX_AGC_GAIN_DECAY_COEFF) >> 14);
-					} else if (gain <= V8OPEN_RX_AGC_GAIN_GROW_LIMIT) {
-						gain = (unsigned)(((unsigned long long)gain *
-							(unsigned long long)V8OPEN_RX_AGC_GAIN_GROW_COEFF) >> 14);
-					}
-					engine->rx_agc_gain_q15 = (unsigned short)gain;
-				} else {
-					engine->rx_agc_integrator = control;
-				}
-			}
-		}
-	}
+	if (metric > 0x1fU)
+		v8_open_rx_agc_control_step(engine, (unsigned)(block_power >> 16));
 }
 
 static int v8_open_rx_emit_symbol_bits(struct v8_open_engine *engine,
@@ -1945,8 +1933,8 @@ static int v8_open_rx_try_lock_preamble(struct v8_open_engine *engine,
 
 	engine->rx_probe_bits = 0U;
 	engine->rx_word_sync = 1U;
-	engine->rx_bits_to_word = 10U;
-	engine->rx_shift_reg = 0U;
+	engine->rx_bits_to_word = 0U;
+	engine->rx_shift_reg = raw_word;
 	v8_open_rx_seed_sync_sequence(engine);
 	V8OPEN_DBG("rx-lock: mode=%s preamble=%03x orient=%s c23a=%03x runs=%u/%u/%u\n",
 		  engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM ? "cm" : "cj",
@@ -1959,23 +1947,30 @@ static int v8_open_rx_try_lock_preamble(struct v8_open_engine *engine,
 	return 1;
 }
 
-static void v8_open_rx_update_runs(struct v8_open_engine *engine, unsigned bit)
+static int v8_open_rx_update_runs(struct v8_open_engine *engine, unsigned bit)
 {
 	if (bit & 0x01U) {
 		engine->rx_c23e = 0U;
 		engine->rx_c240 = (unsigned short)(engine->rx_c240 + 1U);
 		engine->rx_c242 = engine->rx_c240;
-		return;
+		return 0;
 	}
 
 	engine->rx_c23e = (unsigned short)(engine->rx_c23e + 1U);
 	if (engine->rx_c23e == 6U) {
 		if (engine->rx_c242 > 9U) {
-			engine->rx_c244 = engine->rx_c240;
-			engine->rx_c246 = engine->rx_c242;
+			unsigned short framed_index;
+
+			framed_index = engine->rx_c244;
+			engine->rx_c244 = (unsigned short)(framed_index + 1U);
+			engine->rx_c246 = framed_index;
+			engine->rx_c240 = 0U;
+			return 1;
 		}
-		engine->rx_c240 = 0U;
 	}
+
+	engine->rx_c240 = 0U;
+	return 0;
 }
 
 static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
@@ -1986,66 +1981,56 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 	unsigned rev_inv_word;
 	unsigned short word;
 	unsigned idx;
+	int framed_symbol_ready;
 
-	v8_open_rx_update_runs(engine, bit);
+	framed_symbol_ready = v8_open_rx_update_runs(engine, bit);
 
 	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_SEARCH) {
 		engine->rx_shift_reg = (unsigned short)(engine->rx_c23a & 0x0fffU);
 		return 0;
 	}
 
+	if (!framed_symbol_ready)
+		return 0;
+
+	/*
+	 * Blob state-0x28 framing consumes symbols from the live V.21 shifter
+	 * (c3a) once the run-length delimiter counters assert a complete frame.
+	 */
+	raw_word = (unsigned short)(engine->rx_c23a & 0x0fffU);
+	engine->rx_shift_reg = raw_word;
+	inv_word = raw_word ^ 0x0fffU;
+	rev_word = v8_open_reverse_word12(raw_word);
+	rev_inv_word = rev_word ^ 0x0fffU;
+
 	if (!engine->rx_word_sync) {
-		/*
-		 * The blob's state-0x29 preamble checks read the live V.21 shifter
-		 * (c3a), not a fresh collector-local register. Keep probing the low
-		 * 12 bits of c3a here so the post-detector handoff preserves the
-		 * recently recovered history instead of collapsing immediately to a
-		 * zeroed collector shift register.
-		 */
-		engine->rx_shift_reg = (unsigned short)(engine->rx_c23a & 0x0fffU);
-		raw_word = engine->rx_shift_reg;
-		inv_word = raw_word ^ 0x0fffU;
-		rev_word = v8_open_reverse_word12((unsigned short)raw_word);
-		rev_inv_word = rev_word ^ 0x0fffU;
 		engine->rx_probe_bits++;
-		if (engine->rx_probe_bits >= 12U) {
-			if (engine->rx_probe_words_logged < 6U) {
-				V8OPEN_DBG("rx-probe: mode=%s raw=%03x inv=%03x rev=%03x rinv=%03x runs=%u/%u/%u mark=%u delim=%u\n",
-					  engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM ? "cm" : "cj",
-					  raw_word,
-					  inv_word,
-					  rev_word,
-					  rev_inv_word,
-					  engine->rx_c23e,
-					  engine->rx_c240,
-					  engine->rx_c242,
-					  engine->rx_c244,
-					  engine->rx_c246);
-				engine->rx_probe_words_logged++;
-			}
-			engine->rx_probe_bits = 0U;
+		if (engine->rx_probe_words_logged < 6U) {
+			V8OPEN_DBG("rx-probe: mode=%s raw=%03x inv=%03x rev=%03x rinv=%03x runs=%u/%u/%u mark=%u delim=%u\n",
+				  engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM ? "cm" : "cj",
+				  raw_word,
+				  inv_word,
+				  rev_word,
+				  rev_inv_word,
+				  engine->rx_c23e,
+				  engine->rx_c240,
+				  engine->rx_c242,
+				  engine->rx_c244,
+				  engine->rx_c246);
+			engine->rx_probe_words_logged++;
 		}
 
-		if (!v8_open_rx_try_lock_preamble(engine,
-				(unsigned short)raw_word))
+		if (!v8_open_rx_try_lock_preamble(engine, raw_word))
 			return 0;
 		return 0;
 	}
 
-	engine->rx_shift_reg = (unsigned short)(((engine->rx_shift_reg << 1) |
-						(bit & 0x01U)) & 0x03ffU);
-	if (engine->rx_bits_to_word > 0U)
-		engine->rx_bits_to_word--;
-	if (engine->rx_bits_to_word > 0U)
-		return 0;
-
-	engine->rx_bits_to_word = 10U;
-	word = v8_open_rx_normalize_word(engine, engine->rx_shift_reg);
+	word = v8_open_rx_normalize_word(engine, (unsigned short)(raw_word & 0x03ffU));
 	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM) {
 		if (engine->cm_collect_index < 12U) {
 			V8OPEN_DBG("rx-word: mode=cm idx=%u raw=%03x norm=%03x seq_len=%u pass=%u runs=%u/%u/%u\n",
 				  engine->cm_collect_index,
-				  (unsigned)engine->rx_shift_reg,
+				  (unsigned)raw_word,
 				  (unsigned)word,
 				  (unsigned)engine->rx_sequence_len,
 				  (unsigned)engine->cm_collect_pass,
@@ -2057,7 +2042,7 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 		if (engine->cj_collect_index < 8U) {
 			V8OPEN_DBG("rx-word: mode=cj idx=%u raw=%03x norm=%03x runs=%u/%u/%u\n",
 				  engine->cj_collect_index,
-				  (unsigned)engine->rx_shift_reg,
+				  (unsigned)raw_word,
 				  (unsigned)word,
 				  engine->rx_c23e,
 				  engine->rx_c240,
