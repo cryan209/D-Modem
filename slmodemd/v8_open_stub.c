@@ -768,11 +768,7 @@ static short v8_open_mpyint(short sample, short coeff)
 	int prod;
 
 	prod = (int)sample * (int)coeff;
-	if (prod >= 0)
-		prod += 0x4000;
-	else
-		prod -= 0x4000;
-	return (short)(prod >> 15);
+	return (short)(prod >> 14);
 }
 
 static unsigned short v8_open_answer_detector_metric(struct v8_open_engine *engine,
