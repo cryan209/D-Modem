@@ -479,6 +479,11 @@ static unsigned v8_open_answer_predetect_budget(const struct v8_open_engine *eng
 	return hold_samples + stage2_samples;
 }
 
+static unsigned v8_open_answer_stage2_budget(const struct v8_open_engine *engine)
+{
+	return v8_open_rx_samples_per_bit(engine) * engine->ans_det_0a;
+}
+
 static void v8_open_reset_tx(struct v8_open_engine *engine)
 {
 	engine->tone_phase_q16 = 0U;
@@ -1902,6 +1907,9 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 	signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
 
 	if (engine->cm_predetecting) {
+		unsigned stage2_before;
+
+		stage2_before = engine->ans_det_06;
 		detector_hits = 0U;
 		detector_peak = 0U;
 		detector_tripped = 0U;
@@ -1916,6 +1924,10 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 					(unsigned short)detector_hits);
 		if (detector_peak > engine->ans_rx_c8)
 			engine->ans_rx_c8 = (unsigned short)detector_peak;
+		if (!stage2_before && engine->ans_det_06) {
+			engine->cm_predetect_deadline = engine->samples_in_phase +
+				v8_open_answer_stage2_budget(engine);
+		}
 		if (!detector_hits)
 			engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
 		if (!detector_tripped)
@@ -1966,6 +1978,10 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 					  v8_open_samples_from_ms(engine,
 								  engine->ans_det_0a));
 	(void)v8_open_rx_consume_samples(engine, samples, cnt);
+	{
+		unsigned stage2_before;
+
+		stage2_before = engine->ans_det_06;
 	detector_hits = 0U;
 	detector_peak = 0U;
 	detector_tripped = v8_open_answer_detector_step(engine,
@@ -1978,8 +1994,13 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 				(unsigned short)detector_hits);
 	if (detector_peak > engine->ans_rx_c8)
 		engine->ans_rx_c8 = (unsigned short)detector_peak;
+	if (!stage2_before && engine->ans_det_06) {
+		engine->cm_predetect_deadline = engine->samples_in_phase +
+			v8_open_answer_stage2_budget(engine);
+	}
 	if (!detector_hits)
 		engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
+	}
 	if (detector_tripped) {
 		engine->cm_predetecting = 0U;
 		engine->cm_predetect_deadline = 0U;
@@ -2024,6 +2045,9 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 	signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
 
 	if (engine->cj_predetecting) {
+		unsigned stage2_before;
+
+		stage2_before = engine->ans_det_06;
 		detector_hits = 0U;
 		detector_peak = 0U;
 		detector_tripped = 0U;
@@ -2038,6 +2062,10 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 					(unsigned short)detector_hits);
 		if (detector_peak > engine->ans_rx_c8)
 			engine->ans_rx_c8 = (unsigned short)detector_peak;
+		if (!stage2_before && engine->ans_det_06) {
+			engine->cj_predetect_deadline = engine->samples_in_phase +
+				v8_open_answer_stage2_budget(engine);
+		}
 		if (!detector_hits)
 			engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
 		if (!detector_tripped)
@@ -2088,6 +2116,10 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 					  v8_open_samples_from_ms(engine,
 								  v8_open_answer_detector_window(engine)));
 	(void)v8_open_rx_consume_samples(engine, samples, cnt);
+	{
+		unsigned stage2_before;
+
+		stage2_before = engine->ans_det_06;
 	detector_hits = 0U;
 	detector_peak = 0U;
 	detector_tripped = v8_open_answer_detector_step(engine,
@@ -2100,8 +2132,13 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 				(unsigned short)detector_hits);
 	if (detector_peak > engine->ans_rx_c8)
 		engine->ans_rx_c8 = (unsigned short)detector_peak;
+	if (!stage2_before && engine->ans_det_06) {
+		engine->cj_predetect_deadline = engine->samples_in_phase +
+			v8_open_answer_stage2_budget(engine);
+	}
 	if (!detector_hits)
 		engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
+	}
 	if (detector_tripped) {
 		engine->cj_predetecting = 0U;
 		engine->cj_predetect_deadline = 0U;

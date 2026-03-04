@@ -466,6 +466,272 @@ offset of every field is not fully pinned yet, but the namespaces are clear:
 This is enough to say the class is organized into parameter “banks” rather than
 random scalar state.
 
+### `loadParams()` continuation: deeper schema map
+
+The full `loadParams()` body is a straight-line parser table, not a state
+machine:
+
+- it runs from `0x27a00` to `0x298d5`;
+- it contains about **295** calls to `Vparser_read_int()` /
+  `Vparser_read_float()`; and
+- it has no meaningful loops or validation branches in the parser path.
+
+That means the function is best understood as a serialized schema for the whole
+`V90Parameters` object.
+
+The deeper half of the schema breaks down cleanly into these contiguous ranges:
+
+#### `+0x164 .. +0x16c`: timing-history persistence
+
+These fields directly connect to the `V90Resampler` / timing-history logic:
+
+- `+0x164`: `TIMING_HISTORY_EVALUATION_BUFFER_LENGTH`
+- `+0x168`: `TIMING_HISTORY_EVALUATION_PERIOD`
+- `+0x16c`: `TIMING_OFFESET_MIN_STD_FOR_SAVE`
+
+This confirms the earlier `V90Resampler` finding that the timing-history count
+is stored in the same neighborhood and that timing-offset persistence is a
+first-class configurable subsystem.
+
+#### `+0x170 .. +0x1dc`: late linear-equalizer shaping
+
+After the timing-history controls, the parser loads the remainder of the linear
+equalizer bank:
+
+- linear-equalizer geometry:
+  `LINEAR_EQU_FADE_EDGES_CYCLE`,
+  `LINEAR_EQU_HISTORY_LENGTH`,
+  `LINEAR_EQU_CURSOR_PLACE`
+- main adaptation betas:
+  `LINEAR_EQU_DIL_BETA`,
+  `LINEAR_EQU_DIL_MED_UCODE_BETA`,
+  `LINEAR_EQU_TRN1D_BETA`,
+  `LINEAR_EQU_ALT_DIL_BETA`,
+  `LINEAR_EQU_TRN2D_BETA`,
+  `LINEAR_EQU_TRN2D_INITIAL_BETA`,
+  `LINEAR_EQU_DATA_BETA`
+- EIA6 variants:
+  `EIA6_LINEAR_EQU_DIL_BETA`,
+  `EIA6_LINEAR_EQU_TRN1D_BETA`,
+  `EIA6_LINEAR_EQU_TRN2D_BETA`,
+  `EIA6_LINEAR_EQU_DATA_BETA`
+- fade and corner controls:
+  `LINEAR_EQU_FADE_RIGHT_EDGE_RATIO`,
+  `LINEAR_EQU_FADE_LEFT_EDGE_RATIO`,
+  `EIA6_LINEAR_EQU_FADE_LEFT_EDGE_RATIO`,
+  `EIA6_LINEAR_EQU_FADE_EDGES_CYCLE`,
+  `EIA6_LINEAR_EQU_FADE_RIGHT_EDGE_RATIO`
+- higher-ucode / error-relaxation / PBX refinements:
+  `LINEAR_EQU_DIL_HIGH_UCODE_BETA`,
+  `LINEAR_EQU_DIL_ERROR_RELAX_BETA`,
+  `EIA6_LINEAR_EQU_DIL_MED_UCODE_BETA`,
+  `EIA6_LINEAR_EQU_DIL_HIGH_UCODE_BETA`,
+  `EIA6_LINEAR_EQU_DIL_ERROR_RELAX_BETA`,
+  `LINEAR_EQU_ALT_DIL_MED_UCODE_BETA`,
+  `GERMAN_PBX_LINEAR_EQU_DIL_BETA`,
+  `GERMAN_PBX_LINEAR_EQU_DIL_MED_UCODE_BETA`,
+  `GERMAN_PBX_LINEAR_EQU_DIL_HIGH_UCODE_BETA`,
+  `LINEAR_EQU_ALT_DIL_HIGH_UCODE_BETA`
+- duration knobs:
+  `LINEAR_EQU_TRN1D_FREEZE_DURATION`,
+  `LINEAR_EQU_TRN2D_INITIAL_DURATION`,
+  `LINEAR_EQU_QC_TRN1D_FREEZE_DURATION`
+
+This is the point where the class clearly stops being “just a few AGC numbers”
+and becomes a full tuning database for the adaptation pipeline.
+
+#### `+0x1e0 .. +0x24c`: DFE, detector, and spectral-verifier core
+
+The next major bank shifts from the linear equalizer into DFE and detection:
+
+- DFE adaptation:
+  `DFE_TRN1D_BETA`,
+  `DFE_LENGTH`,
+  `DFE_DIL_BETA`,
+  `DFE_DIL_MED_UCODE_BETA`,
+  `DFE_DIL_HIGH_UCODE_BETA`,
+  `EIA6_DFE_DIL_MED_UCODE_BETA`,
+  `DFE_DIL_ERROR_RELAX_BETA`,
+  `EIA6_DFE_DIL_HIGH_UCODE_BETA`,
+  `EIA6_DFE_DIL_ERROR_RELAX_BETA`,
+  `DFE_DIL_ALT_BETA`,
+  `DFE_DIL_ALT_HIGH_UCODE_BETA`,
+  `DFE_DIL_ALT_MED_UCODE_BETA`,
+  `DFE_TRN2D_BETA`,
+  `DFE_DATA_BETA`
+- regional / EIA6 DFE variants:
+  `GERMAN_PBX_DFE_DATA_BETA`,
+  `EIA6_DFE_DIL_BETA`,
+  `EIA6_DFE_TRN1D_BETA`,
+  `EIA6_DFE_TRN2D_FAST_BETA`,
+  `EIA6_DFE_DATA_BETA`,
+  `EIA6_DFE_TRN2D_SLOW_BETA`,
+  `EIA6_DFE_TRN2D_RRN_BETA`,
+  `GERMAN_PBX_DFE_TRN2D_SLOW_BETA`,
+  `GERMAN_PBX_DFE_TRN2D_FAST_BETA`
+- error-energy / detector thresholds:
+  `ERROR_ENERGY_MEAN_BLOCK_LEN`,
+  `ERROR_ENERGY_MEAN_K`,
+  `ERROR_ENERGY_PRINT_PERIOD_PHASE3`,
+  `ERROR_ENERGY_PRINT_PERIOD_PHASE4`,
+  `ERROR_ENERGY_PRINT_PERIOD_DATA`,
+  `NOF_DD_SYMBOLS_BEFORE_MEAN_ERROR_DIAG_PHASE3`,
+  `NOF_DD_SYMBOLS_BEFORE_MEAN_ERROR_DIAG_PHASE4`,
+  `SD_DETECTOR_ENEGY_THRESHOLD`,
+  `SD_DETECTOR_NEGATIVE_CORR_THRESHOLD`,
+  `SD_DETECTOR_POSITIVE_CORR_THRESHOLD`,
+  `SD_DETECTOR_DETECTION_COUNTER_THRESHOLD`
+- spectral verifier core:
+  `SPECTRAL_VERIFIER_ENABLE`,
+  `EIA6_SPECTRAL_VERIFIER_ENABLE`,
+  `SPECTRAL_VERIFIER_SAMPLE_FREQ`,
+  `SPECTRAL_VERIFIER_FFT_WINDOW`,
+  `SPECTRAL_VERIFIER_FFT_LEN`,
+  `SPECTRAL_VERIFIER_PSD_LEN`,
+  `SPECTRAL_VERIFIER_PSD_OVERLAP_LEN`,
+  `SPECTRAL_VERIFIER_PRINT_SPECTRUM`
+
+This range is where the receive-side quality analysis is configured.
+
+#### `+0x250 .. +0x37c`: shaping, DMIN, fallback, and retrain policy
+
+The next block is a broad “policy” region combining constellation design,
+spectral shaping, silence handling, and fallback decisions:
+
+- shaping / DMIN / rate forcing:
+  `DMIN_CALC_FACTOR2`,
+  `DMIN_CALC_FACTOR1`,
+  `DMIN_EIA6_FACTOR`,
+  `FORCED_DMIN`,
+  `FORCE_RATE_ENABLE`,
+  `RATE_FORCE`,
+  `UP_ROUND_K`,
+  `USE_RESTRICTED_DMIN`,
+  `EIA6_USE_RESTRICED_DMIN`
+- spectral shaper coefficients:
+  `SPECTRAL_SHAPER_A1`,
+  `SPECTRAL_SHAPER_A2`,
+  `SPECTRAL_SHAPER_B1`,
+  `SPECTRAL_SHAPER_B2`,
+  `SPECTRAL_SHAPER_ID`,
+  `SPECTRAL_SHAPER_SR`
+- regional / EIA6 spectral shapers:
+  `GERMAN_PBX_SPECTRAL_SHAPER_A1/A2/B1/B2/ID/SR`,
+  `EIA6_SPECTRAL_SHAPER_A1/A2/B1/B2/ID/SR`
+- training and fallback thresholds:
+  `TRN1D_DD_LENGTH`,
+  `TRN2D_DD_LENGTH`,
+  `RRN_TRN2D_DD_LENGTH`,
+  `TRN2D_QC_DD_LENGTH`,
+  `TRN1_QC_DD_LENGTH`,
+  `TRN1D_ERROR_FOR_V34_FALLBACK`,
+  `PHASE3_ERROR_FOR_V34_FALLBACK`,
+  `PHASE4_ERROR_FOR_V34_FALLBACK`,
+  `EIA6_TRN1D_ERROR_FOR_V34_FALLBACK`
+- silence / RRN policy:
+  `RRN_SILENCE_REQUESTED`,
+  `RRN_SILENCE_SCR_LENGTH`,
+  `RRN_SILENCE_ECHO_CALC_PERIOD`,
+  `MINIMUM_DURATION_IN_DATA_BEFORE_RRN_UP`,
+  `MINIMUM_DURATION_IN_DATA_BEFORE_RRN_DOWN`,
+  `MINIMUM_DURATION_IN_DATA_BEFORE_EC_RRN`,
+  `NOF_REMOTE_RATE_RENEG_BEFORE_RETRAIN`,
+  `ENABLE_RRN_UP`,
+  `ENABLE_RRN_DOWN`,
+  `ENABLE_ERROR_CORRECTION_RRN`,
+  `REMOTE_RRN_COUNTER_FADE_COUNT`
+- quality thresholds:
+  `PDSNR_THRESHOLD_IN_PHASE3`,
+  `PDSNR_THRESHOLD_IN_PHASE4`,
+  `EIA6_PDSNR_THRESHOLD_IN_PHASE3`,
+  `EIA6_PDSNR_THRESHOLD_IN_PHASE4`
+- retrain / rate-renegotiation limits:
+  `MAX_NOF_V90_RETRAINS`,
+  `MAX_NOF_REMOTE_RETRAINS`,
+  `EIA6_MAX_NOF_V90_RETRAINS`,
+  `MAX_NOF_RATES_DIFF_BEFORE_RETRAIN`,
+  `RETRAIN_DETECT_DURATION`,
+  `RATE_DOWN_DETECT_DURATION`,
+  `RATE_UP_DETECT_DURATION`
+
+This is the clearest evidence that `V90Parameters` also acts as the
+connection-policy configuration object for the whole V.90 session manager.
+
+#### `+0x380 .. +0x42c`: power reduction and error-statistics policy
+
+A smaller but very important block follows:
+
+- `+0x380`: `DIGITAL_POWER_REDUCTION`
+- nearby policy/debug flags:
+  `ENABLE_DIGITAL_POWER_REDUCTION`,
+  `ENABLE_REDUNDANCY_OPTIMIZATION`,
+  `MASK_RRN_SILENCE_ON_PROBLEMATIC_ISP`,
+  `RRN_SILENCE_WAIT_BEFORE_ECHO_CALC`,
+  `RRN_SILENCE_MIN_ECHO_ENERGY_FOR_KEEP_RATE`,
+  `MIN_RATE_FOR_SILENCE_RRN_KEEP_RATE`
+- error-statistics controls:
+  `TRN1D_MEAN_ERROR_STD_EVALUATION_ENABLE`
+- `+0x420`: `TRN2D_MEAN_ERROR_STD_EVALUATION_ENABLE`
+- immediately after:
+  `TRN1D_MAX_MEAN_ERROR_STD_IN_PHASE3`,
+  `TRN2D_MAX_MEAN_ERROR_STD_IN_PHASE4`,
+  `TRN2D_MAX_MEAN_ERROR_ENERGY_IN_PHASE4`,
+  `PHASE4_MEAN_ERROR_BEF_TO_AFT_UPDATE_RATIO_THRESH`,
+  `QC_PHASE4_MEAN_ERROR_BEF_TO_AFT_UPDATE_RATIO_THRESH`
+
+`loadModemParamsData()` later overrides `+0x420` from the runtime source block,
+which matches the debug string
+`trn2d_mean_error_std_evaluation_enable`.
+
+#### `+0x42c .. +0x554`: debug, file I/O, and scratch parameters
+
+The tail of the schema is dominated by diagnostics and developer tuning knobs:
+
+- connection-evaluator / QC debug:
+  `QC_LOGGING_PERIOD_INITIAL`,
+  `QC_LOGGING_PERIOD_STEADY_STATE`,
+  `DEBUG_CONNECTION_EVALUATOR_ALTERNATE_DEBUG`,
+  `DEBUG_CONNECTION_EVALUATOR_FALL_BACK`,
+  `DEBUG_CONNECTION_EVALUATOR_RATE_UP`,
+  `DEBUG_CONNECTION_EVALUATOR_RETRAIN`,
+  `DEBUG_CONNECTION_EVALUATOR_RATE_DOWN`,
+  `DEBUG_CONNECTION_EVALUATOR_PERIOD`
+- modem / environment flags:
+  `HIGH_LEVEL_TX_ACTIVE`,
+  `SENSITIVE_ISP_DETECTED`,
+  `LOOP_TYPE`,
+  `ENABLE_DROP_2_V34_ON_SEVERE_CODEC`,
+  `DEBUG_DIGITAL_MODEM_INITIATE_RRN`,
+  `DEBUG_DIGITAL_MODEM_INITIATE_RRN_TIME`,
+  `MAX_TX_RATE_INDEX_FOR_SENSITIVE_ISP`
+- file dump / persistence toggles:
+  `WRITE_ERROR_TO_FILE`,
+  `WRITE_EQU_COEFS_TO_FILE`,
+  `LOAD_EQU_COEFS_FROM_FILE`,
+  `WRITE_TIMING_PHASE_AND_OFFSET_TO_FILE`,
+  `WRITE_DEMOD_IN_SAMPLES_TO_FILE`
+- constellation/debug output:
+  `SEPARATE_PHASE3_CONSTELLATIONS`,
+  `SEPARATE_PHASE4_CONSTELLATIONS`,
+  `SEPARATE_DATA_PHASE_CONSTELLATIONS`,
+  `DEBUG_PRINT_MAPPER_CONSTELLATIONS`,
+  `DEBUG_PRINT_DEMAPPER_CONSTELLATIONS`,
+  `DEBUG_DEMAPPER_ERROR_HISTOGRAM`,
+  `DEMAPPER_DELAY_BEFORE_ERROR_HISTOGRAM`,
+  `DEMAPPER_ERROR_HISTOGRAM_INTEGRATION_TIME`
+- scratch pads:
+  `TEMP_INT_PARAMETER1..4`
+  `TEMP_FLOAT_PARAMETER1..4`
+
+The final parser writes land exactly at:
+
+- `+0x4f8 .. +0x504`: late integer/debug controls
+- `+0x538 .. +0x544`: `TEMP_INT_PARAMETER1..4`
+- `+0x548 .. +0x554`: `TEMP_FLOAT_PARAMETER2`, `TEMP_FLOAT_PARAMETER1`,
+  `TEMP_FLOAT_PARAMETER3`, `TEMP_FLOAT_PARAMETER4`
+
+That matches the object-size lower bound from `setToDefault()`.
+
 ### Proven modem-runtime overrides
 
 `loadModemParamsData()` applies a small number of runtime overrides from the
