@@ -610,7 +610,8 @@ static unsigned short v8_open_find_rx_token(const struct v8_open_engine *engine,
 	unsigned i;
 	unsigned seen;
 
-	if (category_masked == 0x0141U && nth > 0U) {
+	if ((category_masked == 0x0141U || category_masked == 0x01c1U) &&
+	    nth > 0U) {
 		for (i = 0; i < engine->rx_token_count; ++i) {
 			unsigned short token;
 			unsigned ext_seen;
@@ -663,10 +664,10 @@ static void v8_open_collect_remote_cm_defaults(struct v8_open_engine *engine)
 	v8_open_rx_seq_b_push(engine, 0x0107U);
 	v8_open_rx_seq_b_push(engine, 0x014dU);
 	v8_open_rx_seq_b_push(engine, 0x0111U);
-	v8_open_rx_seq_b_push(engine, 0x0011U);
+	v8_open_rx_seq_b_push(engine, 0x0111U);
 	v8_open_rx_seq_b_push(engine, 0x0161U);
 	v8_open_rx_seq_b_push(engine, 0x01c9U);
-	v8_open_rx_seq_b_push(engine, 0x0011U);
+	v8_open_rx_seq_b_push(engine, 0x0111U);
 	v8_open_rx_seq_b_push(engine, 0x00a9U);
 }
 
