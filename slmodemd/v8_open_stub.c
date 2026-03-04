@@ -319,6 +319,12 @@ static void v8_open_tx_push_async_octet(struct v8_open_engine *engine,
 	v8_open_tx_push_bit(engine, 1U);
 }
 
+static void v8_open_tx_push_word(struct v8_open_engine *engine,
+				 unsigned short word)
+{
+	v8_open_tx_push_async_octet(engine, v8_open_decode_word_octet(word));
+}
+
 static void v8_open_prepare_jm_bits(struct v8_open_engine *engine)
 {
 	unsigned i;
@@ -326,6 +332,22 @@ static void v8_open_prepare_jm_bits(struct v8_open_engine *engine)
 	engine->tx_bit_len = 0U;
 	engine->tx_bit_pos = 0U;
 	engine->tx_bit_samples = 0U;
+
+	/*
+	 * Blob answer-side path can start V.21 transmission from a short
+	 * constructor-seeded buffer at +0x0d14 before it switches to the
+	 * main JM buffer at +0x0c54. Mirror that by prepending the same
+	 * 6-word pattern (0x03ff, 0x0155, 0x0111 repeated).
+	 */
+	if (engine->cfg.answer_mode) {
+		static const unsigned short answer_seed_words[] = {
+			0x03ffU, 0x0155U, 0x0111U,
+			0x03ffU, 0x0155U, 0x0111U
+		};
+
+		for (i = 0; i < (sizeof(answer_seed_words) / sizeof(answer_seed_words[0])); ++i)
+			v8_open_tx_push_word(engine, answer_seed_words[i]);
+	}
 
 	for (i = 0; i < 16U; ++i)
 		v8_open_tx_push_bit(engine, 1U);

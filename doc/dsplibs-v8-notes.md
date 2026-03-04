@@ -285,6 +285,292 @@ The JM helpers also maintain short-lived match state:
 
 These four fields are cleared during `v8handshakinit()`.
 
+### `v8handshakinit()` line-by-line decompilation
+
+`v8handshakinit()` at `0x76cf0` is the real constructor-side state setup for
+the V.8 engine. `V8Create()` mostly allocates the engine and stores the config
+pointer; `v8handshakinit()` decides whether the engine starts in the answer or
+originate path and seeds the internal TX/RX state that `v8handshak()` later
+uses.
+
+The first argument is the engine pointer.
+
+#### Shared prelude
+
+The top of the function is common to both answer and originate:
+
+```c
+void v8handshakinit(struct v8_engine *e)
+{
+    struct v8_cfg *cfg;
+
+    e->w_a3e = 0x0010;          // +0x0a3e
+    e->w_d94 = 0x0000;          // +0x0d94
+    e->w_d96 = 0x001a;          // +0x0d96
+    e->d_d98 = 0;               // +0x0d98
+    e->d_d9c = 0;               // +0x0d9c
+    e->w_da0 = 0x0000;          // +0x0da0
+    e->w_a40 = 0x0200;          // +0x0a40
+
+    v8_rxinit(e);
+    v8_txinit(e);
+
+    e->d_dc4 = 0;               // +0x0dc4
+    e->w_dd0 = 0;               // +0x0dd0
+    e->d_dc8 = 0;               // +0x0dc8
+    e->d_dcc = 0;               // +0x0dcc
+
+    e->w_ebc = 0;               // +0x0ebc = have_call_match
+    e->w_ebe = 0;               // +0x0ebe = have_proto_match
+    e->w_ec0 = 0;               // +0x0ec0 = matched_call_word
+    e->w_ec2 = 0;               // +0x0ec2 = matched_proto_word
+
+    /*
+     * e->cfg_side at +0x0a44:
+     *   0 = answer
+     *   1 = originate
+     * anything else returns immediately
+     */
+    switch (e->cfg_side) {
+    case 0:
+        goto answer_init;
+    case 1:
+        goto originate_init;
+    default:
+        return;
+    }
+}
+```
+
+The important point is that the match latches (`0x0ebc..0x0ec2`) are reset
+here, before any receive-side sequence parsing begins.
+
+#### Answer path (`cfg_side == 0`)
+
+The answer-side branch starts at `0x76db2`:
+
+```c
+answer_init:
+    e->state_9d4 = 0x0005;      // +0x09d4
+    e->state_9d6 = 0x0019;      // +0x09d6
+    e->state_9d8 = 0x0019;      // +0x09d8
+
+    e->w_0026 = 0x8000;         // *(uint16_t *)(e + 0x26)
+
+    /*
+     * Two shared timeout values:
+     *   timeout = (cfg_timeout * 9600) / 4
+     * or -1 when the source value is <= 0.
+     */
+    e->d_e5c = (e->cfg_timeout_a > 0) ?
+               ((e->cfg_timeout_a * 0x2580) >> 2) : -1;   // +0x0e5c
+    e->d_e60 = (e->cfg_timeout_b > 0) ?
+               ((e->cfg_timeout_b * 0x2580) >> 2) : -1;   // +0x0e60
+    e->d_e64 = 0;               // +0x0e64
+
+    /*
+     * Detector + phase-reversal receive front-end.
+     *
+     * The call is:
+     *   v8_detectorinit(e, e+0x0ad8, .rodata+0x5670, 0, 0x64, 0x32, 0x5dc, 0)
+     */
+    v8_detectorinit(e,
+                    e + 0x0ad8,
+                    detector_coeffs_rodata,
+                    0,
+                    0x64,
+                    0x32,
+                    0x05dc,
+                    0);
+
+    v8_phase_rev_init(e + 0x0b40);
+
+    /*
+     * Default sequence pointers:
+     *   TX words: +0x0c54
+     *   RX words: +0x0cd4
+     */
+    e->tx_stream_ptr = e + 0x0c54;      // +0x0c48
+    e->rx_stream_ptr = e + 0x0cd4;      // +0x0c4c
+
+    initTxSequence(e);
+
+    /*
+     * Message-framing / sequence counters.
+     */
+    e->w_c98 = 1;              // +0x0c98
+    e->w_c94 = 1;              // +0x0c94
+    e->w_c96 = 1;              // +0x0c96
+    e->w_cb8 = 0;              // +0x0cb8
+
+    /*
+     * +0x0dbe mirrors whether cfg_timeout_a == 0.
+     * The blob stores 1 when cfg_timeout_a is zero, else 0.
+     */
+    e->w_dbe = (e->cfg_timeout_a == 0); // +0x0dbe
+
+    e->w_cb4 = 0;              // +0x0cb4
+    e->w_cb2 = 0xffff;         // +0x0cb2
+    e->w_cbe = 1;              // +0x0cbe
+    e->w_cbc = 0;              // +0x0cbc
+    e->w_cc0 = 0;              // +0x0cc0
+    e->w_cb6 = 0x001e;         // +0x0cb6
+    e->w_cba = 0x000a;         // +0x0cba
+    e->d_cc4 = 0;              // +0x0cc4
+    e->d_ccc = 0;              // +0x0ccc
+    e->w_cc8 = 0;              // +0x0cc8
+    e->w_cd0 = 0;              // +0x0cd0
+```
+
+At this point the answer-side receive path is armed, the default TX/RX sequence
+buffers are in place, and `initTxSequence()` has already built the initial
+transmit sequence.
+
+The answer branch then has an optional extension controlled by `cfg->byte2 &
+0x10`:
+
+```c
+    if (cfg->byte2 & 0x10) {
+        /*
+         * Alternate TX/RX sequence pointers:
+         *   TX words: +0x0d14
+         *   RX words: +0x0d54
+         */
+        e->tx_stream_ptr = e + 0x0d14;  // +0x0c48
+        e->alt_rx_ptr    = e + 0x0d54;  // +0x0c50
+
+        e->w_d14 = 0x03ff;              // +0x0d14
+        e->w_d16 = 0x0155;              // +0x0d16
+
+        /*
+         * Build the third token from cfg->qc_index-like word at +0x10.
+         *
+         * Base bits:
+         *   ((cfg+0x10) << 1) & 0x0004
+         *   ((cfg+0x10) << 1) & 0x0008
+         *   ((cfg+0x10) << 2) & 0x0020
+         * then OR either:
+         *   0x0001  normally
+         *   0x0041  when cfg->byte2 has bit 0x40
+         * and OR 0x0002 when (cfg->byte0x10 & 0x01) is set
+         */
+        uint16_t w = derive_word_from_cfg10(cfg);
+        e->w_d18 = w;                   // +0x0d18
+
+        /*
+         * Copy the 3-word header into the next slots:
+         *   [d14, d16, d18] -> [d1a, d1c, d1e]
+         */
+        e->w_d1a = e->w_d14;            // +0x0d1a
+        e->w_d1c = e->w_d16;            // +0x0d1c
+        e->w_d1e = e->w_d18;            // +0x0d1e
+
+        /*
+         * Additional answer-side TX/filter state.
+         */
+        e->w_dc0 = 0;                   // +0x0dc0
+        e->w_dd2 = 0;                   // +0x0dd2
+        e->w_dd4 = 0x0688;              // +0x0dd4
+
+        e->w_d32 = 0xffff;              // +0x0d32
+        e->w_d34 = 0;                   // +0x0d34
+        e->w_d36 = 0x003c;              // +0x0d36
+        e->w_d38 = 0;                   // +0x0d38
+        e->w_d3a = 0x000a;              // +0x0d3a
+        e->w_d3c = 0;                   // +0x0d3c
+        e->w_d3e = 1;                   // +0x0d3e
+        e->w_d40 = 0;                   // +0x0d40
+
+        e->d_d44 = 0;                   // +0x0d44
+        e->w_d48 = 0;                   // +0x0d48
+        e->d_d4c = 0;                   // +0x0d4c
+        e->w_d50 = 0;                   // +0x0d50
+    }
+
+    e->w_db6 = 0;                       // +0x0db6
+    e->w_db4 = 0;                       // +0x0db4
+    return;
+```
+
+This is the branch that most directly explains the blob’s “extra seeded
+structure” before `rebuildJMSequence()`: when `cfg->byte2 & 0x10` is set, the
+constructor creates a second seeded TX block at `0x0d14` and points the active
+TX stream there instead of the default `0x0c54`.
+
+#### Originate path (`cfg_side == 1`)
+
+The originate-side branch starts at `0x77090`:
+
+```c
+originate_init:
+    e->state_9d6 = 0x0020;      // +0x09d6
+    e->state_9d4 = 0x0006;      // +0x09d4
+
+    e->d_e5c = (e->cfg_timeout_a > 0) ?
+               ((e->cfg_timeout_a * 0x2580) >> 2) : -1;
+    e->d_e60 = (e->cfg_timeout_b > 0) ?
+               ((e->cfg_timeout_b * 0x2580) >> 2) : -1;
+    e->d_e64 = 0;
+
+    /*
+     * Oscillator / shaped-TX block at +0x0da4.
+     */
+    e->w_da4 = 0;               // +0x0da4
+    e->w_da6 = 0;               // +0x0da6 (stored via +2 from base pointer)
+    e->w_da8 = 0x001a;          // +0x0da8
+    e->w_daa = 0x0e00;          // +0x0daa
+    e->w_dae = 0;               // +0x0dae
+
+    /*
+     * +0x0dac = v8_mpyint(0x3e80, signext(e->w_a42))
+     */
+    e->w_dac = v8_mpyint(0x3e80, (int16_t)e->w_a42); // +0x0dac
+    e->w_db2 = 1;               // +0x0db2 (stored via +0x0e from base)
+
+    /*
+     * V.21 originate-side demod/mod init.
+     */
+    v8_V21_Init(e, 1, 0);
+
+    /*
+     * Originate path flips the default pointers:
+     *   TX words: +0x0cd4
+     *   RX words: +0x0c54
+     */
+    e->tx_stream_ptr = e + 0x0cd4;      // +0x0c48
+    e->rx_stream_ptr = e + 0x0c54;      // +0x0c4c
+
+    e->w_0026 = 0x8004;                 // *(uint16_t *)(e + 0x26)
+
+    initTxSequence(e);
+
+    e->w_db8 = 0;              // +0x0db8
+    e->w_db6 = 0;              // +0x0db6
+    e->w_db4 = 0;              // +0x0db4
+    return;
+```
+
+The originate side is much simpler than the answer branch:
+
+- it does not seed the detector block used by the answer-side CM/CJ path
+- it initializes the shaped-TX block at `0x0da4`
+- it initializes V.21 directly
+- it flips the TX/RX sequence pointers relative to the answer path
+
+#### Practical implications for the open stub
+
+For the open implementation, the important constructor-side facts are:
+
+- `V8Create()` does not itself build the handshake logic; `v8handshakinit()`
+  is the real start of the state machine.
+- The answer path has two possible seeded TX layouts:
+  - default at `0x0c54`
+  - alternate at `0x0d14` when `cfg->byte2 & 0x10`
+- The blob intentionally seeds fixed structural words before any later
+  `rebuildJMSequence()` patching occurs.
+- The answer and originate paths start with different active sequence pointers,
+  different state codes, and different RX/TX front-end initializers.
+
 ### Local capability tables
 
 Both JM helpers consult a small local-configuration block at engine offset
