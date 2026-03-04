@@ -384,14 +384,17 @@ static void v8_open_emit_ansam(struct v8_open_engine *engine,
 	}
 }
 
+static void v8_open_emit_v21(struct v8_open_engine *engine,
+			     short *pcm,
+			     int cnt,
+			     int answer_mode);
+
 static void v8_open_emit_confirm_tone(struct v8_open_engine *engine,
 				      short *pcm,
 				      int cnt)
 {
-	int i;
-
-	for (i = 0; i < cnt; ++i)
-		pcm[i] = v8_open_wave_sample(engine, V8OPEN_ANSAM_FREQ, 0);
+	(void)engine;
+	memset(pcm, 0, (size_t)cnt * sizeof(*pcm));
 }
 
 static void v8_open_emit_v21(struct v8_open_engine *engine,
@@ -491,11 +494,11 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 		return v8_open_samples_from_ms(engine, 420U);
 	case V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM:
 		/*
-		 * Blob-side V.34 fallback does not complete immediately on CJ.
-		 * It enters a short post-CJ confirmation stage before the final
-		 * return from V8Process.
+		 * Keep a distinct post-CJ settle stage, but only for one
+		 * fragment-scale dwell. The larger synthetic delay pushed the
+		 * V.34 handoff later than the proprietary path.
 		 */
-		return v8_open_samples_from_ms(engine, 250U);
+		return v8_open_samples_from_ms(engine, 5U);
 	case V8_OPEN_PHASE_ORG_SEND_CM:
 		return v8_open_samples_from_ms(engine, 160U);
 	case V8_OPEN_PHASE_ORG_WAIT_FOR_ANSAM:
@@ -892,7 +895,7 @@ static unsigned v8_open_phase_status(const struct v8_open_engine *engine,
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
 		return V8_OPEN_STATUS_ANS_SEND_JM;
 	case V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM:
-		return V8_OPEN_STATUS_ANS_SEND_ANSAM;
+		return V8_OPEN_STATUS_ANS_SEND_JM;
 	case V8_OPEN_PHASE_ORG_SEND_CM:
 		return V8_OPEN_STATUS_ORG_SEND_CM;
 	case V8_OPEN_PHASE_ORG_WAIT_FOR_ANSAM:
