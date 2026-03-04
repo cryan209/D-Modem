@@ -36,6 +36,7 @@ enum v8_open_phase {
 	V8_OPEN_PHASE_ANS_WAIT_FOR_CM,
 	V8_OPEN_PHASE_ANS_SEND_JM,
 	V8_OPEN_PHASE_ANS_WAIT_FOR_CJ,
+	V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM,
 	V8_OPEN_PHASE_ORG_SEND_CM,
 	V8_OPEN_PHASE_ORG_WAIT_FOR_ANSAM,
 	V8_OPEN_PHASE_ORG_WAIT_FOR_JM,
@@ -121,6 +122,10 @@ struct v8_open_engine {
 	unsigned have_proto_match;
 	unsigned short matched_call_word;
 	unsigned short matched_proto_word;
+	unsigned rx_seq_a_count;
+	unsigned short rx_seq_a[16];
+	unsigned rx_seq_b_count;
+	unsigned short rx_seq_b[16];
 	unsigned rx_token_count;
 	unsigned short rx_tokens[12];
 	unsigned cj_seen_count;
@@ -143,6 +148,8 @@ static const char *v8_open_phase_name(enum v8_open_phase phase)
 		return "ANS_SEND_JM";
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
 		return "ANS_WAIT_FOR_CJ";
+	case V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM:
+		return "ANS_POST_CJ_CONFIRM";
 	case V8_OPEN_PHASE_ORG_SEND_CM:
 		return "ORG_SEND_CM";
 	case V8_OPEN_PHASE_ORG_WAIT_FOR_ANSAM:
@@ -377,6 +384,16 @@ static void v8_open_emit_ansam(struct v8_open_engine *engine,
 	}
 }
 
+static void v8_open_emit_confirm_tone(struct v8_open_engine *engine,
+				      short *pcm,
+				      int cnt)
+{
+	int i;
+
+	for (i = 0; i < cnt; ++i)
+		pcm[i] = v8_open_wave_sample(engine, V8OPEN_ANSAM_FREQ, 0);
+}
+
 static void v8_open_emit_v21(struct v8_open_engine *engine,
 			     short *pcm,
 			     int cnt,
@@ -436,6 +453,9 @@ static void v8_open_emit_phase(struct v8_open_engine *engine, void *out, int cnt
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
 		v8_open_emit_v21(engine, pcm, cnt, 1);
 		break;
+	case V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM:
+		v8_open_emit_confirm_tone(engine, pcm, cnt);
+		break;
 	case V8_OPEN_PHASE_ORG_SEND_CM:
 		v8_open_emit_v21(engine, pcm, cnt, 0);
 		break;
@@ -469,6 +489,13 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 		if (engine->cj_detected && engine->cj_guard_budget)
 			return engine->cj_guard_budget;
 		return v8_open_samples_from_ms(engine, 420U);
+	case V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM:
+		/*
+		 * Blob-side V.34 fallback does not complete immediately on CJ.
+		 * It enters a short post-CJ confirmation stage before the final
+		 * return from V8Process.
+		 */
+		return v8_open_samples_from_ms(engine, 250U);
 	case V8_OPEN_PHASE_ORG_SEND_CM:
 		return v8_open_samples_from_ms(engine, 160U);
 	case V8_OPEN_PHASE_ORG_WAIT_FOR_ANSAM:
@@ -555,6 +582,24 @@ static void v8_open_rx_push_token(struct v8_open_engine *engine,
 	engine->rx_tokens[engine->rx_token_count++] = token;
 }
 
+static void v8_open_rx_seq_b_push(struct v8_open_engine *engine,
+				  unsigned short word)
+{
+	if (engine->rx_seq_b_count >=
+	    (sizeof(engine->rx_seq_b) / sizeof(engine->rx_seq_b[0])))
+		return;
+	engine->rx_seq_b[engine->rx_seq_b_count++] = word;
+}
+
+static void v8_open_rx_seq_a_push(struct v8_open_engine *engine,
+				  unsigned short word)
+{
+	if (engine->rx_seq_a_count >=
+	    (sizeof(engine->rx_seq_a) / sizeof(engine->rx_seq_a[0])))
+		return;
+	engine->rx_seq_a[engine->rx_seq_a_count++] = word;
+}
+
 static unsigned short v8_open_find_rx_token(const struct v8_open_engine *engine,
 					    unsigned short category_masked,
 					    unsigned nth)
@@ -602,55 +647,119 @@ static unsigned short v8_open_find_rx_token(const struct v8_open_engine *engine,
 	return 0U;
 }
 
-static void v8_open_apply_remote_cm_defaults(struct v8_open_engine *engine)
+static void v8_open_collect_remote_cm_defaults(struct v8_open_engine *engine)
 {
-	unsigned char remote_mod0_octet;
-	unsigned char remote_mod1_octet;
-	unsigned char remote_pcm_octet;
+	engine->rx_seq_b_count = 0U;
+
+	/*
+	 * Blob-like synthetic receive model:
+	 * call function, 3-word modulation block, access, optional PCM+tail,
+	 * and protocol. This mirrors the shape the blob later scans and patches
+	 * rather than seeding only already-parsed category tokens.
+	 */
+	v8_open_rx_seq_b_push(engine, 0x0107U);
+	v8_open_rx_seq_b_push(engine, 0x014dU);
+	v8_open_rx_seq_b_push(engine, 0x0111U);
+	v8_open_rx_seq_b_push(engine, 0x0011U);
+	v8_open_rx_seq_b_push(engine, 0x0161U);
+	v8_open_rx_seq_b_push(engine, 0x01c9U);
+	v8_open_rx_seq_b_push(engine, 0x0011U);
+	v8_open_rx_seq_b_push(engine, 0x00a9U);
+}
+
+static void v8_open_collect_remote_cj_defaults(struct v8_open_engine *engine)
+{
+	unsigned i;
+
+	engine->rx_seq_a_count = 0U;
+	v8_open_rx_seq_a_push(engine, 0x0155U);
+	for (i = 0U; i < 5U; ++i)
+		v8_open_rx_seq_a_push(engine, 0x03ffU);
+}
+
+static void v8_open_parse_rx_sequence(struct v8_open_engine *engine)
+{
+	unsigned i;
 
 	engine->rx_token_count = 0U;
-	engine->remote_call_data = 1U;
-	engine->remote_v34 = 1U;
-	engine->remote_v32 = 1U;
-	engine->remote_lapm = 1U;
-	engine->remote_pcm_present = 1U;
-	engine->remote_access_present = 1U;
+	engine->remote_call_data = 0U;
+	engine->remote_v34 = 0U;
+	engine->remote_v32 = 0U;
+	engine->remote_lapm = 0U;
+	engine->remote_pcm_present = 0U;
+	engine->remote_access_present = 0U;
 	engine->have_call_match = 0U;
 	engine->have_proto_match = 0U;
 	engine->matched_call_word = 0U;
 	engine->matched_proto_word = 0U;
 
-	/*
-	 * The proprietary answer trace commonly reports the remote CM call
-	 * function as 0x0107 while still classifying it as a DATA call.
-	 * Preserve that token in the synthetic receive model so the answer-side
-	 * JM can mirror the received call function instead of forcing 0x0109.
-	 */
-	v8_open_rx_push_token(engine, 0x0107U);
+	for (i = 0U; i < engine->rx_seq_b_count; ++i) {
+		unsigned short word;
 
-	remote_mod0_octet = 0x05U;
-	if (engine->remote_pcm_present)
-		remote_mod0_octet |= 0x20U;
-	if (engine->remote_v34)
-		remote_mod0_octet |= 0x40U;
-	v8_open_rx_push_token(engine, v8_open_encode_octet(remote_mod0_octet));
+		word = engine->rx_seq_b[i];
 
-	if (engine->remote_v32) {
-		remote_mod1_octet = 0x10U | 0x01U;
-		v8_open_rx_push_token(engine, v8_open_encode_octet(remote_mod1_octet));
+		if ((word & 0xfff1U) == 0x0101U) {
+			if (word == 0x0107U || word == 0x0109U) {
+				engine->remote_call_data = 1U;
+				engine->have_call_match = 1U;
+				engine->matched_call_word = word;
+			}
+			v8_open_rx_push_token(engine, word);
+			continue;
+		}
+
+		if ((word & 0xfff1U) == 0x0141U) {
+			unsigned short mod0;
+
+			mod0 = word;
+			engine->remote_v34 = (mod0 & 0x0040U) ? 1U : 0U;
+			engine->remote_pcm_present = (mod0 & 0x0020U) ? 1U : 0U;
+			v8_open_rx_push_token(engine, mod0);
+
+			if ((i + 1U) < engine->rx_seq_b_count &&
+			    (engine->rx_seq_b[i + 1U] & 0x0039U) == 0x0011U) {
+				unsigned short mod1;
+
+				mod1 = engine->rx_seq_b[i + 1U];
+				engine->remote_v32 = (mod1 & 0x0001U) ? 1U : 0U;
+				v8_open_rx_push_token(engine, mod1);
+				i++;
+			}
+			if ((i + 1U) < engine->rx_seq_b_count &&
+			    (engine->rx_seq_b[i + 1U] & 0x0039U) == 0x0011U) {
+				v8_open_rx_push_token(engine, engine->rx_seq_b[i + 1U]);
+				i++;
+			}
+			continue;
+		}
+
+		if ((word & 0xfff1U) == 0x0161U) {
+			engine->remote_access_present = 1U;
+			v8_open_rx_push_token(engine, word);
+			continue;
+		}
+
+		if ((word & 0xfff1U) == 0x01c1U) {
+			engine->remote_pcm_present = 1U;
+			v8_open_rx_push_token(engine, word);
+			if ((i + 1U) < engine->rx_seq_b_count &&
+			    (engine->rx_seq_b[i + 1U] & 0x0039U) == 0x0011U) {
+				v8_open_rx_push_token(engine, engine->rx_seq_b[i + 1U]);
+				i++;
+			}
+			continue;
+		}
+
+		if ((word & 0xfff1U) == 0x00a1U) {
+			if (word == 0x00a9U) {
+				engine->remote_lapm = 1U;
+				engine->have_proto_match = 1U;
+				engine->matched_proto_word = word;
+			}
+			v8_open_rx_push_token(engine, word);
+			continue;
+		}
 	}
-	v8_open_rx_push_token(engine, 0x0011U);
-
-	if (engine->remote_access_present)
-		v8_open_rx_push_token(engine, 0x0161U);
-
-	if (engine->remote_pcm_present) {
-		remote_pcm_octet = 0x07U | 0x20U;
-		v8_open_rx_push_token(engine, v8_open_encode_octet(remote_pcm_octet));
-	}
-
-	if (engine->remote_lapm)
-		v8_open_rx_push_token(engine, 0x00a9U);
 }
 
 static void v8_open_observe_cm(struct v8_open_engine *engine,
@@ -700,7 +809,8 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 	engine->cm_detected = 1U;
 	engine->cm_guard_budget = v8_open_samples_from_ms(engine, 40U);
 	engine->samples_in_phase = 0U;
-	v8_open_apply_remote_cm_defaults(engine);
+	v8_open_collect_remote_cm_defaults(engine);
+	v8_open_parse_rx_sequence(engine);
 	V8OPEN_DBG("cm-stub: detected 2/2 avg=%u peak=%u remote=data:1 v34:1 v32:1 pcm:a:1 d:0\n",
 		  avg_abs,
 		  peak_abs);
@@ -760,6 +870,7 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 	engine->cj_detected = 1U;
 	engine->cj_guard_budget = v8_open_samples_from_ms(engine, 40U);
 	engine->samples_in_phase = 0U;
+	v8_open_collect_remote_cj_defaults(engine);
 	V8OPEN_DBG("cj-stub: detected 2/2 avg=%u peak=%u\n",
 		  avg_abs,
 		  peak_abs);
@@ -780,6 +891,8 @@ static unsigned v8_open_phase_status(const struct v8_open_engine *engine,
 	case V8_OPEN_PHASE_ANS_SEND_JM:
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
 		return V8_OPEN_STATUS_ANS_SEND_JM;
+	case V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM:
+		return V8_OPEN_STATUS_ANS_SEND_ANSAM;
 	case V8_OPEN_PHASE_ORG_SEND_CM:
 		return V8_OPEN_STATUS_ORG_SEND_CM;
 	case V8_OPEN_PHASE_ORG_WAIT_FOR_ANSAM:
@@ -1048,6 +1161,8 @@ static enum v8_open_phase v8_open_next_phase(const struct v8_open_engine *engine
 	case V8_OPEN_PHASE_ANS_SEND_JM:
 		return V8_OPEN_PHASE_ANS_WAIT_FOR_CJ;
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
+		return V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM;
+	case V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM:
 		return V8_OPEN_PHASE_COMPLETE;
 	case V8_OPEN_PHASE_ORG_SEND_CM:
 		return V8_OPEN_PHASE_ORG_WAIT_FOR_ANSAM;
@@ -1071,7 +1186,8 @@ static void v8_open_transition(struct v8_open_engine *engine,
 	    engine->cm_seen_count > 0U) {
 		engine->cm_detected = 1U;
 		engine->cm_guard_budget = 0U;
-		v8_open_apply_remote_cm_defaults(engine);
+		v8_open_collect_remote_cm_defaults(engine);
+		v8_open_parse_rx_sequence(engine);
 		V8OPEN_DBG("cm-stub: timeout fallback after %u candidate(s); using conservative remote CM model\n",
 			  engine->cm_seen_count);
 	}
@@ -1140,6 +1256,8 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->have_proto_match = 0U;
 	engine->matched_call_word = 0U;
 	engine->matched_proto_word = 0U;
+	engine->rx_seq_a_count = 0U;
+	engine->rx_seq_b_count = 0U;
 	engine->rx_token_count = 0U;
 	engine->cj_seen_count = 0U;
 	engine->cj_signature = 0U;
