@@ -216,6 +216,8 @@ struct v8_open_engine {
 	unsigned cm_detected;
 	unsigned cm_guard_budget;
 	unsigned cm_predetecting;
+	unsigned det_e5c;
+	unsigned det_e60;
 	unsigned cm_predetect_deadline;
 	unsigned cm_collecting;
 	unsigned cm_collect_deadline;
@@ -470,15 +472,6 @@ static unsigned v8_open_samples_from_ms(const struct v8_open_engine *engine,
 	return (rate * ms) / 1000U;
 }
 
-static unsigned v8_open_answer_predetect_budget(const struct v8_open_engine *engine,
-						unsigned hold_samples)
-{
-	unsigned stage2_samples;
-
-	stage2_samples = v8_open_rx_samples_per_bit(engine) * engine->ans_det_0a;
-	return hold_samples + stage2_samples;
-}
-
 static unsigned v8_open_answer_stage2_budget(const struct v8_open_engine *engine)
 {
 	return v8_open_rx_samples_per_bit(engine) * engine->ans_det_0a;
@@ -698,8 +691,12 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 		 */
 		return v8_open_samples_from_ms(engine, 2220U);
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CM:
-		if (engine->cm_predetecting && engine->cm_predetect_deadline)
-			return engine->cm_predetect_deadline;
+		if (engine->cm_predetecting) {
+			if (engine->det_e5c)
+				return engine->det_e5c;
+			if (engine->cm_predetect_deadline)
+				return engine->cm_predetect_deadline;
+		}
 		if (engine->cm_collecting && engine->cm_collect_deadline)
 			return engine->cm_collect_deadline;
 		if (engine->cm_detected && engine->cm_guard_budget)
@@ -709,8 +706,12 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 		/* Real JM dwell is about 0.82 s before V8_OK. */
 		return v8_open_samples_from_ms(engine, 820U);
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
-		if (engine->cj_predetecting && engine->cj_predetect_deadline)
-			return engine->cj_predetect_deadline;
+		if (engine->cj_predetecting) {
+			if (engine->det_e60)
+				return engine->det_e60;
+			if (engine->cj_predetect_deadline)
+				return engine->cj_predetect_deadline;
+		}
 		if (engine->cj_collecting && engine->cj_collect_deadline)
 			return engine->cj_collect_deadline;
 		if (engine->cj_detected && engine->cj_guard_budget)
@@ -1927,6 +1928,9 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 		if (!stage2_before && engine->ans_det_06) {
 			engine->cm_predetect_deadline = engine->samples_in_phase +
 				v8_open_answer_stage2_budget(engine);
+			V8OPEN_DBG("cm-stub: detector stage2 entered run=%u metric=%u\n",
+				  engine->ans_det_30,
+				  engine->ans_det_12);
 		}
 		if (!detector_hits)
 			engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
@@ -1973,10 +1977,7 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 	engine->ans_rx_c8 = 0U;
 	engine->cm_signature = signature;
 	engine->cm_predetecting = 1U;
-	engine->cm_predetect_deadline = engine->samples_in_phase +
-		v8_open_answer_predetect_budget(engine,
-					  v8_open_samples_from_ms(engine,
-								  engine->ans_det_0a));
+	engine->cm_predetect_deadline = 0U;
 	(void)v8_open_rx_consume_samples(engine, samples, cnt);
 	{
 		unsigned stage2_before;
@@ -1997,6 +1998,9 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 	if (!stage2_before && engine->ans_det_06) {
 		engine->cm_predetect_deadline = engine->samples_in_phase +
 			v8_open_answer_stage2_budget(engine);
+		V8OPEN_DBG("cm-stub: detector stage2 entered run=%u metric=%u\n",
+			  engine->ans_det_30,
+			  engine->ans_det_12);
 	}
 	if (!detector_hits)
 		engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
@@ -2065,6 +2069,9 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 		if (!stage2_before && engine->ans_det_06) {
 			engine->cj_predetect_deadline = engine->samples_in_phase +
 				v8_open_answer_stage2_budget(engine);
+			V8OPEN_DBG("cj-stub: detector stage2 entered run=%u metric=%u\n",
+				  engine->ans_det_30,
+				  engine->ans_det_12);
 		}
 		if (!detector_hits)
 			engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
@@ -2111,10 +2118,7 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 	engine->ans_rx_c8 = 0U;
 	engine->cj_signature = signature;
 	engine->cj_predetecting = 1U;
-	engine->cj_predetect_deadline = engine->samples_in_phase +
-		v8_open_answer_predetect_budget(engine,
-					  v8_open_samples_from_ms(engine,
-								  v8_open_answer_detector_window(engine)));
+	engine->cj_predetect_deadline = 0U;
 	(void)v8_open_rx_consume_samples(engine, samples, cnt);
 	{
 		unsigned stage2_before;
@@ -2135,6 +2139,9 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 	if (!stage2_before && engine->ans_det_06) {
 		engine->cj_predetect_deadline = engine->samples_in_phase +
 			v8_open_answer_stage2_budget(engine);
+		V8OPEN_DBG("cj-stub: detector stage2 entered run=%u metric=%u\n",
+			  engine->ans_det_30,
+			  engine->ans_det_12);
 	}
 	if (!detector_hits)
 		engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
@@ -2557,6 +2564,10 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->cm_detected = 0U;
 	engine->cm_guard_budget = 0U;
 	engine->cm_predetecting = 0U;
+	engine->det_e5c = (cfg->signal_detect_timeout_secs *
+			   (cfg->sample_rate ? cfg->sample_rate : 9600U)) >> 2;
+	engine->det_e60 = (cfg->message_detect_timeout_secs *
+			   (cfg->sample_rate ? cfg->sample_rate : 9600U)) >> 2;
 	engine->cm_predetect_deadline = 0U;
 	engine->cm_collecting = 0U;
 	engine->cm_collect_deadline = 0U;
