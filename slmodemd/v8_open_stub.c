@@ -28,12 +28,25 @@
 #define V8OPEN_DEMOD_STAGE_SAMPLES 12U
 #define V8OPEN_DEMOD_HISTORY_SAMPLES 40U
 #define V8OPEN_AGC_FIR_SAMPLES 40U
+#define V8OPEN_AGC_POWER_RING 36U
+#define V8OPEN_AGC_BLOCK_SAMPLES 4U
 #define V8OPEN_DEMOD_LOCK_TICKS 5U
 #define V8OPEN_CM_WORDS 10U
 #define V8OPEN_CJ_WORDS 6U
-#define V8OPEN_RX_AGC_TARGET_ABS 8192U
-#define V8OPEN_RX_AGC_MIN_GAIN_Q15 8192U
-#define V8OPEN_RX_AGC_MAX_GAIN_Q15 131072U
+#define V8OPEN_RX_AGC_INIT_GAIN 0x0200U
+#define V8OPEN_RX_AGC_RECOVERY_GAIN 0x0400U
+#define V8OPEN_RX_AGC_SAT_COUNT_LIMIT 10U
+#define V8OPEN_RX_AGC_GAIN_MAX 0x7f00U
+#define V8OPEN_RX_AGC_SCALE_SHIFT 10U
+#define V8OPEN_RX_AGC_SCALE_SAT_POS 0x7f00
+#define V8OPEN_RX_AGC_SCALE_SAT_NEG ((short)0x8100)
+#define V8OPEN_RX_AGC_RATE_Q16 0x3333U
+#define V8OPEN_RX_AGC_LEVEL_TARGET 0x0fa0U
+#define V8OPEN_RX_AGC_LEVEL_WINDOW 0x07d0U
+#define V8OPEN_RX_AGC_CONTROL_LIMIT 0x03e8U
+#define V8OPEN_RX_AGC_GAIN_DECAY_COEFF 0x390aU
+#define V8OPEN_RX_AGC_GAIN_GROW_COEFF 0x47cfU
+#define V8OPEN_RX_AGC_GAIN_GROW_LIMIT 0x6a00U
 
 static const short v8_open_sine_32[32] = {
 	0, 1951, 3827, 5556, 7071, 8315, 9239, 9808,
@@ -121,6 +134,34 @@ static const short v8_open_agc_filt_5480[V8OPEN_AGC_FIR_SAMPLES] = {
 	0x034a, 0xfebd, 0xf6ca, 0xef23, 0x2c0f, 0xef23, 0xf6ca, 0xfebd,
 	0x034a, 0x0376, 0x010e, 0xfeca, 0xfe43, 0xff3b, 0x006c, 0x00da,
 	0x007a, 0xffe6, 0xffa3, 0xffc2, 0x0000, 0x0021, 0x001b, 0x0005
+};
+
+/* Blob V8agc metric LUT at rodata 0x54e0 (192 entries). */
+static const unsigned short v8_open_agc_metric_lut_54e0[192] = {
+	0x4000, 0x407f, 0x40fe, 0x417b, 0x41f8, 0x4273, 0x42ee, 0x4368,
+	0x43e1, 0x445a, 0x44d1, 0x4548, 0x45be, 0x4633, 0x46a7, 0x471b,
+	0x478d, 0x4800, 0x4871, 0x48e2, 0x4952, 0x49c1, 0x4a30, 0x4a9e,
+	0x4b0b, 0x4b78, 0x4be5, 0x4c50, 0x4cbb, 0x4d26, 0x4d90, 0x4df9,
+	0x4e62, 0x4eca, 0x4f32, 0x4f99, 0x5000, 0x5066, 0x50cb, 0x5130,
+	0x5195, 0x51f9, 0x525d, 0x52c0, 0x5323, 0x5385, 0x53e7, 0x5449,
+	0x54a9, 0x550a, 0x556a, 0x55ca, 0x5629, 0x5688, 0x56e6, 0x5745,
+	0x57a2, 0x5800, 0x585c, 0x58b9, 0x5915, 0x5971, 0x59cc, 0x5a27,
+	0x5a82, 0x5adc, 0x5b36, 0x5b90, 0x5be9, 0x5c42, 0x5c9b, 0x5cf3,
+	0x5d4b, 0x5da3, 0x5dfa, 0x5e51, 0x5ea8, 0x5efe, 0x5f54, 0x5faa,
+	0x6000, 0x6055, 0x60aa, 0x60fe, 0x6152, 0x61a7, 0x61fa, 0x624e,
+	0x62a1, 0x62f4, 0x6347, 0x6399, 0x63eb, 0x643d, 0x648e, 0x64e0,
+	0x6531, 0x6582, 0x65d2, 0x6623, 0x6673, 0x66c3, 0x6712, 0x6761,
+	0x67b1, 0x6800, 0x684e, 0x689d, 0x68eb, 0x6939, 0x6986, 0x69d4,
+	0x6a21, 0x6a6e, 0x6abb, 0x6b08, 0x6b54, 0x6ba1, 0x6bed, 0x6c38,
+	0x6c84, 0x6ccf, 0x6d1a, 0x6d65, 0x6db0, 0x6dfb, 0x6e45, 0x6e8f,
+	0x6ed9, 0x6f23, 0x6f6d, 0x6fb6, 0x7000, 0x7049, 0x7091, 0x70da,
+	0x7123, 0x716b, 0x71b3, 0x71fb, 0x7243, 0x728a, 0x72d2, 0x7319,
+	0x7360, 0x73a7, 0x73ee, 0x7434, 0x747b, 0x74c1, 0x7507, 0x754d,
+	0x7593, 0x75d8, 0x761e, 0x7663, 0x76a8, 0x76ed, 0x7732, 0x7777,
+	0x77bb, 0x7800, 0x7844, 0x7888, 0x78cc, 0x790f, 0x7953, 0x7996,
+	0x79da, 0x7a1d, 0x7a60, 0x7aa3, 0x7ae5, 0x7b28, 0x7b6b, 0x7bad,
+	0x7bef, 0x7c31, 0x7c73, 0x7cb5, 0x7cf6, 0x7d38, 0x7d79, 0x7dba,
+	0x7dfb, 0x7e3c, 0x7e7d, 0x7ebe, 0x7efe, 0x7f3f, 0x7f7f, 0x7fbf
 };
 
 static const unsigned short v8_open_cm_rx_template[] = {
@@ -336,6 +377,17 @@ struct v8_open_engine {
 	unsigned rx_emit_total;
 	unsigned rx_agc_gain_q15;
 	unsigned rx_agc_env;
+	unsigned rx_agc_metric;
+	unsigned rx_agc_level;
+	int rx_agc_integrator;
+	unsigned rx_agc_rate_q16;
+	unsigned rx_agc_ring_pos;
+	short rx_agc_ring[V8OPEN_AGC_POWER_RING];
+	unsigned rx_agc_block_fill;
+	short rx_agc_block[V8OPEN_AGC_BLOCK_SAMPLES];
+	unsigned rx_dbg_low_energy;
+	unsigned rx_dbg_bit0;
+	unsigned rx_dbg_bit1;
 	short rx_agc_fir_hist[V8OPEN_AGC_FIR_SAMPLES];
 	short rx_demod_history[V8OPEN_DEMOD_HISTORY_SAMPLES];
 	short rx_bit_window[V8OPEN_MAX_SAMPLES_PER_BIT];
@@ -1243,127 +1295,6 @@ static unsigned v8_open_rx_samples_per_bit(const struct v8_open_engine *engine)
 	return samples_per_bit;
 }
 
-static unsigned long long v8_open_rx_window_score(const struct v8_open_engine *engine,
-						  const short *samples,
-						  unsigned window_len,
-						  unsigned long long *mark_energy_out,
-						  unsigned long long *space_energy_out,
-						  unsigned *bit_out)
-{
-	const short *filt_dd8;
-	const short *filt_ddc;
-	const short *filt_de0;
-	const short *filt_de4;
-	long long acc0;
-	long long acc1;
-	long long acc2;
-	long long acc3;
-	long long filt0;
-	long long filt1;
-	long long filt2;
-	long long filt3;
-	unsigned count;
-	unsigned long long energy0;
-	unsigned long long energy1;
-	unsigned i;
-
-	if (!samples || !window_len) {
-		if (mark_energy_out)
-			*mark_energy_out = 0U;
-		if (space_energy_out)
-			*space_energy_out = 0U;
-		if (bit_out)
-			*bit_out = 0U;
-		return 0U;
-	}
-
-	count = window_len;
-	if (count > V8OPEN_DEMOD_HISTORY_SAMPLES)
-		count = V8OPEN_DEMOD_HISTORY_SAMPLES;
-	if (!count) {
-		if (mark_energy_out)
-			*mark_energy_out = 0U;
-		if (space_energy_out)
-			*space_energy_out = 0U;
-		if (bit_out)
-			*bit_out = 0U;
-		return 0U;
-	}
-
-	/*
-	 * v8_V21_Init selects two filter-bank layouts:
-	 *   (arg2=1,arg3=0): dd8=59a0 ddc=5940 de0=5a60 de4=5a00
-	 *   (arg2=0,arg3=1): dd8=5b20 ddc=5ac0 de0=5be0 de4=5b80
-	 * We key off c22c/c22e because those fields are branch-unique.
-	 */
-	if (engine && engine->rx_c22c == 0x0004U && engine->rx_c22e == 0xff9cU) {
-		filt_dd8 = v8_open_v21_filt_5b20;
-		filt_ddc = v8_open_v21_filt_5ac0;
-		filt_de0 = v8_open_v21_filt_5be0;
-		filt_de4 = v8_open_v21_filt_5b80;
-	} else {
-		filt_dd8 = v8_open_v21_filt_1;
-		filt_ddc = v8_open_v21_filt_0;
-		filt_de0 = v8_open_v21_filt_3;
-		filt_de4 = v8_open_v21_filt_2;
-	}
-
-	acc0 = 0x2000;
-	acc1 = 0x2000;
-	acc2 = 0x2000;
-	acc3 = 0x2000;
-	for (i = 0U; i < count; ++i) {
-		short sample;
-
-		sample = samples[count - 1U - i];
-		acc0 += (long long)sample * (long long)filt_dd8[i];
-		acc1 += (long long)sample * (long long)filt_ddc[i];
-		acc2 += (long long)sample * (long long)filt_de0[i];
-		acc3 += (long long)sample * (long long)filt_de4[i];
-	}
-
-	filt0 = acc0 >> 14;
-	filt1 = acc1 >> 14;
-	filt2 = acc2 >> 14;
-	filt3 = acc3 >> 14;
-	energy0 = (unsigned long long)(filt0 * filt0) +
-		(unsigned long long)(filt1 * filt1);
-	energy1 = (unsigned long long)(filt2 * filt2) +
-		(unsigned long long)(filt3 * filt3);
-
-	if (mark_energy_out)
-		*mark_energy_out = energy0;
-	if (space_energy_out)
-		*space_energy_out = energy1;
-	if (bit_out)
-		*bit_out = energy1 > energy0 ? 1U : 0U;
-	return energy0 >= energy1 ? (energy0 - energy1) : (energy1 - energy0);
-}
-
-static unsigned v8_open_rx_quantize_transition_keep(unsigned *counter)
-{
-	unsigned phase_count;
-	unsigned whole_bits;
-	unsigned remainder;
-	unsigned limit;
-	unsigned threshold;
-	unsigned emit_count;
-
-	phase_count = *counter;
-	if (!phase_count)
-		return 0U;
-
-	whole_bits = phase_count >> 2;
-	remainder = phase_count & 0x03U;
-	*counter = remainder;
-	limit = whole_bits > 2U ? 3U : (whole_bits + 1U);
-	threshold = 4U - limit;
-	emit_count = whole_bits;
-	if (remainder >= threshold)
-		emit_count++;
-	return emit_count;
-}
-
 static unsigned v8_open_rx_quantize_transition_clear(unsigned *counter)
 {
 	unsigned phase_count;
@@ -1407,14 +1338,24 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 				      const short *samples,
 				      int cnt);
 
+static unsigned v8_open_abs_u32_from_i32(int v)
+{
+	return (unsigned)(v < 0 ? -v : v);
+}
+
 static short v8_open_rx_agc_prefilter_sample(struct v8_open_engine *engine, short sample)
 {
 	const short *coeffs;
 	long long acc;
 	unsigned i;
 
+	/*
+	 * Blob V8agc: +a44==0 selects 0x5480, non-zero selects 0x5420.
+	 * In this stub/shim wiring, cfg.answer_mode is the logical side flag
+	 * and encodes opposite to blob +a44 for this AGC selector.
+	 */
 	coeffs = engine->cfg.answer_mode ?
-		v8_open_agc_filt_5420 : v8_open_agc_filt_5480;
+		v8_open_agc_filt_5480 : v8_open_agc_filt_5420;
 
 	engine->rx_agc_fir_hist[0] = sample;
 	acc = 0x2000;
@@ -1422,54 +1363,169 @@ static short v8_open_rx_agc_prefilter_sample(struct v8_open_engine *engine, shor
 		acc += (long long)engine->rx_agc_fir_hist[i] *
 			(long long)coeffs[i];
 	}
-	memmove(engine->rx_agc_fir_hist + 1,
-		engine->rx_agc_fir_hist,
-		(V8OPEN_AGC_FIR_SAMPLES - 1U) * sizeof(engine->rx_agc_fir_hist[0]));
 	acc >>= 14;
 	if (acc > 32767LL)
 		acc = 32767LL;
 	else if (acc < -32768LL)
 		acc = -32768LL;
+	memmove(engine->rx_agc_fir_hist + 1,
+		engine->rx_agc_fir_hist,
+		(V8OPEN_AGC_FIR_SAMPLES - 1U) * sizeof(engine->rx_agc_fir_hist[0]));
 	return (short)acc;
+}
+
+static unsigned v8_open_rx_agc_estimate_metric(const struct v8_open_engine *engine)
+{
+	unsigned power;
+	unsigned i;
+
+	power = 0U;
+	for (i = 0U; i < V8OPEN_AGC_POWER_RING; ++i) {
+		long long s;
+		long long weighted;
+
+		s = (long long)engine->rx_agc_ring[i];
+		weighted = ((s * 0x38eLL) >> 15) * s;
+		power += (unsigned)weighted;
+	}
+	if (!power)
+		return 0U;
+
+	{
+		unsigned mant;
+		unsigned exp;
+		unsigned idx;
+		unsigned metric;
+
+		mant = power;
+		exp = 0U;
+		while (mant <= 0x1fffffffU) {
+			mant <<= 1;
+			exp++;
+		}
+		mant >>= 15;
+		if (exp & 1U)
+			mant >>= 1;
+		idx = ((mant + 0x40U) >> 7) - 0x40U;
+		if (idx > 0xbfU)
+			idx = 0xbfU;
+		metric = (unsigned)v8_open_agc_metric_lut_54e0[idx];
+		metric >>= (exp >> 1);
+		return metric;
+	}
 }
 
 static short v8_open_rx_agc_scale_sample(struct v8_open_engine *engine, short sample)
 {
-	unsigned env;
-	unsigned desired_gain;
 	int gain;
-	int delta;
-	int scaled;
+	int product;
+	unsigned top;
+	short scaled;
 	unsigned mag;
+	unsigned env;
 
-	mag = (unsigned)(sample < 0 ? -sample : sample);
+	gain = (int)(short)engine->rx_agc_gain_q15;
+
+	product = gain * (int)sample;
+	top = ((unsigned)product) >> 25;
+	if (top == 0U || top == 0x7fU) {
+		scaled = (short)(product >> V8OPEN_RX_AGC_SCALE_SHIFT);
+	} else {
+		scaled = (short)(((product >> 16) > 0) ?
+			V8OPEN_RX_AGC_SCALE_SAT_POS :
+			V8OPEN_RX_AGC_SCALE_SAT_NEG);
+		if (engine->ans_rx_ac < 0xffffU)
+			engine->ans_rx_ac = (unsigned short)(engine->ans_rx_ac + 1U);
+		if (engine->ans_rx_ac == V8OPEN_RX_AGC_SAT_COUNT_LIMIT) {
+			engine->rx_agc_gain_q15 = V8OPEN_RX_AGC_RECOVERY_GAIN;
+			engine->ans_rx_ac = 0U;
+			engine->rx_agc_integrator = 0;
+			engine->rx_agc_level = 0U;
+			engine->rx_agc_metric = 0U;
+		}
+	}
+
+	mag = (unsigned)(scaled < 0 ? -scaled : scaled);
 	env = engine->rx_agc_env;
 	env = ((env * 63U) + mag) >> 6;
-	if (env < 16U)
-		env = 16U;
 	engine->rx_agc_env = env;
 
-	desired_gain = (V8OPEN_RX_AGC_TARGET_ABS << 15) / env;
-	if (desired_gain < V8OPEN_RX_AGC_MIN_GAIN_Q15)
-		desired_gain = V8OPEN_RX_AGC_MIN_GAIN_Q15;
-	if (desired_gain > V8OPEN_RX_AGC_MAX_GAIN_Q15)
-		desired_gain = V8OPEN_RX_AGC_MAX_GAIN_Q15;
+	return scaled;
+}
 
-	gain = (int)engine->rx_agc_gain_q15;
-	delta = (int)desired_gain - gain;
-	gain += delta >> 4;
-	if (gain < (int)V8OPEN_RX_AGC_MIN_GAIN_Q15)
-		gain = (int)V8OPEN_RX_AGC_MIN_GAIN_Q15;
-	if (gain > (int)V8OPEN_RX_AGC_MAX_GAIN_Q15)
-		gain = (int)V8OPEN_RX_AGC_MAX_GAIN_Q15;
-	engine->rx_agc_gain_q15 = (unsigned)gain;
+static void v8_open_rx_agc_track(struct v8_open_engine *engine,
+				 short metric_sample,
+				 short scaled_sample)
+{
+	unsigned idx;
+	unsigned metric;
+	unsigned long long block_power;
 
-	scaled = ((int)sample * gain + (1 << 14)) >> 15;
-	if (scaled > 32767)
-		scaled = 32767;
-	else if (scaled < -32768)
-		scaled = -32768;
-	return (short)scaled;
+	idx = engine->rx_agc_ring_pos % V8OPEN_AGC_POWER_RING;
+	engine->rx_agc_ring[idx] = metric_sample;
+	engine->rx_agc_ring_pos = (idx + 1U) % V8OPEN_AGC_POWER_RING;
+
+	if (engine->rx_agc_block_fill < V8OPEN_AGC_BLOCK_SAMPLES)
+		engine->rx_agc_block[engine->rx_agc_block_fill++] = scaled_sample;
+
+	if (engine->rx_agc_block_fill < V8OPEN_AGC_BLOCK_SAMPLES)
+		return;
+
+	metric = v8_open_rx_agc_estimate_metric(engine);
+	engine->rx_agc_metric = metric;
+
+	block_power = 0ULL;
+	for (idx = 0U; idx < V8OPEN_AGC_BLOCK_SAMPLES; ++idx) {
+		long long s;
+
+		s = (long long)engine->rx_agc_block[idx];
+		block_power += (unsigned long long)(s * s);
+	}
+	engine->rx_agc_block_fill = 0U;
+
+	if (metric > 0x1fU) {
+		unsigned level;
+		int error;
+		int level_i;
+		unsigned level_hi;
+
+		level_i = (int)(((unsigned long long)engine->rx_agc_level *
+			(unsigned long long)0x6ccdU) >> 15);
+		level_i += (int)(block_power >> 16);
+		level_hi = ((unsigned)level_i) >> 15;
+		if (level_hi != 0U && level_hi != 0x1ffffU)
+			level = 0x7f00U;
+		else
+			level = (unsigned short)level_i;
+		engine->rx_agc_level = level;
+
+		if ((engine->ans_rx_0a & 0x0200U) == 0U) {
+			error = (int)(short)level - (int)V8OPEN_RX_AGC_LEVEL_TARGET;
+			if (v8_open_abs_u32_from_i32(error) > V8OPEN_RX_AGC_LEVEL_WINDOW) {
+				int control;
+
+				control = (int)(((long long)engine->rx_agc_rate_q16 *
+					(long long)error) >> 16);
+				control += engine->rx_agc_integrator;
+				if (v8_open_abs_u32_from_i32(control) > V8OPEN_RX_AGC_CONTROL_LIMIT) {
+					unsigned gain;
+
+					engine->rx_agc_integrator = 0;
+					gain = (unsigned short)engine->rx_agc_gain_q15;
+					if (control > 0) {
+						gain = (unsigned)(((unsigned long long)gain *
+							(unsigned long long)V8OPEN_RX_AGC_GAIN_DECAY_COEFF) >> 14);
+					} else if (gain <= V8OPEN_RX_AGC_GAIN_GROW_LIMIT) {
+						gain = (unsigned)(((unsigned long long)gain *
+							(unsigned long long)V8OPEN_RX_AGC_GAIN_GROW_COEFF) >> 14);
+					}
+					engine->rx_agc_gain_q15 = (unsigned short)gain;
+				} else {
+					engine->rx_agc_integrator = control;
+				}
+			}
+		}
+	}
 }
 
 static int v8_open_rx_emit_symbol_bits(struct v8_open_engine *engine,
@@ -1591,9 +1647,23 @@ static void v8_open_rx_reset_collect(struct v8_open_engine *engine)
 	engine->rx_demod_hist_fill = 0U;
 	engine->rx_phase_offset = 0U;
 	engine->rx_emit_total = 0U;
-	engine->rx_agc_gain_q15 = 32768U;
-	engine->rx_agc_env = V8OPEN_RX_AGC_TARGET_ABS;
+	engine->rx_agc_gain_q15 = V8OPEN_RX_AGC_INIT_GAIN;
+	engine->rx_agc_env = 0U;
+	engine->rx_agc_metric = 0U;
+	engine->rx_agc_level = 0U;
+	engine->rx_agc_integrator = 0;
+	engine->rx_agc_rate_q16 = V8OPEN_RX_AGC_RATE_Q16;
+	engine->rx_agc_ring_pos = 0U;
+	engine->rx_agc_block_fill = 0U;
+	engine->rx_dbg_low_energy = 0U;
+	engine->rx_dbg_bit0 = 0U;
+	engine->rx_dbg_bit1 = 0U;
+	engine->ans_rx_ac = 0U;
+	memset(engine->rx_agc_ring, 0, sizeof(engine->rx_agc_ring));
+	memset(engine->rx_agc_block, 0, sizeof(engine->rx_agc_block));
 	memset(engine->rx_agc_fir_hist, 0, sizeof(engine->rx_agc_fir_hist));
+	memset(engine->rx_demod_history, 0, sizeof(engine->rx_demod_history));
+	memset(engine->rx_bit_window, 0, sizeof(engine->rx_bit_window));
 	v8_open_v21_workspace_init(engine);
 	engine->rx_mark_ticks = 0U;
 	engine->rx_space_ticks = 0U;
@@ -1617,6 +1687,7 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 {
 	unsigned preserve_frontend;
 	unsigned preserve_demod_state;
+	unsigned preserve_agc_state;
 	unsigned force_v21_reinit;
 	unsigned preserved_hist_fill;
 	unsigned preserved_phase_offset;
@@ -1637,6 +1708,14 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 	unsigned preserved_space_ticks;
 	unsigned preserved_agc_gain_q15;
 	unsigned preserved_agc_env;
+	unsigned preserved_agc_metric;
+	unsigned preserved_agc_level;
+	int preserved_agc_integrator;
+	unsigned preserved_agc_rate_q16;
+	unsigned preserved_agc_ring_pos;
+	unsigned preserved_agc_block_fill;
+	short preserved_agc_ring[V8OPEN_AGC_POWER_RING];
+	short preserved_agc_block[V8OPEN_AGC_BLOCK_SAMPLES];
 	short preserved_agc_fir_hist[V8OPEN_AGC_FIR_SAMPLES];
 
 	(void)samples;
@@ -1644,16 +1723,18 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 
 	preserve_frontend = (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_SEARCH);
 	preserve_demod_state = 0U;
+	preserve_agc_state = 0U;
 	force_v21_reinit = 0U;
 	if (engine->cfg.answer_mode && mode != V8_OPEN_RX_COLLECT_SEARCH) {
 		/*
 		 * In the blob answer path, v8_V21_Init is called when transitioning
 		 * into receive collection (state 0x29 path), after detector setup.
-		 * Do not carry the pre-detector SEARCH shifter state straight through,
-		 * but keep the demod pipeline continuity (+de8/+dec/+df0 equivalents).
+		 * Do not carry SEARCH shifter/demod continuity into collection; that
+		 * state is reset by V8_V21_reset. Keep AGC continuity only.
 		 */
 		preserve_frontend = 0U;
-		preserve_demod_state = 1U;
+		preserve_demod_state = 0U;
+		preserve_agc_state = 1U;
 		force_v21_reinit = 1U;
 	}
 	preserved_hist_fill = engine->rx_demod_hist_fill;
@@ -1675,6 +1756,14 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 	preserved_space_ticks = engine->rx_space_ticks;
 	preserved_agc_gain_q15 = engine->rx_agc_gain_q15;
 	preserved_agc_env = engine->rx_agc_env;
+	preserved_agc_metric = engine->rx_agc_metric;
+	preserved_agc_level = engine->rx_agc_level;
+	preserved_agc_integrator = engine->rx_agc_integrator;
+	preserved_agc_rate_q16 = engine->rx_agc_rate_q16;
+	preserved_agc_ring_pos = engine->rx_agc_ring_pos;
+	preserved_agc_block_fill = engine->rx_agc_block_fill;
+	memcpy(preserved_agc_ring, engine->rx_agc_ring, sizeof(preserved_agc_ring));
+	memcpy(preserved_agc_block, engine->rx_agc_block, sizeof(preserved_agc_block));
 	memcpy(preserved_agc_fir_hist,
 	       engine->rx_agc_fir_hist,
 	       sizeof(preserved_agc_fir_hist));
@@ -1714,6 +1803,14 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 		engine->rx_space_ticks = preserved_space_ticks;
 		engine->rx_agc_gain_q15 = preserved_agc_gain_q15;
 		engine->rx_agc_env = preserved_agc_env;
+		engine->rx_agc_metric = preserved_agc_metric;
+		engine->rx_agc_level = preserved_agc_level;
+		engine->rx_agc_integrator = preserved_agc_integrator;
+		engine->rx_agc_rate_q16 = preserved_agc_rate_q16;
+		engine->rx_agc_ring_pos = preserved_agc_ring_pos;
+		engine->rx_agc_block_fill = preserved_agc_block_fill;
+		memcpy(engine->rx_agc_ring, preserved_agc_ring, sizeof(engine->rx_agc_ring));
+		memcpy(engine->rx_agc_block, preserved_agc_block, sizeof(engine->rx_agc_block));
 		memcpy(engine->rx_agc_fir_hist,
 		       preserved_agc_fir_hist,
 		       sizeof(engine->rx_agc_fir_hist));
@@ -1740,16 +1837,36 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 		if (preserve_demod_state) {
 			engine->rx_mark_ticks = preserved_mark_ticks;
 			engine->rx_space_ticks = preserved_space_ticks;
+		} else {
+			engine->rx_mark_ticks = 0U;
+			engine->rx_space_ticks = 0U;
+		}
+		if (preserve_demod_state || preserve_agc_state) {
 			engine->rx_agc_gain_q15 = preserved_agc_gain_q15;
 			engine->rx_agc_env = preserved_agc_env;
+			engine->rx_agc_metric = preserved_agc_metric;
+			engine->rx_agc_level = preserved_agc_level;
+			engine->rx_agc_integrator = preserved_agc_integrator;
+			engine->rx_agc_rate_q16 = preserved_agc_rate_q16;
+			engine->rx_agc_ring_pos = preserved_agc_ring_pos;
+			engine->rx_agc_block_fill = preserved_agc_block_fill;
+			memcpy(engine->rx_agc_ring, preserved_agc_ring, sizeof(engine->rx_agc_ring));
+			memcpy(engine->rx_agc_block, preserved_agc_block, sizeof(engine->rx_agc_block));
 			memcpy(engine->rx_agc_fir_hist,
 			       preserved_agc_fir_hist,
 			       sizeof(engine->rx_agc_fir_hist));
 		} else {
-			engine->rx_mark_ticks = 0U;
-			engine->rx_space_ticks = 0U;
-			engine->rx_agc_gain_q15 = 32768U;
-			engine->rx_agc_env = V8OPEN_RX_AGC_TARGET_ABS;
+			engine->rx_agc_gain_q15 = V8OPEN_RX_AGC_INIT_GAIN;
+			engine->rx_agc_env = 0U;
+			engine->rx_agc_metric = 0U;
+			engine->rx_agc_level = 0U;
+			engine->rx_agc_integrator = 0;
+			engine->rx_agc_rate_q16 = V8OPEN_RX_AGC_RATE_Q16;
+			engine->rx_agc_ring_pos = 0U;
+			engine->rx_agc_block_fill = 0U;
+			engine->ans_rx_ac = 0U;
+			memset(engine->rx_agc_ring, 0, sizeof(engine->rx_agc_ring));
+			memset(engine->rx_agc_block, 0, sizeof(engine->rx_agc_block));
 			memset(engine->rx_agc_fir_hist, 0, sizeof(engine->rx_agc_fir_hist));
 		}
 		if (!preserve_demod_state &&
@@ -1999,10 +2116,26 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 				      const short *samples,
 				      int cnt)
 {
+	const short *filt_dd8;
+	const short *filt_ddc;
+	const short *filt_de0;
+	const short *filt_de4;
 	unsigned i;
 
 	if (!samples || cnt <= 0)
 		return 0;
+
+	if (engine && engine->rx_c22c == 0x0004U && engine->rx_c22e == 0xff9cU) {
+		filt_dd8 = v8_open_v21_filt_5b20;
+		filt_ddc = v8_open_v21_filt_5ac0;
+		filt_de0 = v8_open_v21_filt_5be0;
+		filt_de4 = v8_open_v21_filt_5b80;
+	} else {
+		filt_dd8 = v8_open_v21_filt_1;
+		filt_ddc = v8_open_v21_filt_0;
+		filt_de0 = v8_open_v21_filt_3;
+		filt_de4 = v8_open_v21_filt_2;
+	}
 
 	for (i = 0U; i < (unsigned)cnt; ++i) {
 		short fir_sample;
@@ -2010,61 +2143,92 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 
 		fir_sample = v8_open_rx_agc_prefilter_sample(engine, samples[i]);
 		demod_sample = v8_open_rx_agc_scale_sample(engine, fir_sample);
-		if (engine->rx_demod_hist_fill < V8OPEN_DEMOD_HISTORY_SAMPLES) {
-			engine->rx_demod_history[engine->rx_demod_hist_fill++] = demod_sample;
-		} else {
-			memmove(engine->rx_demod_history,
-				engine->rx_demod_history + 1,
-				(V8OPEN_DEMOD_HISTORY_SAMPLES - 1U) * sizeof(engine->rx_demod_history[0]));
-			engine->rx_demod_history[V8OPEN_DEMOD_HISTORY_SAMPLES - 1U] = demod_sample;
-		}
+		v8_open_rx_agc_track(engine, fir_sample, demod_sample);
 
 		engine->rx_bit_window[engine->rx_bit_window_len++] = demod_sample;
 		if (engine->rx_bit_window_len < V8OPEN_DEMOD_STAGE_SAMPLES)
 			continue;
 
 		{
-			unsigned phase;
+			unsigned phase_sched;
 			unsigned idx;
-			unsigned stage_start;
 
-			phase = engine->rx_phase_offset;
-			stage_start = engine->rx_demod_hist_fill >= V8OPEN_DEMOD_STAGE_SAMPLES ?
-				(engine->rx_demod_hist_fill - V8OPEN_DEMOD_STAGE_SAMPLES) : 0U;
+			phase_sched = engine->rx_phase_offset;
 			for (idx = 0U; idx < V8OPEN_DEMOD_STAGE_SAMPLES; ++idx) {
 				unsigned long long mark_energy;
 				unsigned long long space_energy;
 				unsigned bit;
-				unsigned hist_end;
-				unsigned window_count;
-				unsigned window_start;
+				long long acc0;
+				long long acc1;
+				long long acc2;
+				long long acc3;
+				unsigned tap;
 
-				if (phase > idx)
+				if (phase_sched > idx)
 					continue;
 
-				phase += 8U;
-				hist_end = stage_start + idx;
-				window_count = hist_end + 1U;
-				if (window_count > V8OPEN_DEMOD_HISTORY_SAMPLES)
-					window_count = V8OPEN_DEMOD_HISTORY_SAMPLES;
-				window_start = (hist_end + 1U) - window_count;
-				v8_open_rx_window_score(engine,
-							engine->rx_demod_history + window_start,
-							window_count,
-							&mark_energy,
-							&space_energy,
-							&bit);
+				phase_sched += 8U;
+				acc0 = 0x2000;
+				acc1 = 0x2000;
+				acc2 = 0x2000;
+				acc3 = 0x2000;
+				for (tap = 0U; tap < V8OPEN_DEMOD_HISTORY_SAMPLES; ++tap) {
+					short s;
+
+					if (tap <= idx) {
+						s = engine->rx_bit_window[idx - tap];
+					} else {
+						unsigned h;
+
+						h = V8OPEN_DEMOD_HISTORY_SAMPLES + idx - tap;
+						s = engine->rx_demod_history[h];
+					}
+					acc0 += (long long)s * (long long)filt_dd8[tap];
+					acc1 += (long long)s * (long long)filt_ddc[tap];
+					acc2 += (long long)s * (long long)filt_de0[tap];
+					acc3 += (long long)s * (long long)filt_de4[tap];
+				}
+				{
+					short f0;
+					short f1;
+					short f2;
+					short f3;
+					long long e0;
+					long long e1;
+					long long e2;
+					long long e3;
+
+					/* Blob v8_fskdemodulate truncates each filtered branch to s16. */
+					f0 = (short)(acc0 >> 14);
+					f1 = (short)(acc1 >> 14);
+					f2 = (short)(acc2 >> 14);
+					f3 = (short)(acc3 >> 14);
+					e0 = (long long)f0 * (long long)f0;
+					e1 = (long long)f1 * (long long)f1;
+					e2 = (long long)f2 * (long long)f2;
+					e3 = (long long)f3 * (long long)f3;
+					mark_energy = (unsigned long long)(e0 + e1);
+					space_energy = (unsigned long long)(e2 + e3);
+					/*
+					 * Blob v8_fskdemodulate sets the symbol bit when
+					 * (space_energy - mark_energy) > 0.
+					 */
+					bit = space_energy > mark_energy ? 1U : 0U;
+				}
+
 				if (mark_energy <= 0xc34fULL && space_energy <= 0xc34fULL) {
+					engine->rx_dbg_low_energy++;
 					engine->rx_mark_ticks = 0U;
 					engine->rx_space_ticks = 0U;
 					continue;
 				}
 
 				if (bit) {
+					engine->rx_dbg_bit1++;
 					unsigned emit_count;
 
 					emit_count =
-						v8_open_rx_quantize_transition_keep(&engine->rx_space_ticks);
+						v8_open_rx_quantize_transition_clear(&engine->rx_space_ticks);
 					if (emit_count &&
 					    v8_open_rx_emit_symbol_bits(engine,
 									 engine->rx_c230,
@@ -2072,6 +2236,7 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 						return 1;
 					engine->rx_mark_ticks++;
 				} else {
+					engine->rx_dbg_bit0++;
 					unsigned emit_count;
 
 					emit_count =
@@ -2104,8 +2269,21 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 			}
 
 			engine->rx_phase_offset =
-				phase >= V8OPEN_DEMOD_STAGE_SAMPLES ?
-					(phase - V8OPEN_DEMOD_STAGE_SAMPLES) : 0U;
+				phase_sched >= V8OPEN_DEMOD_STAGE_SAMPLES ?
+					(phase_sched - V8OPEN_DEMOD_STAGE_SAMPLES) : 0U;
+			if (engine->rx_demod_hist_fill < V8OPEN_DEMOD_HISTORY_SAMPLES) {
+				engine->rx_demod_hist_fill += V8OPEN_DEMOD_STAGE_SAMPLES;
+				if (engine->rx_demod_hist_fill > V8OPEN_DEMOD_HISTORY_SAMPLES)
+					engine->rx_demod_hist_fill = V8OPEN_DEMOD_HISTORY_SAMPLES;
+			}
+			memmove(engine->rx_demod_history,
+				engine->rx_demod_history + V8OPEN_DEMOD_STAGE_SAMPLES,
+				(V8OPEN_DEMOD_HISTORY_SAMPLES - V8OPEN_DEMOD_STAGE_SAMPLES) *
+					sizeof(engine->rx_demod_history[0]));
+			memcpy(engine->rx_demod_history +
+			       (V8OPEN_DEMOD_HISTORY_SAMPLES - V8OPEN_DEMOD_STAGE_SAMPLES),
+			       engine->rx_bit_window,
+			       V8OPEN_DEMOD_STAGE_SAMPLES * sizeof(engine->rx_bit_window[0]));
 		}
 		engine->rx_bit_window_len = 0U;
 	}
@@ -2928,6 +3106,16 @@ static void v8_open_transition(struct v8_open_engine *engine,
 		unsigned phase_off;
 		unsigned agc_gain;
 		unsigned agc_env;
+		unsigned agc_metric;
+		unsigned agc_level;
+		unsigned sym0;
+		unsigned sym1;
+		unsigned tick0;
+		unsigned tick1;
+		unsigned sat_count;
+		unsigned low_energy;
+		unsigned bit0_count;
+		unsigned bit1_count;
 
 		raw12 = (unsigned short)(engine->rx_c23a & 0x0fffU);
 		runs0 = engine->rx_c23e;
@@ -2942,6 +3130,16 @@ static void v8_open_transition(struct v8_open_engine *engine,
 		phase_off = engine->rx_phase_offset;
 		agc_gain = engine->rx_agc_gain_q15;
 		agc_env = engine->rx_agc_env;
+		agc_metric = engine->rx_agc_metric;
+		agc_level = engine->rx_agc_level;
+		sym0 = engine->rx_c230;
+		sym1 = engine->rx_c232;
+		tick0 = engine->rx_space_ticks;
+		tick1 = engine->rx_mark_ticks;
+		sat_count = engine->ans_rx_ac;
+		low_energy = engine->rx_dbg_low_energy;
+		bit0_count = engine->rx_dbg_bit0;
+		bit1_count = engine->rx_dbg_bit1;
 		engine->cm_detected = 1U;
 		engine->cm_predetecting = 0U;
 		engine->cm_predetect_deadline = 0U;
@@ -2952,7 +3150,7 @@ static void v8_open_transition(struct v8_open_engine *engine,
 		v8_open_rx_reset_collect(engine);
 		v8_open_collect_remote_cm_defaults(engine);
 		v8_open_parse_rx_sequence(engine);
-		V8OPEN_DBG("cm-stub: timeout fallback after %u candidate(s); using conservative remote CM model (raw=%03x runs=%u/%u/%u mark=%u delim=%u sync=%u bits=%u emits=%u hist=%u phase=%u agc=%u env=%u)\n",
+		V8OPEN_DBG("cm-stub: timeout fallback after %u candidate(s); using conservative remote CM model (raw=%03x runs=%u/%u/%u mark=%u delim=%u sync=%u bits=%u emits=%u hist=%u phase=%u agc=%u env=%u metric=%u level=%u sym=%u/%u ticks=%u/%u sat=%u demod=%u/%u/%u)\n",
 			  engine->cm_seen_count,
 			  raw12,
 			  runs0,
@@ -2966,7 +3164,17 @@ static void v8_open_transition(struct v8_open_engine *engine,
 			  hist_fill,
 			  phase_off,
 			  agc_gain,
-			  agc_env);
+			  agc_env,
+			  agc_metric,
+			  agc_level,
+			  sym0,
+			  sym1,
+			  tick0,
+			  tick1,
+			  sat_count,
+			  low_energy,
+			  bit0_count,
+			  bit1_count);
 	}
 	if (next_phase == V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM &&
 	    !engine->cj_detected &&
@@ -2984,6 +3192,16 @@ static void v8_open_transition(struct v8_open_engine *engine,
 		unsigned phase_off;
 		unsigned agc_gain;
 		unsigned agc_env;
+		unsigned agc_metric;
+		unsigned agc_level;
+		unsigned sym0;
+		unsigned sym1;
+		unsigned tick0;
+		unsigned tick1;
+		unsigned sat_count;
+		unsigned low_energy;
+		unsigned bit0_count;
+		unsigned bit1_count;
 
 		raw12 = (unsigned short)(engine->rx_c23a & 0x0fffU);
 		runs0 = engine->rx_c23e;
@@ -2998,6 +3216,16 @@ static void v8_open_transition(struct v8_open_engine *engine,
 		phase_off = engine->rx_phase_offset;
 		agc_gain = engine->rx_agc_gain_q15;
 		agc_env = engine->rx_agc_env;
+		agc_metric = engine->rx_agc_metric;
+		agc_level = engine->rx_agc_level;
+		sym0 = engine->rx_c230;
+		sym1 = engine->rx_c232;
+		tick0 = engine->rx_space_ticks;
+		tick1 = engine->rx_mark_ticks;
+		sat_count = engine->ans_rx_ac;
+		low_energy = engine->rx_dbg_low_energy;
+		bit0_count = engine->rx_dbg_bit0;
+		bit1_count = engine->rx_dbg_bit1;
 		engine->cj_detected = 1U;
 		engine->cj_predetecting = 0U;
 		engine->cj_predetect_deadline = 0U;
@@ -3006,7 +3234,7 @@ static void v8_open_transition(struct v8_open_engine *engine,
 		engine->cj_guard_budget = 0U;
 		v8_open_rx_reset_collect(engine);
 		v8_open_collect_remote_cj_defaults(engine);
-		V8OPEN_DBG("cj-stub: timeout fallback after %u candidate(s); using conservative remote CJ model (raw=%03x runs=%u/%u/%u mark=%u delim=%u sync=%u bits=%u emits=%u hist=%u phase=%u agc=%u env=%u)\n",
+		V8OPEN_DBG("cj-stub: timeout fallback after %u candidate(s); using conservative remote CJ model (raw=%03x runs=%u/%u/%u mark=%u delim=%u sync=%u bits=%u emits=%u hist=%u phase=%u agc=%u env=%u metric=%u level=%u sym=%u/%u ticks=%u/%u sat=%u demod=%u/%u/%u)\n",
 			  engine->cj_seen_count,
 			  raw12,
 			  runs0,
@@ -3020,7 +3248,17 @@ static void v8_open_transition(struct v8_open_engine *engine,
 			  hist_fill,
 			  phase_off,
 			  agc_gain,
-			  agc_env);
+			  agc_env,
+			  agc_metric,
+			  agc_level,
+			  sym0,
+			  sym1,
+			  tick0,
+			  tick1,
+			  sat_count,
+			  low_energy,
+			  bit0_count,
+			  bit1_count);
 	}
 
 	old_phase = engine->phase;
