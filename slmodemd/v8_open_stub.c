@@ -38,7 +38,7 @@ static const unsigned short v8_open_cm_rx_template[] = {
 };
 
 static const unsigned short v8_open_cj_rx_template[] = {
-	0x0155U, 0x03ffU, 0x03ffU, 0x03ffU, 0x03ffU, 0x03ffU
+	0x0155U, 0x01c1U, 0x03ffU, 0x0155U, 0x01c1U, 0x03f0U
 };
 
 enum v8_open_phase {
@@ -131,6 +131,7 @@ struct v8_open_engine {
 	unsigned cm_guard_budget;
 	unsigned cm_collecting;
 	unsigned cm_collect_index;
+	unsigned cm_collect_pass;
 	unsigned have_call_match;
 	unsigned have_proto_match;
 	unsigned short matched_call_word;
@@ -147,6 +148,8 @@ struct v8_open_engine {
 	unsigned cj_guard_budget;
 	unsigned cj_collecting;
 	unsigned cj_collect_index;
+	unsigned cj_sequence_valid;
+	unsigned cj_variant_bit;
 	unsigned char tx_bits[256];
 };
 
@@ -710,25 +713,51 @@ static void v8_open_cm_collect_start(struct v8_open_engine *engine)
 {
 	engine->cm_collecting = 1U;
 	engine->cm_collect_index = 0U;
+	engine->cm_collect_pass = 0U;
 	engine->rx_seq_b_count = 0U;
 	engine->rx_token_count = 0U;
 }
 
 static int v8_open_cm_collect_step(struct v8_open_engine *engine)
 {
+	const unsigned total_words =
+		(unsigned)(sizeof(v8_open_cm_rx_template) /
+			   sizeof(v8_open_cm_rx_template[0]));
 	unsigned burst;
 
 	for (burst = 0U; burst < V8OPEN_CM_COLLECT_BURST; ++burst) {
-		if (engine->cm_collect_index >=
-		    (sizeof(v8_open_cm_rx_template) / sizeof(v8_open_cm_rx_template[0])))
-			break;
-		v8_open_rx_seq_b_push(engine,
-				      v8_open_cm_rx_template[engine->cm_collect_index]);
-		engine->cm_collect_index++;
+		if (engine->cm_collect_pass == 0U) {
+			if (engine->cm_collect_index >= total_words) {
+				engine->cm_collect_pass = 1U;
+				engine->cm_collect_index = 0U;
+				continue;
+			}
+			v8_open_rx_seq_b_push(engine,
+					      v8_open_cm_rx_template[engine->cm_collect_index]);
+			engine->cm_collect_index++;
+			continue;
+		}
+		if (engine->cm_collect_pass == 1U) {
+			/* Blob collector requires a delimiter hit before repeat-match. */
+			engine->cm_collect_pass = 2U;
+			engine->cm_collect_index = 0U;
+			continue;
+		}
+		if (engine->cm_collect_pass == 2U) {
+			if (engine->cm_collect_index >= total_words) {
+				engine->cm_collect_pass = 3U;
+				engine->cm_collect_index = 0U;
+				continue;
+			}
+			/* Second pass confirms the learned sequence, but does not mutate rx_seq_b. */
+			engine->cm_collect_index++;
+			continue;
+		}
+		/* Final delimiter confirms sequence completion. */
+		return 1;
 	}
 
-	return engine->cm_collect_index >=
-	       (sizeof(v8_open_cm_rx_template) / sizeof(v8_open_cm_rx_template[0]));
+	return 0;
 }
 
 static void v8_open_cj_collect_start(struct v8_open_engine *engine)
@@ -753,6 +782,34 @@ static int v8_open_cj_collect_step(struct v8_open_engine *engine)
 
 	return engine->cj_collect_index >=
 	       (sizeof(v8_open_cj_rx_template) / sizeof(v8_open_cj_rx_template[0]));
+}
+
+static int v8_open_cj_sequence_valid(struct v8_open_engine *engine)
+{
+	unsigned short word1;
+	unsigned short word5;
+	unsigned cond_a;
+	unsigned cond_b;
+
+	if (engine->rx_seq_a_count < 6U)
+		return 0;
+
+	word1 = engine->rx_seq_a[1];
+	word5 = engine->rx_seq_a[5];
+	cond_a = ((word1 & 0x03b9U) == 0x0181U);
+	cond_b = ((word1 & 0x0391U) == 0x0081U);
+	if (!(cond_a || cond_b))
+		return 0;
+	if (engine->rx_seq_a[2] != 0x03ffU || engine->rx_seq_a[3] != 0x0155U)
+		return 0;
+	if (engine->rx_seq_a[4] != word1)
+		return 0;
+	if ((word5 & 0x03f0U) != 0x03f0U)
+		return 0;
+
+	engine->cj_sequence_valid = 1U;
+	engine->cj_variant_bit = (word1 >> 6) & 0x01U;
+	return 1;
 }
 
 static void v8_open_parse_rx_sequence(struct v8_open_engine *engine)
@@ -910,7 +967,7 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 		  peak_abs,
 		  engine->cm_collect_index,
 		  (unsigned)(sizeof(v8_open_cm_rx_template) /
-			     sizeof(v8_open_cm_rx_template[0])));
+			     sizeof(v8_open_cm_rx_template[0]) * 2U + 2U));
 }
 
 static void v8_open_observe_cj(struct v8_open_engine *engine,
@@ -934,6 +991,15 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 		if (!v8_open_cj_collect_step(engine))
 			return;
 
+		if (!v8_open_cj_sequence_valid(engine)) {
+			engine->cj_collecting = 0U;
+			engine->cj_seen_count = 0U;
+			engine->cj_signature = 0U;
+			engine->rx_seq_a_count = 0U;
+			V8OPEN_DBG("cj-stub: collected short sequence failed validation; resetting collector\n");
+			return;
+		}
+
 		engine->cj_collecting = 0U;
 		engine->cj_detected = 1U;
 		engine->cj_guard_budget = v8_open_samples_from_ms(engine, 40U);
@@ -941,10 +1007,11 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 		samples = (const short *)in;
 		signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
 		(void)signature;
-		V8OPEN_DBG("cj-stub: detected 2/2 avg=%u peak=%u rxwords=%u\n",
+		V8OPEN_DBG("cj-stub: detected 2/2 avg=%u peak=%u rxwords=%u variant=%u\n",
 			  avg_abs,
 			  peak_abs,
-			  engine->rx_seq_a_count);
+			  engine->rx_seq_a_count,
+			  engine->cj_variant_bit);
 		return;
 	}
 
@@ -1303,6 +1370,7 @@ static void v8_open_transition(struct v8_open_engine *engine,
 	    (engine->cm_seen_count > 0U || engine->cm_collecting)) {
 		engine->cm_detected = 1U;
 		engine->cm_collecting = 0U;
+		engine->cm_collect_pass = 0U;
 		engine->cm_guard_budget = 0U;
 		v8_open_collect_remote_cm_defaults(engine);
 		v8_open_parse_rx_sequence(engine);
@@ -1382,6 +1450,7 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->cm_guard_budget = 0U;
 	engine->cm_collecting = 0U;
 	engine->cm_collect_index = 0U;
+	engine->cm_collect_pass = 0U;
 	engine->have_call_match = 0U;
 	engine->have_proto_match = 0U;
 	engine->matched_call_word = 0U;
@@ -1395,6 +1464,8 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->cj_guard_budget = 0U;
 	engine->cj_collecting = 0U;
 	engine->cj_collect_index = 0U;
+	engine->cj_sequence_valid = 0U;
+	engine->cj_variant_bit = 0U;
 	v8_open_capture_runtime(engine);
 	V8OPEN_DBG("create: side=%s target=%u srate=%u caps=data:%u v92:%u v90:%u v34:%u v32:%u v22:%u qc:%u lapm:%u access=call:%u ans:%u dig:%u pcm=a:%u d:%u v91:%u flags=%02x/%02x/%02x\n",
 		  cfg->answer_mode ? "answer" : "originate",
