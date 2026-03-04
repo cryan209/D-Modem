@@ -22,12 +22,23 @@
 #define V8OPEN_V21_ORG_MARK 980U
 #define V8OPEN_V21_ORG_SPACE 1180U
 #define V8OPEN_ANSAM_REVERSAL_MS 450U
+#define V8OPEN_CM_COLLECT_BURST 2U
+#define V8OPEN_CJ_COLLECT_BURST 2U
 
 static const short v8_open_sine_32[32] = {
 	0, 1951, 3827, 5556, 7071, 8315, 9239, 9808,
 	10000, 9808, 9239, 8315, 7071, 5556, 3827, 1951,
 	0, -1951, -3827, -5556, -7071, -8315, -9239, -9808,
 	-10000, -9808, -9239, -8315, -7071, -5556, -3827, -1951
+};
+
+static const unsigned short v8_open_cm_rx_template[] = {
+	0x0107U, 0x014dU, 0x0111U, 0x0111U,
+	0x0161U, 0x01c9U, 0x0111U, 0x00a9U
+};
+
+static const unsigned short v8_open_cj_rx_template[] = {
+	0x0155U, 0x03ffU, 0x03ffU, 0x03ffU, 0x03ffU, 0x03ffU
 };
 
 enum v8_open_phase {
@@ -118,6 +129,8 @@ struct v8_open_engine {
 	unsigned cm_signature;
 	unsigned cm_detected;
 	unsigned cm_guard_budget;
+	unsigned cm_collecting;
+	unsigned cm_collect_index;
 	unsigned have_call_match;
 	unsigned have_proto_match;
 	unsigned short matched_call_word;
@@ -132,6 +145,8 @@ struct v8_open_engine {
 	unsigned cj_signature;
 	unsigned cj_detected;
 	unsigned cj_guard_budget;
+	unsigned cj_collecting;
+	unsigned cj_collect_index;
 	unsigned char tx_bits[256];
 };
 
@@ -675,22 +690,11 @@ static unsigned short v8_open_find_rx_token(const struct v8_open_engine *engine,
 
 static void v8_open_collect_remote_cm_defaults(struct v8_open_engine *engine)
 {
-	engine->rx_seq_b_count = 0U;
+	unsigned i;
 
-	/*
-	 * Blob-like synthetic receive model:
-	 * call function, 3-word modulation block, access, optional PCM+tail,
-	 * and protocol. This mirrors the shape the blob later scans and patches
-	 * rather than seeding only already-parsed category tokens.
-	 */
-	v8_open_rx_seq_b_push(engine, 0x0107U);
-	v8_open_rx_seq_b_push(engine, 0x014dU);
-	v8_open_rx_seq_b_push(engine, 0x0111U);
-	v8_open_rx_seq_b_push(engine, 0x0111U);
-	v8_open_rx_seq_b_push(engine, 0x0161U);
-	v8_open_rx_seq_b_push(engine, 0x01c9U);
-	v8_open_rx_seq_b_push(engine, 0x0111U);
-	v8_open_rx_seq_b_push(engine, 0x00a9U);
+	engine->rx_seq_b_count = 0U;
+	for (i = 0U; i < (sizeof(v8_open_cm_rx_template) / sizeof(v8_open_cm_rx_template[0])); ++i)
+		v8_open_rx_seq_b_push(engine, v8_open_cm_rx_template[i]);
 }
 
 static void v8_open_collect_remote_cj_defaults(struct v8_open_engine *engine)
@@ -698,9 +702,57 @@ static void v8_open_collect_remote_cj_defaults(struct v8_open_engine *engine)
 	unsigned i;
 
 	engine->rx_seq_a_count = 0U;
-	v8_open_rx_seq_a_push(engine, 0x0155U);
-	for (i = 0U; i < 5U; ++i)
-		v8_open_rx_seq_a_push(engine, 0x03ffU);
+	for (i = 0U; i < (sizeof(v8_open_cj_rx_template) / sizeof(v8_open_cj_rx_template[0])); ++i)
+		v8_open_rx_seq_a_push(engine, v8_open_cj_rx_template[i]);
+}
+
+static void v8_open_cm_collect_start(struct v8_open_engine *engine)
+{
+	engine->cm_collecting = 1U;
+	engine->cm_collect_index = 0U;
+	engine->rx_seq_b_count = 0U;
+	engine->rx_token_count = 0U;
+}
+
+static int v8_open_cm_collect_step(struct v8_open_engine *engine)
+{
+	unsigned burst;
+
+	for (burst = 0U; burst < V8OPEN_CM_COLLECT_BURST; ++burst) {
+		if (engine->cm_collect_index >=
+		    (sizeof(v8_open_cm_rx_template) / sizeof(v8_open_cm_rx_template[0])))
+			break;
+		v8_open_rx_seq_b_push(engine,
+				      v8_open_cm_rx_template[engine->cm_collect_index]);
+		engine->cm_collect_index++;
+	}
+
+	return engine->cm_collect_index >=
+	       (sizeof(v8_open_cm_rx_template) / sizeof(v8_open_cm_rx_template[0]));
+}
+
+static void v8_open_cj_collect_start(struct v8_open_engine *engine)
+{
+	engine->cj_collecting = 1U;
+	engine->cj_collect_index = 0U;
+	engine->rx_seq_a_count = 0U;
+}
+
+static int v8_open_cj_collect_step(struct v8_open_engine *engine)
+{
+	unsigned burst;
+
+	for (burst = 0U; burst < V8OPEN_CJ_COLLECT_BURST; ++burst) {
+		if (engine->cj_collect_index >=
+		    (sizeof(v8_open_cj_rx_template) / sizeof(v8_open_cj_rx_template[0])))
+			break;
+		v8_open_rx_seq_a_push(engine,
+				      v8_open_cj_rx_template[engine->cj_collect_index]);
+		engine->cj_collect_index++;
+	}
+
+	return engine->cj_collect_index >=
+	       (sizeof(v8_open_cj_rx_template) / sizeof(v8_open_cj_rx_template[0]));
 }
 
 static void v8_open_parse_rx_sequence(struct v8_open_engine *engine)
@@ -804,6 +856,25 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 	if (engine->cm_detected)
 		return;
 
+	if (engine->cm_collecting) {
+		if (!v8_open_cm_collect_step(engine))
+			return;
+
+		engine->cm_collecting = 0U;
+		engine->cm_detected = 1U;
+		engine->cm_guard_budget = v8_open_samples_from_ms(engine, 40U);
+		engine->samples_in_phase = 0U;
+		v8_open_parse_rx_sequence(engine);
+		samples = (const short *)in;
+		signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
+		(void)signature;
+		V8OPEN_DBG("cm-stub: detected 2/2 avg=%u peak=%u remote=data:1 v34:1 v32:1 pcm:a:1 d:0 rxwords=%u\n",
+			  avg_abs,
+			  peak_abs,
+			  engine->rx_seq_b_count);
+		return;
+	}
+
 	samples = (const short *)in;
 	signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
 	if (avg_abs < 1200U && peak_abs < 6000U)
@@ -832,14 +903,14 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 		return;
 	}
 
-	engine->cm_detected = 1U;
-	engine->cm_guard_budget = v8_open_samples_from_ms(engine, 40U);
-	engine->samples_in_phase = 0U;
-	v8_open_collect_remote_cm_defaults(engine);
-	v8_open_parse_rx_sequence(engine);
-	V8OPEN_DBG("cm-stub: detected 2/2 avg=%u peak=%u remote=data:1 v34:1 v32:1 pcm:a:1 d:0\n",
+	v8_open_cm_collect_start(engine);
+	(void)v8_open_cm_collect_step(engine);
+	V8OPEN_DBG("cm-stub: detected 2/2 avg=%u peak=%u starting long collector %u/%u\n",
 		  avg_abs,
-		  peak_abs);
+		  peak_abs,
+		  engine->cm_collect_index,
+		  (unsigned)(sizeof(v8_open_cm_rx_template) /
+			     sizeof(v8_open_cm_rx_template[0])));
 }
 
 static void v8_open_observe_cj(struct v8_open_engine *engine,
@@ -858,6 +929,25 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 		return;
 	if (engine->cj_detected)
 		return;
+
+	if (engine->cj_collecting) {
+		if (!v8_open_cj_collect_step(engine))
+			return;
+
+		engine->cj_collecting = 0U;
+		engine->cj_detected = 1U;
+		engine->cj_guard_budget = v8_open_samples_from_ms(engine, 40U);
+		engine->samples_in_phase = 0U;
+		samples = (const short *)in;
+		signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
+		(void)signature;
+		V8OPEN_DBG("cj-stub: detected 2/2 avg=%u peak=%u rxwords=%u\n",
+			  avg_abs,
+			  peak_abs,
+			  engine->rx_seq_a_count);
+		return;
+	}
+
 	min_dwell = v8_open_samples_from_ms(engine, 120U);
 	if (engine->samples_in_phase < min_dwell)
 		return;
@@ -893,13 +983,14 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 		return;
 	}
 
-	engine->cj_detected = 1U;
-	engine->cj_guard_budget = v8_open_samples_from_ms(engine, 40U);
-	engine->samples_in_phase = 0U;
-	v8_open_collect_remote_cj_defaults(engine);
-	V8OPEN_DBG("cj-stub: detected 2/2 avg=%u peak=%u\n",
+	v8_open_cj_collect_start(engine);
+	(void)v8_open_cj_collect_step(engine);
+	V8OPEN_DBG("cj-stub: detected 2/2 avg=%u peak=%u starting short collector %u/%u\n",
 		  avg_abs,
-		  peak_abs);
+		  peak_abs,
+		  engine->cj_collect_index,
+		  (unsigned)(sizeof(v8_open_cj_rx_template) /
+			     sizeof(v8_open_cj_rx_template[0])));
 }
 
 static unsigned v8_open_phase_status(const struct v8_open_engine *engine,
@@ -1209,13 +1300,24 @@ static void v8_open_transition(struct v8_open_engine *engine,
 
 	if (next_phase == V8_OPEN_PHASE_ANS_SEND_JM &&
 	    !engine->cm_detected &&
-	    engine->cm_seen_count > 0U) {
+	    (engine->cm_seen_count > 0U || engine->cm_collecting)) {
 		engine->cm_detected = 1U;
+		engine->cm_collecting = 0U;
 		engine->cm_guard_budget = 0U;
 		v8_open_collect_remote_cm_defaults(engine);
 		v8_open_parse_rx_sequence(engine);
 		V8OPEN_DBG("cm-stub: timeout fallback after %u candidate(s); using conservative remote CM model\n",
 			  engine->cm_seen_count);
+	}
+	if (next_phase == V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM &&
+	    !engine->cj_detected &&
+	    (engine->cj_seen_count > 0U || engine->cj_collecting)) {
+		engine->cj_detected = 1U;
+		engine->cj_collecting = 0U;
+		engine->cj_guard_budget = 0U;
+		v8_open_collect_remote_cj_defaults(engine);
+		V8OPEN_DBG("cj-stub: timeout fallback after %u candidate(s); using conservative remote CJ model\n",
+			  engine->cj_seen_count);
 	}
 
 	old_phase = engine->phase;
@@ -1278,6 +1380,8 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->cm_signature = 0U;
 	engine->cm_detected = 0U;
 	engine->cm_guard_budget = 0U;
+	engine->cm_collecting = 0U;
+	engine->cm_collect_index = 0U;
 	engine->have_call_match = 0U;
 	engine->have_proto_match = 0U;
 	engine->matched_call_word = 0U;
@@ -1289,6 +1393,8 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->cj_signature = 0U;
 	engine->cj_detected = 0U;
 	engine->cj_guard_budget = 0U;
+	engine->cj_collecting = 0U;
+	engine->cj_collect_index = 0U;
 	v8_open_capture_runtime(engine);
 	V8OPEN_DBG("create: side=%s target=%u srate=%u caps=data:%u v92:%u v90:%u v34:%u v32:%u v22:%u qc:%u lapm:%u access=call:%u ans:%u dig:%u pcm=a:%u d:%u v91:%u flags=%02x/%02x/%02x\n",
 		  cfg->answer_mode ? "answer" : "originate",
