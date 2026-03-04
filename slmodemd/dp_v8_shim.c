@@ -536,26 +536,35 @@ static int v8_shim_process(struct dp *dp, void *in, void *out, int cnt)
 	struct v8_shim_state *state;
 	int ret;
 	int status;
+	int suppress_log;
 
 	state = v8_shim_find(dp);
 	if (!state)
 		return -1;
 
 	blob = (struct v8_blob_wrapper *)dp;
+	suppress_log = 0;
 	if (state->use_open_stub) {
 		status = v8_open_process(blob->v8_engine, in, out, cnt);
 		blob->last_v8_status = (unsigned)status;
 		ret = DPSTAT_OK;
 		if (status == V8_OPEN_STATUS_OK) {
 			v8_shim_open_handoff(blob, state);
-			ret = DPSTAT_CHANGEDP;
+			if (blob->handoff_delay > cnt) {
+				blob->handoff_delay -= cnt;
+				suppress_log = 1;
+			} else {
+				blob->handoff_delay = 0;
+				ret = DPSTAT_CHANGEDP;
+			}
 		}
 	} else {
 		if (!state->real_ops || !state->real_ops->process)
 			return -1;
 		ret = state->real_ops->process(dp, in, out, cnt);
 	}
-	v8_shim_log_snapshot("process", state, blob, ret, 0);
+	if (!suppress_log)
+		v8_shim_log_snapshot("process", state, blob, ret, 0);
 	return ret;
 }
 

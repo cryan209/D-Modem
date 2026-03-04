@@ -26,6 +26,17 @@ struct vpcm_stub_dp {
 	struct dp dp;
 };
 
+struct vpcm_runtime_prefix {
+	unsigned char flags0;
+	unsigned char flags1;
+	unsigned char flags2;
+	unsigned char flags3;
+	unsigned rate_a;
+	unsigned rate_b;
+	unsigned reserved_0c;
+	unsigned qc_index;
+};
+
 struct vpcm_shim_state {
 	struct dp *inner;
 	struct dp_operations *real_ops;
@@ -233,11 +244,26 @@ static void vpcm_shim_log_create(struct vpcm_shim_state *state)
 {
 	long io_delay;
 	long update_delay;
+	long dp_requested;
+	struct vpcm_runtime_prefix *runtime;
+	unsigned qc_lapm;
+	unsigned qc_index;
+	unsigned char flags0;
+	unsigned char flags1;
+	unsigned char flags2;
 
 	io_delay = modem_get_param(state->inner->modem, MDMPRM_IODELAY);
 	update_delay = modem_get_param(state->inner->modem, MDMPRM_UPDATE_DELAY);
+	dp_requested = modem_get_param(state->inner->modem, MDMPRM_DP_REQUESTED);
+	runtime = (struct vpcm_runtime_prefix *)
+		modem_get_param(state->inner->modem, MDMPRM_DPRUNTIME);
+	qc_lapm = state->inner->modem->dsp_info.qc_lapm;
+	qc_index = state->inner->modem->dsp_info.qc_index;
+	flags0 = runtime ? runtime->flags0 : 0U;
+	flags1 = runtime ? runtime->flags1 : 0U;
+	flags2 = runtime ? runtime->flags2 : 0U;
 
-	VPCMSHIM_DBG("create: path=%s stub=%s dp=%d caller=%d srate=%d frag=%d frag_ms=%d vpcmx_side=%s(%d) session=%d io_delay=%ld update_delay=%ld\n",
+	VPCMSHIM_DBG("create: path=%s stub=%s dp=%d caller=%d srate=%d frag=%d frag_ms=%d vpcmx_side=%s(%d) session=%d io_delay=%ld update_delay=%ld dp_requested=%ld qc_lapm=%u qc_index=%u rt=%02x/%02x/%02x rt_qc=%u\n",
 		    state->use_stub ? "open-stub" : "blob",
 		    vpcm_shim_stub_mode_name(state->stub_mode),
 		    state->target_dp_id,
@@ -249,7 +275,14 @@ static void vpcm_shim_log_create(struct vpcm_shim_state *state)
 		    state->vpcmx_side,
 		    state->session_type,
 		    io_delay,
-		    update_delay);
+		    update_delay,
+		    dp_requested,
+		    qc_lapm,
+		    qc_index,
+		    flags0,
+		    flags1,
+		    flags2,
+		    runtime ? runtime->qc_index : 0U);
 
 	if (state->use_stub) {
 		VPCMSHIM_DBG("create-stub: dp=%d connect_ms=%lu drop_ms=%lu bit_bridge=%d force_ec=%d loopback=%d log_ms=%lu\n",
