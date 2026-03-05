@@ -393,8 +393,6 @@ struct v8_open_engine {
 	unsigned short rx_c242;
 	unsigned short rx_c244;
 	unsigned short rx_c246;
-	unsigned rx_nrzi_valid;
-	unsigned short rx_nrzi_prev_symbol;
 	unsigned rx_mark_ticks;
 	unsigned rx_space_ticks;
 	unsigned rx_emit_total;
@@ -1684,28 +1682,11 @@ static int v8_open_rx_emit_symbol_bits(struct v8_open_engine *engine,
 				       unsigned count)
 {
 	while (count-- > 0U) {
-		unsigned decoded_bit;
-
-		/*
-		 * Blob framing state in +0xc3a/+0xc38 is post-demod bitstream,
-		 * not raw tone polarity. Decode NRZI-style tone symbols first.
-		 */
-		if (!engine->rx_nrzi_valid) {
-			engine->rx_nrzi_valid = 1U;
-			engine->rx_nrzi_prev_symbol = (unsigned short)(symbol_bit & 0x01U);
-			decoded_bit = 1U;
-		} else {
-			decoded_bit =
-				((symbol_bit & 0x01U) == (engine->rx_nrzi_prev_symbol & 0x01U)) ?
-				1U : 0U;
-			engine->rx_nrzi_prev_symbol = (unsigned short)(symbol_bit & 0x01U);
-		}
-
 		engine->rx_c238 = (unsigned short)(engine->rx_c238 + 1U);
 		engine->rx_c23a = (unsigned short)(((engine->rx_c23a << 1) |
-						(decoded_bit & 0x01U)) & 0xffffU);
+						(symbol_bit & 0x01U)) & 0xffffU);
 		engine->rx_emit_total++;
-		if (v8_open_rx_push_bit(engine, decoded_bit & 0x01U))
+		if (v8_open_rx_push_bit(engine, symbol_bit & 0x01U))
 			return 1;
 	}
 	return 0;
@@ -1811,8 +1792,6 @@ static void v8_open_rx_reset_collect(struct v8_open_engine *engine)
 	engine->rx_bits_to_word = 0U;
 	engine->rx_demod_hist_fill = 0U;
 	engine->rx_phase_offset = 0U;
-	engine->rx_nrzi_valid = 0U;
-	engine->rx_nrzi_prev_symbol = 0U;
 	engine->rx_emit_total = 0U;
 	engine->rx_agc_gain_q15 = V8OPEN_RX_AGC_INIT_GAIN;
 	engine->rx_agc_env = 0U;
@@ -1871,8 +1850,6 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 	unsigned short preserved_c242;
 	unsigned short preserved_c244;
 	unsigned short preserved_c246;
-	unsigned preserved_nrzi_valid;
-	unsigned short preserved_nrzi_prev_symbol;
 	unsigned preserved_mark_ticks;
 	unsigned preserved_space_ticks;
 	unsigned preserved_agc_gain_q15;
@@ -1921,8 +1898,6 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 	preserved_c242 = engine->rx_c242;
 	preserved_c244 = engine->rx_c244;
 	preserved_c246 = engine->rx_c246;
-	preserved_nrzi_valid = engine->rx_nrzi_valid;
-	preserved_nrzi_prev_symbol = engine->rx_nrzi_prev_symbol;
 	preserved_mark_ticks = engine->rx_mark_ticks;
 	preserved_space_ticks = engine->rx_space_ticks;
 	preserved_agc_gain_q15 = engine->rx_agc_gain_q15;
@@ -1953,8 +1928,6 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 	engine->rx_reverse_word_bits = 0U;
 	engine->rx_word_sync = 0U;
 	engine->rx_bits_to_word = 0U;
-	engine->rx_nrzi_valid = 0U;
-	engine->rx_nrzi_prev_symbol = 0U;
 	engine->rx_emit_total = 0U;
 	if (preserve_frontend) {
 		engine->rx_demod_hist_fill = preserved_hist_fill;
@@ -1972,8 +1945,6 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 		engine->rx_c242 = preserved_c242;
 		engine->rx_c244 = preserved_c244;
 		engine->rx_c246 = preserved_c246;
-		engine->rx_nrzi_valid = preserved_nrzi_valid;
-		engine->rx_nrzi_prev_symbol = preserved_nrzi_prev_symbol;
 		engine->rx_mark_ticks = preserved_mark_ticks;
 		engine->rx_space_ticks = preserved_space_ticks;
 		engine->rx_agc_gain_q15 = preserved_agc_gain_q15;
@@ -2236,10 +2207,12 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 			engine->rx_probe_words_logged++;
 		}
 
-		/* Blob state 0x29 checks c3a every receive step for preambles. */
-		if (!v8_open_rx_try_lock_preamble(engine, raw_word))
-			return 0;
-		return 0;
+		/*
+		 * Blob receive states keep consuming 10-bit words on c38 cadence
+		 * even when we don't have explicit preamble lock. Keep probing,
+		 * but do not block word collection on sync.
+		 */
+		(void)v8_open_rx_try_lock_preamble(engine, raw_word);
 	}
 
 	/*
@@ -2271,6 +2244,8 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 		}
 	}
 	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM) {
+		if (engine->cm_collect_index == 0U && word != 0x000fU)
+			return 0;
 		if (word == 0x000fU) {
 			if (engine->rx_sequence_len == engine->cm_collect_pass) {
 				engine->rx_seq_b_count = engine->rx_sequence_len;
@@ -2449,6 +2424,11 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 						(void)v8_open_rx_emit_symbol_bits(engine,
 										  engine->rx_c232,
 										  emit_count);
+					/*
+					 * Blob v8_fskdemodulate clears this branch's accumulator
+					 * before incrementing the opposite run counter.
+					 */
+					engine->rx_mark_ticks = 0U;
 					engine->rx_space_ticks++;
 				}
 			}
@@ -2503,6 +2483,8 @@ static void v8_open_cm_collect_start(struct v8_open_engine *engine,
 	engine->cm_collect_pass = 0U;
 	engine->rx_seq_b_count = 0U;
 	engine->rx_token_count = 0U;
+	memset(engine->rx_seq_b, 0, sizeof(engine->rx_seq_b));
+	memset(engine->rx_tokens, 0, sizeof(engine->rx_tokens));
 	samples_per_bit = v8_open_rx_samples_per_bit(engine);
 	engine->cm_collect_deadline = engine->samples_in_phase +
 		(((V8OPEN_CM_WORDS * 2U) + 4U) * 10U * samples_per_bit);
@@ -2520,6 +2502,7 @@ static void v8_open_cj_collect_start(struct v8_open_engine *engine,
 	engine->rx_seq_a_count = 0U;
 	engine->cj_sequence_valid = 0U;
 	engine->cj_variant_bit = 0U;
+	memset(engine->rx_seq_a, 0, sizeof(engine->rx_seq_a));
 	samples_per_bit = v8_open_rx_samples_per_bit(engine);
 	engine->cj_collect_deadline = engine->samples_in_phase +
 		((V8OPEN_CJ_WORDS + 2U) * 10U * samples_per_bit);
