@@ -521,20 +521,6 @@ static unsigned short v8_open_reverse_word10(unsigned short word)
 	return out;
 }
 
-static unsigned short v8_open_reverse_word12(unsigned short word)
-{
-	unsigned short out;
-	unsigned i;
-
-	out = 0U;
-	for (i = 0U; i < 12U; ++i) {
-		out <<= 1;
-		out |= (unsigned short)(word & 0x01U);
-		word >>= 1;
-	}
-	return out;
-}
-
 static void v8_open_jm_push(struct v8_open_jm_shim *jm,
 			    unsigned short word,
 			    int decodable)
@@ -950,6 +936,8 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 		 * V.8 8.2.2: if not terminated by CM/sigC, ANSam is 5 ± 1 s.
 		 * Keep WAIT_FOR_CM as a short ANSam tail and place the bulk here.
 		 */
+		if (engine->cm_detected && engine->cm_guard_budget)
+			return engine->cm_guard_budget;
 		return v8_open_samples_from_ms(engine, 4840U);
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CM:
 		/*
@@ -1350,15 +1338,6 @@ static void v8_open_rx_push_token(struct v8_open_engine *engine,
 	    (sizeof(engine->rx_tokens) / sizeof(engine->rx_tokens[0])))
 		return;
 	engine->rx_tokens[engine->rx_token_count++] = token;
-}
-
-static void v8_open_rx_seq_b_push(struct v8_open_engine *engine,
-				  unsigned short word)
-{
-	if (engine->rx_seq_b_count >=
-	    (sizeof(engine->rx_seq_b) / sizeof(engine->rx_seq_b[0])))
-		return;
-	engine->rx_seq_b[engine->rx_seq_b_count++] = word;
 }
 
 static void v8_open_rx_seq_a_push(struct v8_open_engine *engine,
@@ -2040,22 +2019,14 @@ static unsigned short v8_open_rx_normalize_word(const struct v8_open_engine *eng
 
 static void v8_open_rx_seed_sync_sequence(struct v8_open_engine *engine)
 {
-	unsigned idx;
-
 	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM) {
 		engine->rx_seq_b_count = 0U;
-		v8_open_rx_seq_b_push(engine, 0x000fU);
-		for (idx = 1U; idx <= 14U; ++idx)
-			v8_open_rx_seq_b_push(engine, 0x03ffU);
-		engine->cm_collect_index = 1U;
+		engine->cm_collect_index = 0U;
 		engine->cm_collect_pass = 1U;
-		engine->rx_sequence_len = 0xffffU;
+		engine->rx_sequence_len = 0U;
 	} else if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CJ) {
 		engine->rx_seq_a_count = 0U;
-		v8_open_rx_seq_a_push(engine, 0x0155U);
-		for (idx = 1U; idx < V8OPEN_CJ_WORDS; ++idx)
-			v8_open_rx_seq_a_push(engine, 0x03ffU);
-		engine->cj_collect_index = 1U;
+		engine->cj_collect_index = 0U;
 	}
 }
 
@@ -2151,41 +2122,15 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 	(void)v8_open_rx_update_runs(engine, bit);
 	engine->rx_shift_reg = (unsigned short)(((engine->rx_shift_reg << 1) |
 						(bit & 0x01U)) & 0xffffU);
-	engine->rx_bits_to_word = engine->rx_c238;
 
 	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_SEARCH) {
 		return 0;
 	}
 
-	/*
-	 * Blob state-0x28 consumes/dispatches receive symbols when c38 reaches 10,
-	 * then clears c38. Treat +0xc38 as the active word clock.
-	 */
-	if (engine->rx_c238 < 10U)
-		return 0;
-	engine->rx_c238 = 0U;
-	engine->rx_bits_to_word = 0U;
-
-	raw_word = (unsigned short)(engine->rx_c23a & 0x0fffU);
-	inv_word = raw_word ^ 0x0fffU;
-	rev_word = v8_open_reverse_word12(raw_word);
-	rev_inv_word = rev_word ^ 0x0fffU;
-
-	/*
-	 * Mirror v8handshak around 0x77916..0x7795c:
-	 * when (c46 != c44) and c44 > 1, advance c46 and re-seed c38/c3a.
-	 */
-	if (engine->rx_c246 != engine->rx_c244 && engine->rx_c244 > 1U) {
-		engine->rx_c238 = 6U;
-		engine->rx_c23a = 0U;
-		engine->rx_bits_to_word = 6U;
-		engine->rx_shift_reg = 0U;
-		engine->rx_c246 = (unsigned short)(engine->rx_c246 + 1U);
-		raw_word = 0U;
-		inv_word = 0x0fffU;
-		rev_word = 0U;
-		rev_inv_word = 0x0fffU;
-	}
+	raw_word = (unsigned short)(engine->rx_shift_reg & 0x03ffU);
+	inv_word = raw_word ^ 0x03ffU;
+	rev_word = v8_open_reverse_word10(raw_word);
+	rev_inv_word = rev_word ^ 0x03ffU;
 
 	if (!engine->rx_word_sync) {
 		engine->rx_probe_bits++;
@@ -2205,18 +2150,27 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 		}
 
 		/*
-		 * Blob receive states keep consuming 10-bit words on c38 cadence
-		 * even when we don't have explicit preamble lock. Keep probing,
-		 * but do not block word collection on sync.
+		 * Full framing search: probe the rolling 10-bit window every bit
+		 * until preamble lock, then start aligned 10-bit word collection.
 		 */
-		(void)v8_open_rx_try_lock_preamble(engine, raw_word);
+		if (v8_open_rx_try_lock_preamble(engine, raw_word)) {
+			engine->rx_bits_to_word = 0U;
+			engine->rx_c238 = 0U;
+		}
+		return 0;
 	}
+
+	engine->rx_bits_to_word++;
+	if (engine->rx_bits_to_word < 10U)
+		return 0;
+	engine->rx_bits_to_word = 0U;
+	engine->rx_c238 = 0U;
 
 	/*
 	 * Blob receive states consume 10-bit words from the live V.21 shifter
-	 * once c38 reaches 10; mirror that framing.
+	 * once aligned; `rx_shift_reg` holds the active rolling 10-bit word.
 	 */
-	word = v8_open_rx_normalize_word(engine, (unsigned short)(raw_word & 0x03ffU));
+	word = v8_open_rx_normalize_word(engine, raw_word);
 	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM) {
 		if (engine->cm_collect_index < 12U) {
 			V8OPEN_DBG("rx-word: mode=cm idx=%u raw=%03x norm=%03x seq_len=%u pass=%u runs=%u/%u/%u\n",
@@ -2654,7 +2608,8 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 
 	if (!engine || !in || cnt <= 0)
 		return;
-	if (engine->phase != V8_OPEN_PHASE_ANS_WAIT_FOR_CM)
+	if (engine->phase != V8_OPEN_PHASE_ANS_SEND_ANSAM &&
+	    engine->phase != V8_OPEN_PHASE_ANS_WAIT_FOR_CM)
 		return;
 	if (engine->cm_detected)
 		return;
@@ -3230,6 +3185,9 @@ static void v8_open_transition(struct v8_open_engine *engine,
 			       enum v8_open_phase next_phase)
 {
 	enum v8_open_phase old_phase;
+
+	if (next_phase == V8_OPEN_PHASE_ANS_WAIT_FOR_CM && engine->cm_detected)
+		next_phase = V8_OPEN_PHASE_ANS_SEND_JM;
 
 	if (next_phase == V8_OPEN_PHASE_ANS_SEND_JM &&
 	    !engine->cm_detected) {
