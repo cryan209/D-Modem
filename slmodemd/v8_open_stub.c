@@ -239,6 +239,22 @@ struct v8_open_jm_shim {
 	unsigned char decodable[12];
 };
 
+struct v8_open_tx_framer {
+	unsigned enabled;
+	unsigned short crc;
+	unsigned short use_crc;
+	unsigned short total_bits;
+	unsigned short bit_cursor;
+	unsigned short chunk_bits;
+	unsigned short word_index;
+	unsigned short repeat_enabled;
+	unsigned short repeat_count;
+	unsigned shift_reg;
+	unsigned short bits_avail;
+	unsigned restart_shift;
+	unsigned short restart_bits;
+};
+
 struct v8_open_engine {
 	struct v8_open_create_cfg cfg;
 	enum v8_open_phase phase;
@@ -292,13 +308,18 @@ struct v8_open_engine {
 	unsigned short ans_rx_d8;
 	unsigned short ans_rx_da;
 	unsigned ans_predetector_seeded;
+	unsigned short rx_process_state;
 	struct v8_open_jm_shim jm;
 	unsigned tone_phase_q16;
 	unsigned ansam_phase_samples;
 	unsigned ansam_phase_invert;
+	unsigned tx_current_bit;
 	unsigned tx_bit_pos;
 	unsigned tx_bit_samples;
 	unsigned tx_bit_len;
+	unsigned tx_word_count;
+	unsigned short tx_words[64];
+	struct v8_open_tx_framer tx_framer;
 	unsigned remote_call_data;
 	unsigned remote_v34;
 	unsigned remote_v32;
@@ -586,8 +607,11 @@ static void v8_open_reset_tx(struct v8_open_engine *engine)
 	engine->tone_phase_q16 = 0U;
 	engine->ansam_phase_samples = 0U;
 	engine->ansam_phase_invert = 0U;
+	engine->tx_current_bit = 1U;
 	engine->tx_bit_pos = 0U;
 	engine->tx_bit_samples = 0U;
+	engine->tx_word_count = 0U;
+	memset(&engine->tx_framer, 0, sizeof(engine->tx_framer));
 }
 
 static void v8_open_tx_push_bit(struct v8_open_engine *engine, unsigned bit)
@@ -606,6 +630,115 @@ static void v8_open_tx_push_word(struct v8_open_engine *engine,
 		v8_open_tx_push_bit(engine, (word >> bit) & 0x01U);
 }
 
+static void v8_open_tx_push_framer_word(struct v8_open_engine *engine,
+					unsigned short word)
+{
+	if (engine->tx_word_count >=
+	    (sizeof(engine->tx_words) / sizeof(engine->tx_words[0])))
+		return;
+	engine->tx_words[engine->tx_word_count++] = word;
+}
+
+static void v8_open_tx_framer_crc_update(struct v8_open_tx_framer *framer,
+					 unsigned shift_reg,
+					 unsigned bit_count)
+{
+	unsigned short crc;
+	int bit;
+
+	crc = framer->crc;
+	for (bit = (int)bit_count - 1; bit >= 0; --bit) {
+		unsigned in_bit;
+		unsigned msb;
+
+		in_bit = (shift_reg >> (unsigned)bit) & 0x01U;
+		msb = ((unsigned)crc >> 15) & 0x01U;
+		crc <<= 1;
+		if (msb ^ in_bit)
+			crc ^= 0x1021U;
+	}
+	framer->crc = crc;
+}
+
+static int v8_open_tx_framer_getbit(struct v8_open_tx_framer *framer,
+				    const unsigned short *words,
+				    unsigned word_count)
+{
+	unsigned short bits_avail;
+	int remaining;
+
+	bits_avail = framer->bits_avail;
+	if (!bits_avail) {
+		remaining = (int)framer->total_bits - (int)framer->bit_cursor;
+		if (remaining > 0) {
+			unsigned take;
+			unsigned word;
+
+			take = framer->chunk_bits;
+			if (take > (unsigned)remaining)
+				take = (unsigned)remaining;
+
+			if (framer->word_index < word_count)
+				word = words[framer->word_index];
+			else
+				word = 0U;
+
+			if (take >= framer->chunk_bits && framer->word_index < word_count)
+				framer->word_index++;
+
+			framer->bits_avail = (unsigned short)take;
+			framer->shift_reg = (framer->shift_reg << take) | word;
+			framer->bit_cursor = (unsigned short)(framer->bit_cursor + take);
+
+			if (framer->use_crc && take)
+				v8_open_tx_framer_crc_update(framer, framer->shift_reg, take);
+
+			bits_avail = framer->bits_avail;
+		} else if (remaining == -16) {
+			framer->shift_reg = 0x000fU;
+			framer->bits_avail = 4U;
+			framer->bit_cursor = (unsigned short)(framer->bit_cursor + 4U);
+			bits_avail = framer->bits_avail;
+		} else if (framer->use_crc) {
+			framer->shift_reg = framer->crc;
+			framer->bits_avail = 16U;
+			framer->bit_cursor = (unsigned short)(framer->bit_cursor + 16U);
+			bits_avail = framer->bits_avail;
+		} else if (framer->repeat_enabled) {
+			framer->crc = 0xffffU;
+			framer->repeat_count = (unsigned short)(framer->repeat_count + 1U);
+			framer->bit_cursor = 0U;
+			framer->word_index = 0U;
+			framer->shift_reg = framer->restart_shift;
+			framer->bits_avail = framer->restart_bits;
+			return v8_open_tx_framer_getbit(framer, words, word_count);
+		} else {
+			return -1;
+		}
+	}
+
+	if (!bits_avail)
+		return -1;
+
+	bits_avail--;
+	framer->bits_avail = bits_avail;
+	return (int)((framer->shift_reg >> bits_avail) & 0x01U);
+}
+
+static void v8_open_tx_framer_init(struct v8_open_engine *engine,
+				   unsigned repeat_enabled)
+{
+	struct v8_open_tx_framer *framer;
+
+	framer = &engine->tx_framer;
+	memset(framer, 0, sizeof(*framer));
+	framer->enabled = engine->tx_word_count > 0U;
+	framer->crc = 0xffffU;
+	framer->total_bits = (unsigned short)(engine->tx_word_count * 10U);
+	framer->chunk_bits = 10U;
+	framer->repeat_enabled = repeat_enabled ? 1U : 0U;
+}
+
 static void v8_open_prepare_jm_bits(struct v8_open_engine *engine)
 {
 	unsigned i;
@@ -613,6 +746,8 @@ static void v8_open_prepare_jm_bits(struct v8_open_engine *engine)
 	engine->tx_bit_len = 0U;
 	engine->tx_bit_pos = 0U;
 	engine->tx_bit_samples = 0U;
+	engine->tx_word_count = 0U;
+	engine->tx_current_bit = 1U;
 
 	/*
 	 * Blob answer-side path can start V.21 transmission from a short
@@ -626,12 +761,19 @@ static void v8_open_prepare_jm_bits(struct v8_open_engine *engine)
 			0x03ffU, 0x0155U, 0x0111U
 		};
 
-		for (i = 0; i < (sizeof(answer_seed_words) / sizeof(answer_seed_words[0])); ++i)
+		for (i = 0; i < (sizeof(answer_seed_words) / sizeof(answer_seed_words[0])); ++i) {
+			v8_open_tx_push_framer_word(engine, answer_seed_words[i]);
 			v8_open_tx_push_word(engine, answer_seed_words[i]);
+		}
 	}
 
-	for (i = 0; i < engine->jm.word_count; ++i)
+	for (i = 0; i < engine->jm.word_count; ++i) {
+		v8_open_tx_push_framer_word(engine, engine->jm.words[i]);
 		v8_open_tx_push_word(engine, engine->jm.words[i]);
+	}
+
+	/* v8_getbit-backed framing repeats the JM sequence while waiting for CJ. */
+	v8_open_tx_framer_init(engine, 1U);
 
 	V8OPEN_DBG("jm-bits: bits=%u\n", engine->tx_bit_len);
 }
@@ -724,11 +866,25 @@ static void v8_open_emit_v21(struct v8_open_engine *engine,
 			 engine->phase == V8_OPEN_PHASE_ANS_WAIT_FOR_CJ) &&
 			engine->tx_bit_len > 0U;
 
-		if (loop_stream && engine->tx_bit_pos >= engine->tx_bit_len)
-			engine->tx_bit_pos = 0U;
-		bit = 1U;
-		if (engine->tx_bit_pos < engine->tx_bit_len)
-			bit = engine->tx_bits[engine->tx_bit_pos];
+		if (engine->tx_bit_samples == 0U) {
+			if (loop_stream && engine->tx_framer.enabled) {
+				int framed_bit;
+
+				framed_bit = v8_open_tx_framer_getbit(&engine->tx_framer,
+							      engine->tx_words,
+							      engine->tx_word_count);
+				engine->tx_current_bit = framed_bit >= 0 ? (unsigned)framed_bit : 1U;
+				if (engine->tx_bit_pos < engine->tx_bit_len)
+					engine->tx_bit_pos++;
+			} else {
+				if (loop_stream && engine->tx_bit_pos >= engine->tx_bit_len)
+					engine->tx_bit_pos = 0U;
+				engine->tx_current_bit = 1U;
+				if (engine->tx_bit_pos < engine->tx_bit_len)
+					engine->tx_current_bit = engine->tx_bits[engine->tx_bit_pos];
+			}
+		}
+		bit = engine->tx_current_bit;
 
 		freq_hz = bit ? mark_hz : space_hz;
 		pcm[i] = v8_open_wave_sample(engine, freq_hz, 0);
@@ -736,9 +892,10 @@ static void v8_open_emit_v21(struct v8_open_engine *engine,
 		engine->tx_bit_samples++;
 		if (engine->tx_bit_samples >= samples_per_bit) {
 			engine->tx_bit_samples = 0U;
-			if (engine->tx_bit_pos < engine->tx_bit_len)
+			if (!engine->tx_framer.enabled && engine->tx_bit_pos < engine->tx_bit_len)
 				engine->tx_bit_pos++;
-			if (loop_stream && engine->tx_bit_pos >= engine->tx_bit_len)
+			if (!engine->tx_framer.enabled &&
+			    loop_stream && engine->tx_bit_pos >= engine->tx_bit_len)
 				engine->tx_bit_pos = 0U;
 		}
 	}
@@ -1300,7 +1457,7 @@ static unsigned v8_open_rx_quantize_transition_clear(unsigned *counter)
 	unsigned phase_count;
 	unsigned whole_bits;
 	unsigned remainder;
-	unsigned limit;
+	unsigned stride;
 	unsigned threshold;
 	unsigned emit_count;
 
@@ -1310,9 +1467,13 @@ static unsigned v8_open_rx_quantize_transition_clear(unsigned *counter)
 
 	remainder = phase_count & 0x03U;
 	whole_bits = phase_count >> 2;
-	*counter = 0U;
-	limit = whole_bits > 2U ? 3U : (whole_bits + 1U);
-	threshold = 4U - limit;
+	/*
+	 * Blob v8_fskdemodulate keeps the modulo-4 remainder on transition
+	 * (counter = counter & 3), then computes a rounded emit count.
+	 */
+	*counter = remainder;
+	stride = whole_bits > 2U ? 3U : (whole_bits + 1U);
+	threshold = 4U - stride;
 	emit_count = whole_bits;
 	if (remainder >= threshold)
 		emit_count++;
@@ -1341,6 +1502,20 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 static unsigned v8_open_abs_u32_from_i32(int v)
 {
 	return (unsigned)(v < 0 ? -v : v);
+}
+
+static short v8_open_rx_process_sample(struct v8_open_engine *engine, short sample)
+{
+	unsigned state_u16;
+	int mixed;
+	int next_state;
+
+	state_u16 = engine->rx_process_state;
+	mixed = (short)(sample + (int)state_u16);
+	next_state = (mixed * 0x0f85) - ((int)sample << 12);
+	next_state >>= 12;
+	engine->rx_process_state = (unsigned short)next_state;
+	return (short)mixed;
 }
 
 static short v8_open_rx_agc_prefilter_sample(struct v8_open_engine *engine, short sample)
@@ -1520,17 +1695,37 @@ static int v8_open_rx_emit_symbol_bits(struct v8_open_engine *engine,
 				       unsigned short symbol_bit,
 				       unsigned count)
 {
-	unsigned bit;
-
-	bit = symbol_bit & 0x01U;
 	while (count-- > 0U) {
 		engine->rx_c238 = (unsigned short)(engine->rx_c238 + 1U);
 		engine->rx_c23a = (unsigned short)(((engine->rx_c23a << 1) |
 						(symbol_bit & 0x01U)) & 0xffffU);
 		engine->rx_emit_total++;
+	}
+	return 0;
+}
+
+static int v8_open_rx_drain_shifter(struct v8_open_engine *engine,
+				    unsigned short produced_before)
+{
+	unsigned short produced_after;
+	unsigned delta;
+	unsigned consumed;
+
+	produced_after = engine->rx_c238;
+	if (produced_after <= produced_before)
+		return 0;
+
+	delta = (unsigned)(produced_after - produced_before);
+	for (consumed = 0U; consumed < delta; ++consumed) {
+		unsigned pos;
+		unsigned bit;
+
+		pos = (delta - consumed) - 1U;
+		bit = (pos < 16U) ? ((unsigned)(engine->rx_c23a >> pos) & 0x01U) : 0U;
 		if (v8_open_rx_push_bit(engine, bit))
 			return 1;
 	}
+
 	return 0;
 }
 
@@ -1857,9 +2052,11 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 			memset(engine->rx_agc_block, 0, sizeof(engine->rx_agc_block));
 			memset(engine->rx_agc_fir_hist, 0, sizeof(engine->rx_agc_fir_hist));
 		}
-		if (!preserve_demod_state &&
-		    mode != V8_OPEN_RX_COLLECT_SEARCH && samples && cnt > 0)
-			(void)v8_open_rx_consume_samples(engine, samples, cnt);
+		/*
+		 * Blob state transition to receive-collect does not replay
+		 * the current fragment through a freshly reset V.21 chain.
+		 * Start consuming from subsequent process calls.
+		 */
 	}
 }
 
@@ -1981,9 +2178,13 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 	unsigned rev_inv_word;
 	unsigned short word;
 	unsigned idx;
-	int framed_symbol_ready;
+	unsigned framed_symbol_ready;
 
-	framed_symbol_ready = v8_open_rx_update_runs(engine, bit);
+	/*
+	 * Track the blob run/framing counters (+0xc3e/+0xc40/+0xc42/+0xc44/+0xc46)
+	 * even while unsynced so we can lock on a valid flag delimiter handoff.
+	 */
+	framed_symbol_ready = (unsigned)v8_open_rx_update_runs(engine, bit);
 
 	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_SEARCH) {
 		engine->rx_shift_reg = (unsigned short)(engine->rx_c23a & 0x0fffU);
@@ -2013,17 +2214,43 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 			engine->rx_probe_words_logged++;
 		}
 
+		/*
+		 * Mirror v8handshak framing handoff: when a valid flag delimiter
+		 * is observed (six zeros after >9 ones), treat it as a word
+		 * synchronization opportunity even if direct preamble probing
+		 * did not lock.
+		 */
+		if (framed_symbol_ready && engine->rx_c244 > 1U) {
+			engine->rx_probe_bits = 0U;
+			engine->rx_probe_words_logged = 0U;
+			engine->rx_word_sync = 1U;
+			engine->rx_bits_to_word = 0U;
+			engine->rx_invert_bits = 0U;
+			engine->rx_reverse_word_bits = 0U;
+			v8_open_rx_seed_sync_sequence(engine);
+			V8OPEN_DBG("rx-lock: mode=%s via=flag runs=%u/%u/%u mark=%u delim=%u\n",
+				  engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM ? "cm" : "cj",
+				  engine->rx_c23e,
+				  engine->rx_c240,
+				  engine->rx_c242,
+				  engine->rx_c244,
+				  engine->rx_c246);
+			return 0;
+		}
+
 		if (!v8_open_rx_try_lock_preamble(engine, raw_word))
 			return 0;
 		return 0;
 	}
 
-	if (!framed_symbol_ready)
+	engine->rx_bits_to_word++;
+	if (engine->rx_bits_to_word < 10U)
 		return 0;
+	engine->rx_bits_to_word = 0U;
 
 	/*
-	 * Blob state-0x28 framing consumes symbols from the live V.21 shifter
-	 * (c3a) once the run-length delimiter counters assert a complete frame.
+	 * Blob receive states consume 10-bit words from the live V.21 shifter
+	 * once c38 reaches 10; mirror that framing.
 	 */
 	word = v8_open_rx_normalize_word(engine, (unsigned short)(raw_word & 0x03ffU));
 	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM) {
@@ -2137,7 +2364,9 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 		{
 			unsigned phase_sched;
 			unsigned idx;
+			unsigned short produced_before;
 
+			produced_before = engine->rx_c238;
 			phase_sched = engine->rx_phase_offset;
 			for (idx = 0U; idx < V8OPEN_DEMOD_STAGE_SAMPLES; ++idx) {
 				unsigned long long mark_energy;
@@ -2214,11 +2443,10 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 
 					emit_count =
 						v8_open_rx_quantize_transition_clear(&engine->rx_space_ticks);
-					if (emit_count &&
-					    v8_open_rx_emit_symbol_bits(engine,
-									 engine->rx_c230,
-									 emit_count))
-						return 1;
+					if (emit_count)
+						(void)v8_open_rx_emit_symbol_bits(engine,
+										  engine->rx_c230,
+										  emit_count);
 					engine->rx_mark_ticks++;
 				} else {
 					engine->rx_dbg_bit0++;
@@ -2226,11 +2454,10 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 
 					emit_count =
 						v8_open_rx_quantize_transition_clear(&engine->rx_mark_ticks);
-					if (emit_count &&
-					    v8_open_rx_emit_symbol_bits(engine,
-									 engine->rx_c232,
-									 emit_count))
-						return 1;
+					if (emit_count)
+						(void)v8_open_rx_emit_symbol_bits(engine,
+										  engine->rx_c232,
+										  emit_count);
 					engine->rx_space_ticks++;
 				}
 			}
@@ -2239,19 +2466,20 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 				unsigned emit_count;
 
 				emit_count = v8_open_rx_quantize_block_flush(&engine->rx_space_ticks);
-				if (emit_count &&
-				    v8_open_rx_emit_symbol_bits(engine,
-								 engine->rx_c230,
-								 emit_count))
-					return 1;
+				if (emit_count)
+					(void)v8_open_rx_emit_symbol_bits(engine,
+									  engine->rx_c230,
+									  emit_count);
 
 				emit_count = v8_open_rx_quantize_block_flush(&engine->rx_mark_ticks);
-				if (emit_count &&
-				    v8_open_rx_emit_symbol_bits(engine,
-								 engine->rx_c232,
-								 emit_count))
-					return 1;
+				if (emit_count)
+					(void)v8_open_rx_emit_symbol_bits(engine,
+									  engine->rx_c232,
+									  emit_count);
 			}
+
+			if (v8_open_rx_drain_shifter(engine, produced_before))
+				return 1;
 
 			engine->rx_phase_offset =
 				phase_sched >= V8OPEN_DEMOD_STAGE_SAMPLES ?
@@ -3334,6 +3562,7 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->cj_collect_index = 0U;
 	engine->cj_sequence_valid = 0U;
 	engine->cj_variant_bit = 0U;
+	engine->rx_process_state = 0U;
 	v8_open_rx_reset_collect(engine);
 	if (cfg->answer_mode)
 		v8_open_answer_predetector_seed(engine);
@@ -3371,19 +3600,48 @@ void v8_open_delete(void *engine_ptr)
 int v8_open_process(void *engine_ptr, void *in, void *out, int cnt)
 {
 	struct v8_open_engine *engine = engine_ptr;
+	const void *rx_in;
+	short *rx_heap;
+	short *rx_buf;
+	short rx_stack[256];
+	const short *rx_src;
+	int i;
 	unsigned budget;
+	int ret;
 
 	if (!engine)
 		return V8_OPEN_STATUS_INIT;
 
-	v8_open_observe_cm(engine, in, cnt);
-	v8_open_observe_cj(engine, in, cnt);
+	rx_in = in;
+	rx_heap = NULL;
+	if (in && cnt > 0) {
+		rx_src = (const short *)in;
+		if (cnt <= (int)(sizeof(rx_stack) / sizeof(rx_stack[0]))) {
+			rx_buf = rx_stack;
+		} else {
+			rx_buf = malloc((size_t)cnt * sizeof(*rx_buf));
+			rx_heap = rx_buf;
+		}
+
+		if (rx_buf) {
+			for (i = 0; i < cnt; ++i)
+				rx_buf[i] = v8_open_rx_process_sample(engine, rx_src[i]);
+			rx_in = rx_buf;
+		} else {
+			for (i = 0; i < cnt; ++i)
+				(void)v8_open_rx_process_sample(engine, rx_src[i]);
+		}
+	}
+
+	v8_open_observe_cm(engine, rx_in, cnt);
+	v8_open_observe_cj(engine, rx_in, cnt);
 
 	v8_open_emit_phase(engine, out, cnt);
 
 	if (engine->phase == V8_OPEN_PHASE_COMPLETE) {
 		engine->last_status = V8_OPEN_STATUS_OK;
-		return (int)engine->last_status;
+		ret = (int)engine->last_status;
+		goto out;
 	}
 
 	engine->total_samples += (unsigned)cnt;
@@ -3399,5 +3657,9 @@ int v8_open_process(void *engine_ptr, void *in, void *out, int cnt)
 		budget = v8_open_phase_budget(engine, engine->phase);
 	}
 
-	return (int)engine->last_status;
+	ret = (int)engine->last_status;
+out:
+	if (rx_heap)
+		free(rx_heap);
+	return ret;
 }
