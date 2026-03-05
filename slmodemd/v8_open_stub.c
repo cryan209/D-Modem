@@ -2410,12 +2410,10 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 					mark_energy = (unsigned long long)(e0 + e1);
 					space_energy = (unsigned long long)(e2 + e3);
 					/*
-					 * The blob compares two filter-pair energies and sets
-					 * the symbol from that sign test; our open-stub filter
-					 * mapping uses opposite pair labels, so use inverted
-					 * polarity here to match emitted framing bits.
+					 * Blob v8_fskdemodulate sets the bit when
+					 * (space_energy - mark_energy) > 0.
 					 */
-					bit = mark_energy > space_energy ? 1U : 0U;
+					bit = space_energy > mark_energy ? 1U : 0U;
 				}
 
 				if (mark_energy <= 0xc34fULL && space_energy <= 0xc34fULL) {
