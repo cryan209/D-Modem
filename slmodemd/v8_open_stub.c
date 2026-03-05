@@ -2179,10 +2179,20 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 	framed_symbol_ready = (unsigned)v8_open_rx_update_runs(engine, bit);
 	engine->rx_shift_reg = (unsigned short)(((engine->rx_shift_reg << 1) |
 						(bit & 0x01U)) & 0xffffU);
+	engine->rx_bits_to_word = engine->rx_c238;
 
 	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_SEARCH) {
 		return 0;
 	}
+
+	/*
+	 * Blob state-0x28 consumes/dispatches receive symbols when c38 reaches 10,
+	 * then clears c38. Treat +0xc38 as the active word clock.
+	 */
+	if (engine->rx_c238 < 10U)
+		return 0;
+	engine->rx_c238 = 0U;
+	engine->rx_bits_to_word = 0U;
 
 	raw_word = (unsigned short)(engine->rx_c23a & 0x0fffU);
 	inv_word = raw_word ^ 0x0fffU;
@@ -2231,11 +2241,6 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 			return 0;
 		return 0;
 	}
-
-	engine->rx_bits_to_word++;
-	if (engine->rx_bits_to_word < 10U)
-		return 0;
-	engine->rx_bits_to_word = 0U;
 
 	/*
 	 * Blob receive states consume 10-bit words from the live V.21 shifter
