@@ -409,6 +409,7 @@ struct v8_open_engine {
 	unsigned rx_dbg_low_energy;
 	unsigned rx_dbg_bit0;
 	unsigned rx_dbg_bit1;
+	short rx_input_dc_state;
 	short rx_agc_fir_hist[V8OPEN_AGC_FIR_SAMPLES];
 	short rx_demod_history[V8OPEN_DEMOD_HISTORY_SAMPLES];
 	short rx_bit_window[V8OPEN_MAX_SAMPLES_PER_BIT];
@@ -1521,7 +1522,11 @@ static short v8_open_rx_agc_prefilter_sample(struct v8_open_engine *engine, shor
 		v8_open_agc_filt_5480 : v8_open_agc_filt_5420;
 
 	engine->rx_agc_fir_hist[0] = sample;
-	acc = 0x2000;
+	/*
+	 * Blob V8agc accumulates the FIR sum directly and then arithmetic-shifts
+	 * by 14 (no +0x2000 rounding bias in this stage).
+	 */
+	acc = 0;
 	for (i = 0U; i < V8OPEN_AGC_FIR_SAMPLES; ++i) {
 		acc += (long long)engine->rx_agc_fir_hist[i] *
 			(long long)coeffs[i];
@@ -1810,6 +1815,7 @@ static void v8_open_rx_reset_collect(struct v8_open_engine *engine)
 	engine->rx_dbg_low_energy = 0U;
 	engine->rx_dbg_bit0 = 0U;
 	engine->rx_dbg_bit1 = 0U;
+	engine->rx_input_dc_state = 0;
 	engine->ans_rx_ac = 0U;
 	memset(engine->rx_agc_ring, 0, sizeof(engine->rx_agc_ring));
 	memset(engine->rx_agc_block, 0, sizeof(engine->rx_agc_block));
@@ -1926,7 +1932,8 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 	engine->rx_bit_window_len = 0U;
 	engine->rx_shift_reg = 0U;
 	engine->rx_preamble_expected =
-		mode == V8_OPEN_RX_COLLECT_CM ? 0x0c0fU : 0x0d55U;
+		mode == V8_OPEN_RX_COLLECT_CM ? 0x000fU :
+		(mode == V8_OPEN_RX_COLLECT_CJ ? 0x0155U : 0U);
 	engine->rx_sequence_len = 0U;
 	engine->rx_probe_bits = 0U;
 	engine->rx_probe_words_logged = 0U;
@@ -2068,16 +2075,18 @@ static void v8_open_rx_seed_sync_sequence(struct v8_open_engine *engine)
 static int v8_open_rx_try_lock_preamble(struct v8_open_engine *engine,
 					unsigned short raw_word)
 {
+	unsigned raw10;
 	unsigned inv_word;
 	unsigned rev_word;
 	unsigned rev_inv_word;
 	const char *orient;
 
-	inv_word = raw_word ^ 0x0fffU;
-	rev_word = v8_open_reverse_word12(raw_word);
-	rev_inv_word = rev_word ^ 0x0fffU;
+	raw10 = raw_word & 0x03ffU;
+	inv_word = raw10 ^ 0x03ffU;
+	rev_word = v8_open_reverse_word10((unsigned short)raw10);
+	rev_inv_word = rev_word ^ 0x03ffU;
 
-	if (raw_word == engine->rx_preamble_expected) {
+	if (raw10 == engine->rx_preamble_expected) {
 		engine->rx_reverse_word_bits = 0U;
 		engine->rx_invert_bits = 0U;
 		orient = "raw";
@@ -2100,7 +2109,7 @@ static int v8_open_rx_try_lock_preamble(struct v8_open_engine *engine,
 	engine->rx_probe_bits = 0U;
 	engine->rx_word_sync = 1U;
 	engine->rx_bits_to_word = 0U;
-	engine->rx_shift_reg = raw_word;
+	engine->rx_shift_reg = (unsigned short)raw10;
 	v8_open_rx_seed_sync_sequence(engine);
 	V8OPEN_DBG("rx-lock: mode=%s preamble=%03x orient=%s c23a=%03x runs=%u/%u/%u\n",
 		  engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM ? "cm" : "cj",
@@ -2147,13 +2156,12 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 	unsigned rev_inv_word;
 	unsigned short word;
 	unsigned idx;
-	unsigned framed_symbol_ready;
 
 	/*
 	 * Track the blob run/framing counters (+0xc3e/+0xc40/+0xc42/+0xc44/+0xc46)
-	 * even while unsynced so we can lock on a valid flag delimiter handoff.
+	 * on every demodulated bit.
 	 */
-	framed_symbol_ready = (unsigned)v8_open_rx_update_runs(engine, bit);
+	(void)v8_open_rx_update_runs(engine, bit);
 	engine->rx_shift_reg = (unsigned short)(((engine->rx_shift_reg << 1) |
 						(bit & 0x01U)) & 0xffffU);
 	engine->rx_bits_to_word = engine->rx_c238;
@@ -2177,23 +2185,19 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 	rev_inv_word = rev_word ^ 0x0fffU;
 
 	/*
-	 * Mirror v8handshak's framed handoff around +0x631..+0x65c:
-	 * when framed markers are pending (c46 != c44), non-long
-	 * collector paths advance c46 and re-seed c38/c3a.
+	 * Mirror v8handshak around 0x77916..0x7795c:
+	 * when (c46 != c44) and c44 > 1, advance c46 and re-seed c38/c3a.
 	 */
-	if (framed_symbol_ready && engine->rx_c246 != engine->rx_c244) {
-		if (engine->rx_c244 > 1U &&
-		    engine->rx_collect_mode != V8_OPEN_RX_COLLECT_CM) {
-			engine->rx_c238 = 6U;
-			engine->rx_c23a = 0U;
-			engine->rx_bits_to_word = 6U;
-			engine->rx_shift_reg = 0U;
-			engine->rx_c246 = (unsigned short)(engine->rx_c246 + 1U);
-			raw_word = 0U;
-			inv_word = 0x0fffU;
-			rev_word = 0U;
-			rev_inv_word = 0x0fffU;
-		}
+	if (engine->rx_c246 != engine->rx_c244 && engine->rx_c244 > 1U) {
+		engine->rx_c238 = 6U;
+		engine->rx_c23a = 0U;
+		engine->rx_bits_to_word = 6U;
+		engine->rx_shift_reg = 0U;
+		engine->rx_c246 = (unsigned short)(engine->rx_c246 + 1U);
+		raw_word = 0U;
+		inv_word = 0x0fffU;
+		rev_word = 0U;
+		rev_inv_word = 0x0fffU;
 	}
 
 	if (!engine->rx_word_sync) {
@@ -2284,7 +2288,6 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 			engine->rx_skip_samples = 0U;
 			engine->rx_bit_window_len = 0U;
 			engine->rx_shift_reg = 0U;
-			engine->rx_preamble_expected = 0x0d55U;
 			engine->rx_sequence_len = 0U;
 			engine->rx_probe_bits = 0U;
 			engine->rx_probe_words_logged = 0U;
@@ -2293,6 +2296,8 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 			engine->cj_collect_index = 0U;
 			engine->cj_sequence_valid = 0U;
 			engine->cj_variant_bit = 0U;
+			engine->rx_preamble_expected = 0x0155U;
+			v8_open_rx_seed_sync_sequence(engine);
 		}
 	}
 
@@ -2410,31 +2415,30 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 				}
 
 				if (bit) {
-					/* bit=1: space frequency detected */
+					/* bit=1: (space-mark) > 0 in blob demod. */
 					engine->rx_dbg_bit1++;
 					unsigned emit_count;
 
-					/* Flush accumulated mark run on transition */
+					/* Flush prior bit=0 run with c230 symbol. */
 					emit_count =
 						v8_open_rx_quantize_transition_clear(&engine->rx_mark_ticks);
 					if (emit_count)
 						(void)v8_open_rx_emit_symbol_bits(engine,
-										  engine->rx_c232,
+										  engine->rx_c230,
 										  emit_count);
 					engine->rx_space_ticks++;
 				} else {
-					/* bit=0: mark frequency detected */
+					/* bit=0: (space-mark) <= 0 in blob demod. */
 					engine->rx_dbg_bit0++;
 					unsigned emit_count;
 
-					/* Flush accumulated space run on transition */
+					/* Flush prior bit=1 run with c232 symbol. */
 					emit_count =
 						v8_open_rx_quantize_transition_clear(&engine->rx_space_ticks);
 					if (emit_count)
 						(void)v8_open_rx_emit_symbol_bits(engine,
-										  engine->rx_c230,
+										  engine->rx_c232,
 										  emit_count);
-					engine->rx_space_ticks = 0U;
 					engine->rx_mark_ticks++;
 				}
 			}
@@ -2442,13 +2446,13 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 			{
 				unsigned emit_count;
 
-				emit_count = v8_open_rx_quantize_block_flush(&engine->rx_space_ticks);
+				emit_count = v8_open_rx_quantize_block_flush(&engine->rx_mark_ticks);
 				if (emit_count)
 					(void)v8_open_rx_emit_symbol_bits(engine,
 									  engine->rx_c230,
 									  emit_count);
 
-				emit_count = v8_open_rx_quantize_block_flush(&engine->rx_mark_ticks);
+				emit_count = v8_open_rx_quantize_block_flush(&engine->rx_space_ticks);
 				if (emit_count)
 					(void)v8_open_rx_emit_symbol_bits(engine,
 									  engine->rx_c232,
@@ -2478,6 +2482,25 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 	return 0;
 }
 
+static short v8_open_rx_frontend_sample(struct v8_open_engine *engine, short sample)
+{
+	int prev;
+	int mixed;
+	int state;
+
+	/*
+	 * Blob V8Process front-end sample path (around 0x745d9):
+	 *   mixed = (s + state) as signed 16-bit
+	 *   state = (((mixed * 0x0f85) - (s << 12)) >> 12) as signed 16-bit
+	 *   queue mixed into V.8 receive chain
+	 */
+	prev = (int)engine->rx_input_dc_state;
+	mixed = (int)(short)(sample + (short)prev);
+	state = (((mixed * 0x0f85) - ((int)sample << 12)) >> 12);
+	engine->rx_input_dc_state = (short)state;
+	return (short)mixed;
+}
+
 static void v8_open_cm_collect_start(struct v8_open_engine *engine,
 				     const short *samples,
 				     int cnt)
@@ -2495,6 +2518,7 @@ static void v8_open_cm_collect_start(struct v8_open_engine *engine,
 	engine->cm_collect_deadline = engine->samples_in_phase +
 		(((V8OPEN_CM_WORDS * 2U) + 4U) * 10U * samples_per_bit);
 	v8_open_rx_start_collect(engine, V8_OPEN_RX_COLLECT_CM, samples, cnt);
+	v8_open_rx_seed_sync_sequence(engine);
 }
 
 static void v8_open_cj_collect_start(struct v8_open_engine *engine,
@@ -2513,6 +2537,7 @@ static void v8_open_cj_collect_start(struct v8_open_engine *engine,
 	engine->cj_collect_deadline = engine->samples_in_phase +
 		((V8OPEN_CJ_WORDS + 2U) * 10U * samples_per_bit);
 	v8_open_rx_start_collect(engine, V8_OPEN_RX_COLLECT_CJ, samples, cnt);
+	v8_open_rx_seed_sync_sequence(engine);
 }
 
 static int v8_open_cj_sequence_valid(struct v8_open_engine *engine)
@@ -3578,6 +3603,11 @@ int v8_open_process(void *engine_ptr, void *in, void *out, int cnt)
 {
 	struct v8_open_engine *engine = engine_ptr;
 	const void *rx_in;
+	const short *rx_samples;
+	short rx_step_buf[4];
+	int rx_remaining;
+	int rx_step;
+	int j;
 	unsigned budget;
 	int ret;
 
@@ -3591,8 +3621,28 @@ int v8_open_process(void *engine_ptr, void *in, void *out, int cnt)
 	 */
 	rx_in = in;
 
-	v8_open_observe_cm(engine, rx_in, cnt);
-	v8_open_observe_cj(engine, rx_in, cnt);
+	/*
+	 * Blob V8Process consumes RX through a small queue and advances the
+	 * handshake/detector logic in short strides. Large one-shot chunks make
+	 * our framing counters jump and bias lock/fallback behavior.
+	 */
+	if (rx_in && cnt > 0) {
+		rx_samples = (const short *)rx_in;
+		rx_remaining = cnt;
+		while (rx_remaining > 0) {
+			rx_step = rx_remaining > 4 ? 4 : rx_remaining;
+			for (j = 0; j < rx_step; ++j)
+				rx_step_buf[j] =
+					v8_open_rx_frontend_sample(engine, rx_samples[j]);
+			v8_open_observe_cm(engine, rx_step_buf, rx_step);
+			v8_open_observe_cj(engine, rx_step_buf, rx_step);
+			rx_samples += rx_step;
+			rx_remaining -= rx_step;
+		}
+	} else {
+		v8_open_observe_cm(engine, rx_in, cnt);
+		v8_open_observe_cj(engine, rx_in, cnt);
+	}
 
 	v8_open_emit_phase(engine, out, cnt);
 
