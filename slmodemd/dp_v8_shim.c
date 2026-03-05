@@ -56,6 +56,7 @@ struct v8_shim_state {
 	int use_open_stub;
 	int handoff_emitted;
 	enum DP_ID open_next_dp;
+	enum DP_ID open_timeout_dp;
 	struct v8_shim_state *next;
 };
 
@@ -358,6 +359,28 @@ static enum DP_ID v8_shim_open_next_dp(enum DP_ID target_dp_id,
 	return target_dp_id;
 }
 
+static enum DP_ID v8_shim_open_timeout_dp(enum DP_ID target_dp_id,
+					  const struct v8_open_advertise_cfg *caps)
+{
+	static const enum DP_ID fallback_order[] = {
+		DP_V32,
+		DP_V22
+	};
+	unsigned i;
+
+	for (i = 0; i < sizeof(fallback_order) / sizeof(fallback_order[0]); ++i) {
+		enum DP_ID candidate = fallback_order[i];
+
+		if (!v8_shim_open_target_allows(target_dp_id, candidate))
+			continue;
+		if (!v8_shim_open_cap_enabled(caps, candidate))
+			continue;
+		return candidate;
+	}
+
+	return v8_shim_open_next_dp(target_dp_id, caps);
+}
+
 static void v8_shim_open_handoff(struct v8_blob_wrapper *blob,
 				 struct v8_shim_state *state)
 {
@@ -368,6 +391,14 @@ static void v8_shim_open_handoff(struct v8_blob_wrapper *blob,
 		return;
 
 	next_dp = state->open_next_dp;
+	if (state->use_open_stub &&
+	    blob->v8_engine &&
+	    v8_open_answer_cm_timeout(blob->v8_engine)) {
+		next_dp = state->open_timeout_dp;
+		V8SHIM_DBG("open handoff: no-CM timeout fallback, forcing next_dp=%d target=%d\n",
+			  next_dp,
+			  blob->target_dp_id);
+	}
 	io_delay = modem_get_param(blob->base.modem, MDMPRM_IODELAY);
 	blob->handoff_delay = (int)(io_delay + 0x270);
 
@@ -448,6 +479,7 @@ static struct dp *v8_shim_create_open(struct modem *m, enum DP_ID id,
 	state->use_open_stub = 1;
 	state->handoff_emitted = 0;
 	state->open_next_dp = v8_shim_open_next_dp(id, &cfg.advertise);
+	state->open_timeout_dp = v8_shim_open_timeout_dp(id, &cfg.advertise);
 
 	v8_shim_add(state);
 	v8_shim_log_snapshot("create-open", state, blob, 0, 1);

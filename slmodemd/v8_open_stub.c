@@ -164,11 +164,6 @@ static const unsigned short v8_open_agc_metric_lut_54e0[192] = {
 	0x7dfb, 0x7e3c, 0x7e7d, 0x7ebe, 0x7efe, 0x7f3f, 0x7f7f, 0x7fbf
 };
 
-static const unsigned short v8_open_cm_rx_template[] = {
-	0x0107U, 0x014dU, 0x0111U, 0x0111U,
-	0x0161U, 0x01c9U, 0x0111U, 0x00a9U
-};
-
 static const unsigned short v8_open_cj_rx_template[] = {
 	0x0155U, 0x01c1U, 0x03ffU, 0x0155U, 0x01c1U, 0x03f0U
 };
@@ -410,6 +405,7 @@ struct v8_open_engine {
 	unsigned rx_dbg_bit0;
 	unsigned rx_dbg_bit1;
 	short rx_input_dc_state;
+	unsigned ans_cm_timeout_fallback;
 	short rx_agc_fir_hist[V8OPEN_AGC_FIR_SAMPLES];
 	short rx_demod_history[V8OPEN_DEMOD_HISTORY_SAMPLES];
 	short rx_bit_window[V8OPEN_MAX_SAMPLES_PER_BIT];
@@ -919,7 +915,10 @@ static void v8_open_emit_phase(struct v8_open_engine *engine, void *out, int cnt
 		v8_open_emit_v21(engine, pcm, cnt, 1);
 		break;
 	case V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM:
-		v8_open_emit_confirm_tone(engine, pcm, cnt);
+		if (engine->ans_cm_timeout_fallback)
+			memset(out, 0, (size_t)cnt * 2U);
+		else
+			v8_open_emit_confirm_tone(engine, pcm, cnt);
 		break;
 	case V8_OPEN_PHASE_ORG_SEND_CM:
 		v8_open_emit_v21(engine, pcm, cnt, 0);
@@ -944,23 +943,19 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 
 	switch (phase) {
 	case V8_OPEN_PHASE_BOOT:
-		return v8_open_samples_from_ms(engine, 20U);
+		/* V.8 8.2: at least 0.2 s no-signal after line connection. */
+		return v8_open_samples_from_ms(engine, 200U);
 	case V8_OPEN_PHASE_ANS_SEND_ANSAM:
 		/*
-		 * Real proprietary answer traces stay on ANSam for roughly
-		 * 2.38 s before transitioning to JM. Keep most of that dwell
-		 * here and use the existing wait state as the short tail.
+		 * V.8 8.2.2: if not terminated by CM/sigC, ANSam is 5 ± 1 s.
+		 * Keep WAIT_FOR_CM as a short ANSam tail and place the bulk here.
 		 */
-		return v8_open_samples_from_ms(engine, 2220U);
+		return v8_open_samples_from_ms(engine, 4840U);
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CM:
-		if (engine->cm_predetecting) {
-			if (engine->ans_det_06 && engine->cm_predetect_deadline)
-				return engine->cm_predetect_deadline;
-			if (engine->det_e5c)
-				return engine->det_e5c;
-			if (engine->cm_predetect_deadline)
-				return engine->cm_predetect_deadline;
-		}
+		/*
+		 * Keep ANSam+CM wait within the V.8 5 s window; do not extend this
+		 * phase to the long detector timeout.
+		 */
 		if (engine->cm_collecting && engine->cm_collect_deadline)
 			return engine->cm_collect_deadline;
 		if (engine->cm_detected && engine->cm_guard_budget)
@@ -985,10 +980,11 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 		return v8_open_samples_from_ms(engine, 420U);
 	case V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM:
 		/*
-		 * Keep a distinct post-CJ settle stage, but only for one
-		 * fragment-scale dwell. The larger synthetic delay pushed the
-		 * V.34 handoff later than the proprietary path.
+		 * V.8 8.2.2 timeout fallback inserts a 75 ± 5 ms no-signal gap.
+		 * Keep the short post-CJ settle in the normal JM/CJ success path.
 		 */
+		if (engine->ans_cm_timeout_fallback)
+			return v8_open_samples_from_ms(engine, 75U);
 		return v8_open_samples_from_ms(engine, 5U);
 	case V8_OPEN_PHASE_ORG_SEND_CM:
 		return v8_open_samples_from_ms(engine, 160U);
@@ -1420,15 +1416,6 @@ static unsigned short v8_open_find_rx_token(const struct v8_open_engine *engine,
 		seen++;
 	}
 	return 0U;
-}
-
-static void v8_open_collect_remote_cm_defaults(struct v8_open_engine *engine)
-{
-	unsigned i;
-
-	engine->rx_seq_b_count = 0U;
-	for (i = 0U; i < (sizeof(v8_open_cm_rx_template) / sizeof(v8_open_cm_rx_template[0])); ++i)
-		v8_open_rx_seq_b_push(engine, v8_open_cm_rx_template[i]);
 }
 
 static void v8_open_collect_remote_cj_defaults(struct v8_open_engine *engine)
@@ -2700,27 +2687,6 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 			V8OPEN_DBG("cm-stub: detector stage2 entered run=%u metric=%u\n",
 				  engine->ans_det_30,
 				  engine->ans_det_12);
-			/*
-			 * In the blob, stage-1 completion clears parent +0x26
-			 * bit 0x0200, which is the handoff out of the first
-			 * detector mode. Use that same transition to hand the
-			 * warmed RX state to the raw collector instead of
-			 * waiting in our simplified stage-2 loop.
-			 */
-			if ((engine->ans_rx_0a & 0x0200U) == 0U &&
-			    (avg_abs != 0U || peak_abs != 0U)) {
-				engine->cm_predetecting = 0U;
-				engine->cm_predetect_deadline = 0U;
-				engine->cm_signature = signature;
-				v8_open_cm_collect_start(engine, samples, cnt);
-				V8OPEN_DBG("cm-stub: detector handoff avg=%u peak=%u hits=%u starting long collector %u/%u\n",
-					  avg_abs,
-					  peak_abs,
-					  engine->cm_seen_count,
-					  engine->rx_seq_b_count,
-					  V8OPEN_CM_WORDS);
-				return;
-			}
 		}
 		if (!detector_hits)
 			engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
@@ -2792,19 +2758,6 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 		V8OPEN_DBG("cm-stub: detector stage2 entered run=%u metric=%u\n",
 			  engine->ans_det_30,
 			  engine->ans_det_12);
-		if ((engine->ans_rx_0a & 0x0200U) == 0U &&
-		    (avg_abs != 0U || peak_abs != 0U)) {
-			engine->cm_predetecting = 0U;
-			engine->cm_predetect_deadline = 0U;
-			v8_open_cm_collect_start(engine, samples, cnt);
-			V8OPEN_DBG("cm-stub: detector handoff avg=%u peak=%u hits=%u starting long collector %u/%u\n",
-				  avg_abs,
-				  peak_abs,
-				  engine->cm_seen_count,
-				  engine->rx_seq_b_count,
-				  V8OPEN_CM_WORDS);
-			return;
-		}
 	}
 	if (!detector_hits)
 		engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
@@ -2877,20 +2830,6 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 			V8OPEN_DBG("cj-stub: detector stage2 entered run=%u metric=%u\n",
 				  engine->ans_det_30,
 				  engine->ans_det_12);
-			if ((engine->ans_rx_0a & 0x0200U) == 0U &&
-			    (avg_abs != 0U || peak_abs != 0U)) {
-				engine->cj_predetecting = 0U;
-				engine->cj_predetect_deadline = 0U;
-				engine->cj_signature = signature;
-				v8_open_cj_collect_start(engine, samples, cnt);
-				V8OPEN_DBG("cj-stub: detector handoff avg=%u peak=%u hits=%u starting short collector %u/%u\n",
-					  avg_abs,
-					  peak_abs,
-					  engine->cj_seen_count,
-					  engine->rx_seq_a_count,
-					  V8OPEN_CJ_WORDS);
-				return;
-			}
 		}
 		if (!detector_hits)
 			engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
@@ -2962,19 +2901,6 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 		V8OPEN_DBG("cj-stub: detector stage2 entered run=%u metric=%u\n",
 			  engine->ans_det_30,
 			  engine->ans_det_12);
-		if ((engine->ans_rx_0a & 0x0200U) == 0U &&
-		    (avg_abs != 0U || peak_abs != 0U)) {
-			engine->cj_predetecting = 0U;
-			engine->cj_predetect_deadline = 0U;
-			v8_open_cj_collect_start(engine, samples, cnt);
-			V8OPEN_DBG("cj-stub: detector handoff avg=%u peak=%u hits=%u starting short collector %u/%u\n",
-				  avg_abs,
-				  peak_abs,
-				  engine->cj_seen_count,
-				  engine->rx_seq_a_count,
-				  V8OPEN_CJ_WORDS);
-			return;
-		}
 	}
 	if (!detector_hits)
 		engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
@@ -3306,8 +3232,7 @@ static void v8_open_transition(struct v8_open_engine *engine,
 	enum v8_open_phase old_phase;
 
 	if (next_phase == V8_OPEN_PHASE_ANS_SEND_JM &&
-	    !engine->cm_detected &&
-	    (engine->cm_seen_count > 0U || engine->cm_predetecting || engine->cm_collecting)) {
+	    !engine->cm_detected) {
 		unsigned short raw12;
 		unsigned runs0;
 		unsigned runs1;
@@ -3355,17 +3280,15 @@ static void v8_open_transition(struct v8_open_engine *engine,
 		low_energy = engine->rx_dbg_low_energy;
 		bit0_count = engine->rx_dbg_bit0;
 		bit1_count = engine->rx_dbg_bit1;
-		engine->cm_detected = 1U;
 		engine->cm_predetecting = 0U;
 		engine->cm_predetect_deadline = 0U;
 		engine->cm_collecting = 0U;
 		engine->cm_collect_deadline = 0U;
 		engine->cm_collect_pass = 0U;
 		engine->cm_guard_budget = 0U;
+		engine->cm_detected = 0U;
 		v8_open_rx_reset_collect(engine);
-		v8_open_collect_remote_cm_defaults(engine);
-		v8_open_parse_rx_sequence(engine);
-		V8OPEN_DBG("cm-stub: timeout fallback after %u candidate(s); using conservative remote CM model (raw=%03x runs=%u/%u/%u mark=%u delim=%u sync=%u bits=%u emits=%u hist=%u phase=%u agc=%u env=%u metric=%u level=%u sym=%u/%u ticks=%u/%u sat=%u demod=%u/%u/%u)\n",
+		V8OPEN_DBG("cm-stub: timeout fallback after %u candidate(s); no valid CM, entering legacy fallback (raw=%03x runs=%u/%u/%u mark=%u delim=%u sync=%u bits=%u emits=%u hist=%u phase=%u agc=%u env=%u metric=%u level=%u sym=%u/%u ticks=%u/%u sat=%u demod=%u/%u/%u)\n",
 			  engine->cm_seen_count,
 			  raw12,
 			  runs0,
@@ -3390,6 +3313,14 @@ static void v8_open_transition(struct v8_open_engine *engine,
 			  low_energy,
 			  bit0_count,
 			  bit1_count);
+		/*
+		 * V.8 8.2.2 no-CM timeout path:
+		 * insert a 75 ms no-signal gap before fallback handoff.
+		 */
+		engine->ans_cm_timeout_fallback = 1U;
+		next_phase = V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM;
+	} else if (next_phase == V8_OPEN_PHASE_ANS_SEND_JM) {
+		engine->ans_cm_timeout_fallback = 0U;
 	}
 	if (next_phase == V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM &&
 	    !engine->cj_detected &&
@@ -3565,6 +3496,7 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->cj_sequence_valid = 0U;
 	engine->cj_variant_bit = 0U;
 	engine->rx_process_state = 0U;
+	engine->ans_cm_timeout_fallback = 0U;
 	v8_open_rx_reset_collect(engine);
 	if (cfg->answer_mode)
 		v8_open_answer_predetector_seed(engine);
@@ -3668,4 +3600,17 @@ int v8_open_process(void *engine_ptr, void *in, void *out, int cnt)
 	ret = (int)engine->last_status;
 out:
 	return ret;
+}
+
+int v8_open_answer_cm_timeout(const void *engine_ptr)
+{
+	const struct v8_open_engine *engine;
+
+	engine = (const struct v8_open_engine *)engine_ptr;
+	if (!engine)
+		return 0;
+	if (!engine->cfg.answer_mode)
+		return 0;
+
+	return engine->ans_cm_timeout_fallback ? 1 : 0;
 }
