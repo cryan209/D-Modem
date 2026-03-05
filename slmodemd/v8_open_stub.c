@@ -1046,12 +1046,12 @@ static unsigned v8_open_capture_signature(const short *samples,
 
 static void v8_open_rx_start_search(struct v8_open_engine *engine);
 
-static short v8_open_mpyint(short sample, short coeff)
+static int v8_open_mpyint(short sample, short coeff)
 {
 	int prod;
 
 	prod = (int)sample * (int)coeff;
-	return (short)(prod >> 14);
+	return prod >> 14;
 }
 
 static unsigned short v8_open_answer_detector_metric(struct v8_open_engine *engine,
@@ -1243,7 +1243,7 @@ static unsigned v8_open_answer_detector_step(struct v8_open_engine *engine,
 
 static void v8_open_answer_rx_init(struct v8_open_engine *engine)
 {
-	engine->ans_rx_0a = 0U;
+	engine->ans_rx_0a = 0x8000U;
 	engine->ans_rx_14 = 0U;
 	engine->ans_rx_1a = 0U;
 	engine->ans_rx_1c = 0x0200U;
@@ -1510,9 +1510,15 @@ static short v8_open_rx_agc_prefilter_sample(struct v8_open_engine *engine, shor
 	long long acc;
 	unsigned i;
 
-	/* Blob V8agc: +a44==0 selects 0x5480, non-zero selects 0x5420. */
+	/*
+	 * Blob V8agc: +a44==0 selects 0x5480, non-zero selects 0x5420.
+	 * Blob convention: answer_mode=0 is answer, =1 is originate.
+	 * Stub convention: answer_mode=1 is answer, =0 is originate.
+	 * Flip the ternary so the answer side gets filt_5480 (passes the
+	 * originate V.21 band we need to receive) and vice versa.
+	 */
 	coeffs = engine->cfg.answer_mode ?
-		v8_open_agc_filt_5420 : v8_open_agc_filt_5480;
+		v8_open_agc_filt_5480 : v8_open_agc_filt_5420;
 
 	engine->rx_agc_fir_hist[0] = sample;
 	acc = 0x2000;
@@ -1744,7 +1750,7 @@ static void v8_open_v21_workspace_init(struct v8_open_engine *engine)
 	engine->rx_c242 = 0U;
 	engine->rx_c244 = 0U;
 	engine->rx_c246 = 0U;
-	engine->ans_rx_0a = (unsigned short)(engine->ans_rx_0a | 0x0800U);
+	engine->ans_rx_0a = (unsigned short)(engine->ans_rx_0a | 0x8804U);
 }
 
 static void v8_open_v21_workspace_init_fsk(struct v8_open_engine *engine)
@@ -2404,32 +2410,32 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 				}
 
 				if (bit) {
+					/* bit=1: space frequency detected */
 					engine->rx_dbg_bit1++;
 					unsigned emit_count;
 
-					emit_count =
-						v8_open_rx_quantize_transition_clear(&engine->rx_space_ticks);
-					if (emit_count)
-						(void)v8_open_rx_emit_symbol_bits(engine,
-										  engine->rx_c230,
-										  emit_count);
-					engine->rx_mark_ticks++;
-				} else {
-					engine->rx_dbg_bit0++;
-					unsigned emit_count;
-
+					/* Flush accumulated mark run on transition */
 					emit_count =
 						v8_open_rx_quantize_transition_clear(&engine->rx_mark_ticks);
 					if (emit_count)
 						(void)v8_open_rx_emit_symbol_bits(engine,
 										  engine->rx_c232,
 										  emit_count);
-					/*
-					 * Blob v8_fskdemodulate clears this branch's accumulator
-					 * before incrementing the opposite run counter.
-					 */
-					engine->rx_mark_ticks = 0U;
 					engine->rx_space_ticks++;
+				} else {
+					/* bit=0: mark frequency detected */
+					engine->rx_dbg_bit0++;
+					unsigned emit_count;
+
+					/* Flush accumulated space run on transition */
+					emit_count =
+						v8_open_rx_quantize_transition_clear(&engine->rx_space_ticks);
+					if (emit_count)
+						(void)v8_open_rx_emit_symbol_bits(engine,
+										  engine->rx_c230,
+										  emit_count);
+					engine->rx_space_ticks = 0U;
+					engine->rx_mark_ticks++;
 				}
 			}
 
