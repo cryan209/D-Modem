@@ -1465,10 +1465,40 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit);
 static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 				      const short *samples,
 				      int cnt);
+static void v8_open_parse_rx_sequence(struct v8_open_engine *engine);
 
 static unsigned v8_open_abs_u32_from_i32(int v)
 {
 	return (unsigned)(v < 0 ? -v : v);
+}
+
+static int v8_open_handoff_ready(const struct v8_open_engine *engine,
+				 unsigned avg_abs,
+				 unsigned peak_abs)
+{
+	unsigned bit0;
+	unsigned bit1;
+	unsigned total;
+
+	/*
+	 * Avoid kicking CM/CJ collector on near-silence or one-sided demod
+	 * streams (typically local ANSam leakage). Require some symbol
+	 * diversity before committing to framing collection.
+	 */
+	if (avg_abs < 64U && peak_abs < 128U)
+		return 0;
+	if (!engine)
+		return 0;
+
+	bit0 = engine->rx_dbg_bit0;
+	bit1 = engine->rx_dbg_bit1;
+	total = bit0 + bit1;
+	if (total < 64U)
+		return 0;
+	if (bit0 > (bit1 * 16U) || bit1 > (bit0 * 16U))
+		return 0;
+
+	return 1;
 }
 
 static short v8_open_rx_agc_prefilter_sample(struct v8_open_engine *engine, short sample)
@@ -1898,7 +1928,7 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 	engine->rx_bit_window_len = 0U;
 	engine->rx_shift_reg = 0U;
 	engine->rx_preamble_expected =
-		mode == V8_OPEN_RX_COLLECT_CM ? 0x000fU :
+		mode == V8_OPEN_RX_COLLECT_CM ? 0x03ffU :
 		(mode == V8_OPEN_RX_COLLECT_CJ ? 0x0155U : 0U);
 	engine->rx_sequence_len = 0U;
 	engine->rx_probe_bits = 0U;
@@ -2022,7 +2052,7 @@ static void v8_open_rx_seed_sync_sequence(struct v8_open_engine *engine)
 	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM) {
 		engine->rx_seq_b_count = 0U;
 		engine->cm_collect_index = 0U;
-		engine->cm_collect_pass = 1U;
+		engine->cm_collect_pass = 0U;
 		engine->rx_sequence_len = 0U;
 	} else if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CJ) {
 		engine->rx_seq_a_count = 0U;
@@ -2113,7 +2143,6 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 	unsigned rev_word;
 	unsigned rev_inv_word;
 	unsigned short word;
-	unsigned idx;
 
 	/*
 	 * Track the blob run/framing counters (+0xc3e/+0xc40/+0xc42/+0xc44/+0xc46)
@@ -2195,27 +2224,26 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 		}
 	}
 	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM) {
-		if (engine->cm_collect_index == 0U && word != 0x000fU)
+		if (engine->cm_collect_index == 0U &&
+		    word != 0x03ffU &&
+		    word != 0x000fU)
 			return 0;
-		if (word == 0x000fU) {
-			if (engine->rx_sequence_len == engine->cm_collect_pass) {
-				engine->rx_seq_b_count = engine->rx_sequence_len;
-				return 1;
-			}
-			engine->rx_seq_b[0] = 0x000fU;
-			engine->rx_sequence_len = (unsigned short)engine->cm_collect_index;
-			engine->cm_collect_index = 1U;
-			engine->cm_collect_pass = 1U;
-			return 0;
-		}
 
-		idx = engine->cm_collect_index;
-		if (idx <= 14U) {
-			if (engine->rx_seq_b[idx] == word)
-				engine->cm_collect_pass++;
-			else
-				engine->rx_seq_b[idx] = word;
-			engine->cm_collect_index++;
+		if (engine->cm_collect_index < V8OPEN_CM_WORDS) {
+			engine->rx_seq_b[engine->cm_collect_index++] = word;
+		} else {
+			memmove(engine->rx_seq_b,
+				engine->rx_seq_b + 1,
+				(V8OPEN_CM_WORDS - 1U) * sizeof(engine->rx_seq_b[0]));
+			engine->rx_seq_b[V8OPEN_CM_WORDS - 1U] = word;
+		}
+		engine->rx_seq_b_count = engine->cm_collect_index < V8OPEN_CM_WORDS ?
+			engine->cm_collect_index : V8OPEN_CM_WORDS;
+
+		if (engine->rx_seq_b_count >= 8U) {
+			v8_open_parse_rx_sequence(engine);
+			if (engine->have_call_match && engine->have_proto_match)
+				return 1;
 		}
 	} else if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CJ) {
 		if (engine->cj_collect_index < V8OPEN_CJ_WORDS)
@@ -2642,6 +2670,19 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 			V8OPEN_DBG("cm-stub: detector stage2 entered run=%u metric=%u\n",
 				  engine->ans_det_30,
 				  engine->ans_det_12);
+			if (v8_open_handoff_ready(engine, avg_abs, peak_abs)) {
+				engine->cm_predetecting = 0U;
+				engine->cm_predetect_deadline = 0U;
+				engine->cm_signature = signature;
+				v8_open_cm_collect_start(engine, samples, cnt);
+				V8OPEN_DBG("cm-stub: detector handoff avg=%u peak=%u hits=%u starting long collector %u/%u\n",
+					  avg_abs,
+					  peak_abs,
+					  engine->cm_seen_count,
+					  engine->rx_seq_b_count,
+					  V8OPEN_CM_WORDS);
+				return;
+			}
 		}
 		if (!detector_hits)
 			engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
@@ -2662,8 +2703,28 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 	}
 
 	if (engine->cm_collecting) {
-		if (!v8_open_rx_consume_samples(engine, samples, cnt))
+		if (!v8_open_rx_consume_samples(engine, samples, cnt)) {
+			if (engine->cm_collect_deadline &&
+			    engine->samples_in_phase >= engine->cm_collect_deadline) {
+				V8OPEN_DBG("cm-stub: collector timeout avg=%u peak=%u bits=%u/%u runs=%u/%u/%u rearming detector\n",
+					  avg_abs,
+					  peak_abs,
+					  engine->rx_dbg_bit0,
+					  engine->rx_dbg_bit1,
+					  engine->rx_c23e,
+					  engine->rx_c240,
+					  engine->rx_c242);
+				engine->cm_collecting = 0U;
+				engine->cm_collect_deadline = 0U;
+				engine->cm_collect_index = 0U;
+				engine->cm_collect_pass = 0U;
+				v8_open_rx_start_search(engine);
+				v8_open_answer_predetector_arm(engine);
+				engine->cm_predetecting = 1U;
+				engine->cm_predetect_deadline = 0U;
+			}
 			return;
+		}
 
 		engine->cm_predetecting = 0U;
 		engine->cm_predetect_deadline = 0U;
@@ -2713,6 +2774,19 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 		V8OPEN_DBG("cm-stub: detector stage2 entered run=%u metric=%u\n",
 			  engine->ans_det_30,
 			  engine->ans_det_12);
+		if (v8_open_handoff_ready(engine, avg_abs, peak_abs)) {
+			engine->cm_predetecting = 0U;
+			engine->cm_predetect_deadline = 0U;
+			engine->cm_signature = signature;
+			v8_open_cm_collect_start(engine, samples, cnt);
+			V8OPEN_DBG("cm-stub: detector handoff avg=%u peak=%u hits=%u starting long collector %u/%u\n",
+				  avg_abs,
+				  peak_abs,
+				  engine->cm_seen_count,
+				  engine->rx_seq_b_count,
+				  V8OPEN_CM_WORDS);
+			return;
+		}
 	}
 	if (!detector_hits)
 		engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
@@ -2785,6 +2859,19 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 			V8OPEN_DBG("cj-stub: detector stage2 entered run=%u metric=%u\n",
 				  engine->ans_det_30,
 				  engine->ans_det_12);
+			if (v8_open_handoff_ready(engine, avg_abs, peak_abs)) {
+				engine->cj_predetecting = 0U;
+				engine->cj_predetect_deadline = 0U;
+				engine->cj_signature = signature;
+				v8_open_cj_collect_start(engine, samples, cnt);
+				V8OPEN_DBG("cj-stub: detector handoff avg=%u peak=%u hits=%u starting short collector %u/%u\n",
+					  avg_abs,
+					  peak_abs,
+					  engine->cj_seen_count,
+					  engine->rx_seq_a_count,
+					  V8OPEN_CJ_WORDS);
+				return;
+			}
 		}
 		if (!detector_hits)
 			engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
@@ -2805,8 +2892,27 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 	}
 
 	if (engine->cj_collecting) {
-		if (!v8_open_rx_consume_samples(engine, samples, cnt))
+		if (!v8_open_rx_consume_samples(engine, samples, cnt)) {
+			if (engine->cj_collect_deadline &&
+			    engine->samples_in_phase >= engine->cj_collect_deadline) {
+				V8OPEN_DBG("cj-stub: collector timeout avg=%u peak=%u bits=%u/%u runs=%u/%u/%u rearming detector\n",
+					  avg_abs,
+					  peak_abs,
+					  engine->rx_dbg_bit0,
+					  engine->rx_dbg_bit1,
+					  engine->rx_c23e,
+					  engine->rx_c240,
+					  engine->rx_c242);
+				engine->cj_collecting = 0U;
+				engine->cj_collect_deadline = 0U;
+				engine->cj_collect_index = 0U;
+				v8_open_rx_start_search(engine);
+				v8_open_answer_predetector_arm(engine);
+				engine->cj_predetecting = 1U;
+				engine->cj_predetect_deadline = 0U;
+			}
 			return;
+		}
 
 		engine->cj_predetecting = 0U;
 		engine->cj_predetect_deadline = 0U;
@@ -2856,6 +2962,19 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 		V8OPEN_DBG("cj-stub: detector stage2 entered run=%u metric=%u\n",
 			  engine->ans_det_30,
 			  engine->ans_det_12);
+		if (v8_open_handoff_ready(engine, avg_abs, peak_abs)) {
+			engine->cj_predetecting = 0U;
+			engine->cj_predetect_deadline = 0U;
+			engine->cj_signature = signature;
+			v8_open_cj_collect_start(engine, samples, cnt);
+			V8OPEN_DBG("cj-stub: detector handoff avg=%u peak=%u hits=%u starting short collector %u/%u\n",
+				  avg_abs,
+				  peak_abs,
+				  engine->cj_seen_count,
+				  engine->rx_seq_a_count,
+				  V8OPEN_CJ_WORDS);
+			return;
+		}
 	}
 	if (!detector_hits)
 		engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
