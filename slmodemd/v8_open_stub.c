@@ -1990,13 +1990,6 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 		return 0;
 	}
 
-	if (!framed_symbol_ready)
-		return 0;
-
-	/*
-	 * Blob state-0x28 framing consumes symbols from the live V.21 shifter
-	 * (c3a) once the run-length delimiter counters assert a complete frame.
-	 */
 	raw_word = (unsigned short)(engine->rx_c23a & 0x0fffU);
 	engine->rx_shift_reg = raw_word;
 	inv_word = raw_word ^ 0x0fffU;
@@ -2025,6 +2018,13 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 		return 0;
 	}
 
+	if (!framed_symbol_ready)
+		return 0;
+
+	/*
+	 * Blob state-0x28 framing consumes symbols from the live V.21 shifter
+	 * (c3a) once the run-length delimiter counters assert a complete frame.
+	 */
 	word = v8_open_rx_normalize_word(engine, (unsigned short)(raw_word & 0x03ffU));
 	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM) {
 		if (engine->cm_collect_index < 12U) {
