@@ -30,7 +30,6 @@
 #define V8OPEN_CM_WAIT_TAIL_MS 800U
 #define V8OPEN_CJ_WAIT_MS 5000U
 #define V8OPEN_CJ_COLLECT_MIN_MS 420U
-#define V8OPEN_CJ_TX_JM_MS 180U
 #define V8OPEN_CM_TIMEOUT_JM_PROMOTE_MIN_CANDIDATES 0x7fffffffU
 #define V8OPEN_CM_COLLECT_WORDS_LONG ((V8OPEN_CM_WORDS * 2U) + 4U)
 #define V8OPEN_CM_COLLECT_WORDS_WAIT V8OPEN_CM_WORDS
@@ -971,14 +970,8 @@ static void v8_open_emit_phase(struct v8_open_engine *engine, void *out, int cnt
 		memset(out, 0, (size_t)cnt * 2U);
 		break;
 	case V8_OPEN_PHASE_ANS_SEND_JM:
-		v8_open_emit_v21(engine, pcm, cnt, 1);
-		break;
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
-		if (engine->samples_in_phase <
-		    v8_open_samples_from_ms(engine, V8OPEN_CJ_TX_JM_MS))
-			v8_open_emit_v21(engine, pcm, cnt, 1);
-		else
-			memset(out, 0, (size_t)cnt * 2U);
+		v8_open_emit_v21(engine, pcm, cnt, 1);
 		break;
 	case V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM:
 		if (engine->ans_cm_timeout_fallback)
@@ -3119,48 +3112,51 @@ static void v8_open_cj_collect_start(struct v8_open_engine *engine,
 
 static int v8_open_cj_sequence_valid(struct v8_open_engine *engine)
 {
-	unsigned zero_run;
-	unsigned zero_total;
+	unsigned hyp;
 	unsigned i;
 
 	if (engine->rx_seq_a_count < 3U)
 		return 0;
 
-	/*
-	 * Match SpanDSP behavior: CJ is detected as 3 consecutive zero octets.
-	 * In this 10-bit framed representation a zero octet is 0x001.
-	 */
-	zero_run = 0U;
-	zero_total = 0U;
-	for (i = 0U; i < engine->rx_seq_a_count; ++i) {
-		unsigned short cj_word;
+	for (hyp = 0U; hyp < 4U; ++hyp) {
+		unsigned zero_run;
+		unsigned max_zero_run;
 
-		cj_word = (unsigned short)(engine->rx_seq_a[i] & 0x03ffU);
-		if ((cj_word & 0x03feU) == 0x0000U) {
-			zero_total++;
-			zero_run++;
-			if (zero_run >= 3U) {
-				engine->cj_sequence_valid = 1U;
-				engine->cj_variant_bit = 0U;
-				V8OPEN_DBG("cj-stub: accepted zero-octet CJ run words=%u\n",
-					  engine->rx_seq_a_count);
-				return 1;
+		/*
+		 * Try CJ decoding over the 4 orientation hypotheses:
+		 * raw / inverted / reversed / reversed+inverted.
+		 */
+		zero_run = 0U;
+		max_zero_run = 0U;
+
+		for (i = 0U; i < engine->rx_seq_a_count; ++i) {
+			unsigned short cj_word;
+
+			cj_word = (unsigned short)(engine->rx_seq_a[i] & 0x03ffU);
+			if (hyp & 0x02U)
+				cj_word = v8_open_reverse_word10(cj_word);
+			if (hyp & 0x01U)
+				cj_word ^= 0x03ffU;
+
+			if ((cj_word & 0x03feU) == 0x0000U) {
+				zero_run++;
+				if (zero_run > max_zero_run)
+					max_zero_run = zero_run;
+			} else {
+				zero_run = 0U;
 			}
-		} else {
-			zero_run = 0U;
 		}
-	}
-	/*
-	 * Some peers interleave framing/sync words around zero octets.
-	 * Accept 3 zero-octet words in the active window even if not contiguous.
-	 */
-	if (zero_total >= 3U) {
-		engine->cj_sequence_valid = 1U;
-		engine->cj_variant_bit = 0U;
-		V8OPEN_DBG("cj-stub: accepted sparse zero-octet CJ zeros=%u words=%u\n",
-			  zero_total,
-			  engine->rx_seq_a_count);
-		return 1;
+
+		/* Keep CJ acceptance strict: require 3 consecutive zero octets. */
+		if (max_zero_run >= 3U) {
+			engine->cj_sequence_valid = 1U;
+			engine->cj_variant_bit = hyp;
+			V8OPEN_DBG("cj-stub: accepted zero-octet CJ run hypothesis=%u run=%u words=%u\n",
+				  hyp,
+				  max_zero_run,
+				  engine->rx_seq_a_count);
+			return 1;
+		}
 	}
 	return 0;
 }
