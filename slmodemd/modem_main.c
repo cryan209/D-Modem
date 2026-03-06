@@ -49,6 +49,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <ctype.h>
 #include <termios.h>
 #include <fcntl.h>
 #include <sys/types.h>
@@ -1031,11 +1032,43 @@ static int socket_device_setup(struct device_struct *dev, const char *dev_name)
 
 static char link_name[PATH_MAX];
 
+static int increment_link_name_index(char *name, size_t size)
+{
+	char *p;
+	unsigned long idx;
+	char *endp;
+	size_t prefix_len;
+
+	if (!name || !name[0] || !size)
+		return -1;
+
+	p = name + strlen(name);
+	while (p > name && isdigit((unsigned char)p[-1]))
+		--p;
+	if (!*p)
+		return -1;
+
+	errno = 0;
+	idx = strtoul(p, &endp, 10);
+	if (errno || *endp)
+		return -1;
+	idx++;
+
+	prefix_len = (size_t)(p - name);
+	if (snprintf(p, size - prefix_len, "%lu", idx) >= (int)(size - prefix_len))
+		return -1;
+
+	return 0;
+}
+
 int create_pty(struct modem *m)
 {
 	struct termios termios;
 	const char *pty_name;
 	int pty, ret;
+	int had_pty;
+
+	had_pty = !!m->pty;
 
 	if(m->pty)
 		close(m->pty);
@@ -1094,15 +1127,26 @@ int create_pty(struct modem *m)
 	}
 
 	if(*link_name) {
-		unlink(link_name);
-		if(symlink(pty_name,link_name)) {
+		int attempts = 0;
+		for (;;) {
+			attempts++;
+			if (had_pty && attempts == 1)
+				unlink(link_name);
+			if (!symlink(pty_name,link_name)) {
+				INFO("symbolic link `%s' -> `%s' created.\n",
+				     link_name, pty_name);
+				break;
+			}
+			if (!had_pty &&
+			    errno == EEXIST &&
+			    attempts < 256 &&
+			    increment_link_name_index(link_name, sizeof(link_name)) == 0)
+				continue;
+
 			ERR("cannot create symbolink link `%s' -> `%s': %s\n",
 			    link_name,pty_name,strerror(errno));
 			*link_name = '\0';
-		}
-		else {
-			INFO("symbolic link `%s' -> `%s' created.\n",
-			     link_name, pty_name);
+			break;
 		}
 	}
 
