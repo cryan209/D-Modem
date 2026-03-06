@@ -386,12 +386,14 @@ static void v8_shim_open_handoff(struct v8_blob_wrapper *blob,
 {
 	enum DP_ID next_dp;
 	unsigned force_conservative_runtime;
+	unsigned no_cj_timeout_fallback;
 	long io_delay;
 
 	if (state->handoff_emitted)
 		return;
 
 	next_dp = state->open_next_dp;
+	no_cj_timeout_fallback = 0U;
 	if (state->use_open_stub &&
 	    blob->v8_engine &&
 	    v8_open_answer_cm_timeout(blob->v8_engine)) {
@@ -418,8 +420,15 @@ static void v8_shim_open_handoff(struct v8_blob_wrapper *blob,
 			  next_dp,
 			  blob->target_dp_id,
 			  recommended_dp);
+		no_cj_timeout_fallback = 1U;
 	}
 	force_conservative_runtime = (next_dp == state->open_timeout_dp) ? 1U : 0U;
+	if (!force_conservative_runtime &&
+	    no_cj_timeout_fallback &&
+	    next_dp == DP_V34) {
+		force_conservative_runtime = 1U;
+		V8SHIM_DBG("open handoff: no-CJ V34 fallback, using conservative runtime seeding\n");
+	}
 	io_delay = modem_get_param(blob->base.modem, MDMPRM_IODELAY);
 	blob->handoff_delay = (int)(io_delay + 0x270);
 
