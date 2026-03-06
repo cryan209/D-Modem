@@ -30,7 +30,7 @@
 #define V8OPEN_CM_WAIT_TAIL_MS 800U
 #define V8OPEN_CJ_WAIT_MS 5000U
 #define V8OPEN_CJ_COLLECT_MIN_MS 420U
-#define V8OPEN_CM_TIMEOUT_JM_PROMOTE_MIN_CANDIDATES 8U
+#define V8OPEN_CM_TIMEOUT_JM_PROMOTE_MIN_CANDIDATES 0x7fffffffU
 #define V8OPEN_CM_COLLECT_WORDS_LONG ((V8OPEN_CM_WORDS * 2U) + 4U)
 #define V8OPEN_CM_COLLECT_WORDS_WAIT V8OPEN_CM_WORDS
 #define V8OPEN_CM_COLLECT_BURST 2U
@@ -44,6 +44,10 @@
 #define V8OPEN_CM_STAGE2_WAIT_MS 80U
 #define V8OPEN_CM_STAGE2_WAIT_CAP_MS 120U
 #define V8OPEN_CM_STAGE2_WAIT_LOG_MASK 0x003fU
+#define V8OPEN_CM_STAGE1_METRIC_MIN_SEND 0x30U
+#define V8OPEN_CM_STAGE1_METRIC_MIN_WAIT 0x18U
+#define V8OPEN_CM_STAGE1_RUN_MIN_SEND 0x33U
+#define V8OPEN_CM_STAGE1_RUN_MIN_WAIT 0x10U
 #define V8OPEN_CM_STAGE2_MONO_BITS_CARRY 96U
 #define V8OPEN_CM_STAGE2_MONO_BITS_WAIT 160U
 #define V8OPEN_CM_FORCE_COLLECT_HITS 192U
@@ -1248,6 +1252,8 @@ static unsigned v8_open_answer_detector_step(struct v8_open_engine *engine,
 {
 	unsigned hit_count;
 	unsigned peak_abs;
+	unsigned stage1_metric_min;
+	unsigned stage1_run_min;
 	int i;
 
 	if (!engine || !samples || cnt <= 0) {
@@ -1260,6 +1266,12 @@ static unsigned v8_open_answer_detector_step(struct v8_open_engine *engine,
 
 	hit_count = 0U;
 	peak_abs = 0U;
+	stage1_metric_min = (engine->phase == V8_OPEN_PHASE_ANS_WAIT_FOR_CM) ?
+		V8OPEN_CM_STAGE1_METRIC_MIN_WAIT :
+		V8OPEN_CM_STAGE1_METRIC_MIN_SEND;
+	stage1_run_min = (engine->phase == V8_OPEN_PHASE_ANS_WAIT_FOR_CM) ?
+		V8OPEN_CM_STAGE1_RUN_MIN_WAIT :
+		V8OPEN_CM_STAGE1_RUN_MIN_SEND;
 
 	for (i = 0; i < cnt; ++i) {
 		engine->ans_det_12 = v8_open_answer_detector_metric(engine, samples[i]);
@@ -1298,14 +1310,15 @@ static unsigned v8_open_answer_detector_step(struct v8_open_engine *engine,
 			continue;
 		}
 
-		if (engine->ans_det_12 > 0x30U) {
+		if (engine->ans_det_12 > stage1_metric_min) {
 			hit_count++;
 			engine->ans_det_30 = (unsigned short)(engine->ans_det_30 + 1U);
-			if (engine->ans_det_30 == 0x33U) {
+			if (engine->ans_det_30 >= stage1_run_min) {
 				engine->ans_det_06 = 1U;
 				engine->ans_rx_0a =
 					(unsigned short)(engine->ans_rx_0a & ~0x0200U);
 				engine->ans_det_08 = 0;
+				engine->ans_det_30 = (unsigned short)stage1_run_min;
 			}
 		} else {
 			engine->ans_det_30 = 0U;
@@ -3189,28 +3202,38 @@ static void v8_open_parse_rx_sequence_words(struct v8_open_engine *engine,
 
 		if (v8_open_word_match_category(word, 0x0141U)) {
 			unsigned short mod0;
+			unsigned char mod0_octet;
 
-			mod0 = (unsigned short)((word & 0x01ffU) | 0x0100U);
-			engine->remote_v34 = (mod0 & 0x0040U) ? 1U : 0U;
-			engine->remote_pcm_present = (mod0 & 0x0020U) ? 1U : 0U;
+			mod0 = (unsigned short)(word & 0x03ffU);
+			mod0 |= 0x0001U;
+			mod0_octet = v8_open_decode_word_octet(mod0);
+			mod0 = v8_open_encode_octet(mod0_octet);
+			engine->remote_v34 = (mod0_octet & 0x40U) ? 1U : 0U;
+			engine->remote_pcm_present = (mod0_octet & 0x20U) ? 1U : 0U;
 			v8_open_rx_push_token(engine, mod0);
 
 			if ((i + 1U) < count &&
 			    v8_open_word_match_mod_ext(words[i + 1U])) {
 				unsigned short mod1;
+				unsigned char mod1_octet;
 
-				mod1 = (unsigned short)(words[i + 1U] & 0x01ffU);
+				mod1 = (unsigned short)(words[i + 1U] & 0x03ffU);
 				mod1 |= 0x0001U;
-				engine->remote_v32 = (mod1 & 0x0001U) ? 1U : 0U;
+				mod1_octet = v8_open_decode_word_octet(mod1);
+				mod1 = v8_open_encode_octet(mod1_octet);
+				engine->remote_v32 = (mod1_octet & 0x01U) ? 1U : 0U;
 				v8_open_rx_push_token(engine, mod1);
 				i++;
 			}
 			if ((i + 1U) < count &&
 			    v8_open_word_match_mod_ext(words[i + 1U])) {
 				unsigned short mod2;
+				unsigned char mod2_octet;
 
-				mod2 = (unsigned short)(words[i + 1U] & 0x01ffU);
+				mod2 = (unsigned short)(words[i + 1U] & 0x03ffU);
 				mod2 |= 0x0001U;
+				mod2_octet = v8_open_decode_word_octet(mod2);
+				mod2 = v8_open_encode_octet(mod2_octet);
 				v8_open_rx_push_token(engine, mod2);
 				i++;
 			}
@@ -3219,8 +3242,12 @@ static void v8_open_parse_rx_sequence_words(struct v8_open_engine *engine,
 
 		if (v8_open_word_match_category(word, 0x0161U)) {
 			unsigned short access_word;
+			unsigned char access_octet;
 
-			access_word = (unsigned short)((word & 0x01ffU) | 0x0100U);
+			access_word = (unsigned short)(word & 0x03ffU);
+			access_word |= 0x0001U;
+			access_octet = v8_open_decode_word_octet(access_word);
+			access_word = v8_open_encode_octet(access_octet);
 			engine->remote_access_present = 1U;
 			v8_open_rx_push_token(engine, access_word);
 			continue;
@@ -3228,16 +3255,23 @@ static void v8_open_parse_rx_sequence_words(struct v8_open_engine *engine,
 
 		if (v8_open_word_match_category(word, 0x01c1U)) {
 			unsigned short pcm_word;
+			unsigned char pcm_octet;
 
-			pcm_word = (unsigned short)((word & 0x01ffU) | 0x0100U);
-			engine->remote_pcm_present = 1U;
+			pcm_word = (unsigned short)(word & 0x03ffU);
+			pcm_word |= 0x0001U;
+			pcm_octet = v8_open_decode_word_octet(pcm_word);
+			pcm_word = v8_open_encode_octet(pcm_octet);
+			engine->remote_pcm_present = (pcm_octet & 0xe0U) ? 1U : 0U;
 			v8_open_rx_push_token(engine, pcm_word);
 			if ((i + 1U) < count &&
 			    v8_open_word_match_mod_ext(words[i + 1U])) {
 				unsigned short ext_word;
+				unsigned char ext_octet;
 
-				ext_word = (unsigned short)(words[i + 1U] & 0x01ffU);
+				ext_word = (unsigned short)(words[i + 1U] & 0x03ffU);
 				ext_word |= 0x0001U;
+				ext_octet = v8_open_decode_word_octet(ext_word);
+				ext_word = v8_open_encode_octet(ext_octet);
 				v8_open_rx_push_token(engine, ext_word);
 				i++;
 			}
@@ -4089,8 +4123,6 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	unsigned want_pcm;
 	unsigned want_access;
 	unsigned short local_mod0_word;
-	unsigned short local_mod1_word;
-	unsigned short local_mod2_word;
 	unsigned short local_pcm_word;
 	unsigned assume_v34_ambiguous_cm;
 	jm = &engine->jm;
@@ -4161,8 +4193,6 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	jm->modulation2_octet = local_mod2_octet;
 	jm->pcm_octet = local_pcm_octet;
 	local_mod0_word = v8_open_encode_octet(local_mod0_octet);
-	local_mod1_word = v8_open_encode_octet(local_mod1_octet);
-	local_mod2_word = v8_open_encode_octet(local_mod2_octet);
 	local_pcm_word = v8_open_encode_octet(local_pcm_octet);
 
 	rx_call = v8_open_find_rx_token(engine, 0x0101U, 0U);
@@ -4184,27 +4214,49 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 		engine->have_call_match = 1U;
 		engine->matched_call_word = rx_call;
 	} else if (jm->data_supported) {
-		jm->call_function_code = 0x0109U;
+		/*
+		 * Proprietary caller expects DATA call-function (0x0107) for
+		 * call-function match; 0x0109 fallback leads to mismatch and
+		 * suppresses remote modulation capability reporting.
+		 */
+		jm->call_function_code = 0x0107U;
 	} else {
 		jm->call_function_code = 0x0000U;
 	}
 
-	jm->modulation0_word = local_mod0_word;
-	if (rx_mod0 && !assume_v34_ambiguous_cm)
-		jm->modulation0_word = (unsigned short)(jm->modulation0_word & rx_mod0);
-	else if (rx_mod0 && assume_v34_ambiguous_cm)
+	jm->modulation0_octet = local_mod0_octet;
+	if (rx_mod0 && !assume_v34_ambiguous_cm) {
+		unsigned char rx_mod0_octet;
+
+		rx_mod0_octet = v8_open_decode_word_octet((unsigned short)(rx_mod0 | 0x0001U));
+		jm->modulation0_octet =
+			(unsigned char)((jm->modulation0_octet & rx_mod0_octet) | 0x05U);
+	} else if (rx_mod0 && assume_v34_ambiguous_cm)
 		V8OPEN_DBG("jm-shim: ambiguous CM modulation, ignoring rx mod0 intersection raw=%03x local=%03x\n",
 			  rx_mod0,
-			  jm->modulation0_word);
+			  local_mod0_word);
+	jm->modulation0_word = v8_open_encode_octet(jm->modulation0_octet);
 
 	jm->has_modulation1 = 1U;
-	jm->modulation1_word = local_mod1_word;
-	if (rx_mod1)
-		jm->modulation1_word = (unsigned short)(jm->modulation1_word & rx_mod1);
+	jm->modulation1_octet = local_mod1_octet;
+	if (rx_mod1) {
+		unsigned char rx_mod1_octet;
 
-	jm->modulation2_word = local_mod2_word;
-	if (rx_mod2)
-		jm->modulation2_word = (unsigned short)(jm->modulation2_word & rx_mod2);
+		rx_mod1_octet = v8_open_decode_word_octet((unsigned short)(rx_mod1 | 0x0001U));
+		jm->modulation1_octet =
+			(unsigned char)((jm->modulation1_octet & rx_mod1_octet) | 0x10U);
+	}
+	jm->modulation1_word = v8_open_encode_octet(jm->modulation1_octet);
+
+	jm->modulation2_octet = local_mod2_octet;
+	if (rx_mod2) {
+		unsigned char rx_mod2_octet;
+
+		rx_mod2_octet = v8_open_decode_word_octet((unsigned short)(rx_mod2 | 0x0001U));
+		jm->modulation2_octet =
+			(unsigned char)((jm->modulation2_octet & rx_mod2_octet) | 0x10U);
+	}
+	jm->modulation2_word = v8_open_encode_octet(jm->modulation2_octet);
 
 	want_pcm = (rx_pcm != 0U) && (jm->pcm_analog || jm->pcm_digital || jm->pcm_v91);
 	if (want_pcm) {
