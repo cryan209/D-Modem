@@ -17,12 +17,16 @@
 #define V8OPEN_PCM_AMPLITUDE 10000
 #define V8OPEN_V21_BITRATE 300U
 #define V8OPEN_ANSAM_FREQ 2100U
+#define V8OPEN_ANSAM_AM_FREQ 15U
 #define V8OPEN_V21_ANS_MARK 1650U
 #define V8OPEN_V21_ANS_SPACE 1850U
 #define V8OPEN_V21_ORG_MARK 980U
 #define V8OPEN_V21_ORG_SPACE 1180U
 #define V8OPEN_ANSAM_REVERSAL_MS 450U
-#define V8OPEN_ANSAM_SEND_MS 3800U
+#define V8OPEN_ANSAM_LEADIN_MS 200U
+#define V8OPEN_ANSAM_TONE_MS 5000U
+#define V8OPEN_ANSAM_SEND_MS (V8OPEN_ANSAM_LEADIN_MS + V8OPEN_ANSAM_TONE_MS)
+#define V8OPEN_ANSAM_AM_DIVISOR 5U
 #define V8OPEN_CM_WAIT_TAIL_MS 1200U
 #define V8OPEN_CM_COLLECT_WORDS_LONG ((V8OPEN_CM_WORDS * 2U) + 4U)
 #define V8OPEN_CM_COLLECT_WORDS_WAIT V8OPEN_CM_WORDS
@@ -41,6 +45,8 @@
 #define V8OPEN_CM_FORCE_COLLECT_HITS 192U
 #define V8OPEN_CM_FORCE_COLLECT_BITS 96U
 #define V8OPEN_CM_FORCE_COLLECT_REMAIN_MS 280U
+#define V8OPEN_CM_FORCE_SUPPRESS_MAX 4U
+#define V8OPEN_CM_FORCE_SUPPRESS_REMAIN_MS 220U
 #define V8OPEN_AGC_FIR_SAMPLES 40U
 #define V8OPEN_AGC_POWER_RING 36U
 #define V8OPEN_AGC_BLOCK_SAMPLES 4U
@@ -321,6 +327,7 @@ struct v8_open_engine {
 	unsigned short rx_process_state;
 	struct v8_open_jm_shim jm;
 	unsigned tone_phase_q16;
+	unsigned ansam_mod_phase_q16;
 	unsigned ansam_phase_samples;
 	unsigned ansam_phase_invert;
 	unsigned tx_current_bit;
@@ -349,6 +356,7 @@ struct v8_open_engine {
 	unsigned cm_collect_index;
 	unsigned cm_collect_pass;
 	unsigned cm_even_words;
+	unsigned cm_force_suppress_count;
 	unsigned cm_best_pass;
 	unsigned cm_best_count;
 	unsigned short cm_best_seq[V8OPEN_CM_WORDS];
@@ -612,6 +620,7 @@ static unsigned v8_open_samples_from_ms(const struct v8_open_engine *engine,
 static void v8_open_reset_tx(struct v8_open_engine *engine)
 {
 	engine->tone_phase_q16 = 0U;
+	engine->ansam_mod_phase_q16 = 0U;
 	engine->ansam_phase_samples = 0U;
 	engine->ansam_phase_invert = 0U;
 	engine->tx_current_bit = 1U;
@@ -785,20 +794,28 @@ static void v8_open_prepare_jm_bits(struct v8_open_engine *engine)
 	V8OPEN_DBG("jm-bits: bits=%u\n", engine->tx_bit_len);
 }
 
-static short v8_open_wave_sample(struct v8_open_engine *engine,
-				 unsigned freq_hz,
-				 int invert)
+static short v8_open_wave_sample_phase(const struct v8_open_engine *engine,
+				       unsigned *phase_q16,
+				       unsigned freq_hz)
 {
 	unsigned rate;
 	unsigned step;
 	unsigned index;
-	short sample;
 
 	rate = engine->cfg.sample_rate ? engine->cfg.sample_rate : 9600U;
 	step = (unsigned)(((unsigned long long)freq_hz << 16) / rate);
-	engine->tone_phase_q16 += step;
-	index = (engine->tone_phase_q16 >> 11) & 0x1fU;
-	sample = v8_open_sine_32[index];
+	*phase_q16 += step;
+	index = (*phase_q16 >> 11) & 0x1fU;
+	return v8_open_sine_32[index];
+}
+
+static short v8_open_wave_sample(struct v8_open_engine *engine,
+				 unsigned freq_hz,
+				 int invert)
+{
+	short sample;
+
+	sample = v8_open_wave_sample_phase(engine, &engine->tone_phase_q16, freq_hz);
 	if (invert)
 		sample = (short)-sample;
 	return sample;
@@ -808,17 +825,37 @@ static void v8_open_emit_ansam(struct v8_open_engine *engine,
 			       short *pcm,
 			       int cnt)
 {
+	unsigned leadin_samples;
 	unsigned reversal_samples;
 	int i;
 
+	leadin_samples = v8_open_samples_from_ms(engine, V8OPEN_ANSAM_LEADIN_MS);
 	reversal_samples = v8_open_samples_from_ms(engine, V8OPEN_ANSAM_REVERSAL_MS);
 	if (!reversal_samples)
 		reversal_samples = 1U;
 
 	for (i = 0; i < cnt; ++i) {
-		pcm[i] = v8_open_wave_sample(engine,
+		unsigned elapsed;
+		short carrier;
+		short am;
+		int envelope;
+		int sample;
+
+		elapsed = engine->samples_in_phase + (unsigned)i;
+		if (elapsed < leadin_samples) {
+			pcm[i] = 0;
+			continue;
+		}
+
+		carrier = v8_open_wave_sample(engine,
 					     V8OPEN_ANSAM_FREQ,
 					     (int)engine->ansam_phase_invert);
+		am = v8_open_wave_sample_phase(engine,
+					      &engine->ansam_mod_phase_q16,
+					      V8OPEN_ANSAM_AM_FREQ);
+		envelope = V8OPEN_PCM_AMPLITUDE + (am / (int)V8OPEN_ANSAM_AM_DIVISOR);
+		sample = ((int)carrier * envelope) / V8OPEN_PCM_AMPLITUDE;
+		pcm[i] = (short)sample;
 		engine->ansam_phase_samples++;
 		if (engine->ansam_phase_samples >= reversal_samples) {
 			engine->ansam_phase_samples = 0U;
@@ -2168,22 +2205,53 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 
 static int v8_open_cj_sequence_valid(struct v8_open_engine *engine);
 
+static unsigned v8_open_pcm_negotiation_usable(const struct v8_open_engine *engine)
+{
+	if (!engine)
+		return 0U;
+
+	/*
+	 * In open-stub deployments on analog side, treating raw PCM-category
+	 * hits as valid CM evidence creates frequent false positives and
+	 * cascades into no-CJ fallbacks. Only trust PCM when digital access
+	 * and digital PCM are explicitly enabled.
+	 */
+	if (!engine->cfg.advertise.access_digital ||
+	    !engine->cfg.advertise.pcm_digital)
+		return 0U;
+	if (!engine->cfg.advertise.v90 &&
+	    !engine->cfg.advertise.v92)
+		return 0U;
+	return 1U;
+}
+
 static int v8_open_cm_sequence_valid(const struct v8_open_engine *engine)
 {
 	unsigned cap_matches;
+	unsigned modulation_matches;
+	unsigned pcm_usable;
 
 	if (!engine)
 		return 0;
+
+	pcm_usable = v8_open_pcm_negotiation_usable(engine);
 
 	cap_matches = 0U;
 	if (engine->remote_v34)
 		cap_matches++;
 	if (engine->remote_v32)
 		cap_matches++;
-	if (engine->remote_pcm_present)
+	if (engine->remote_pcm_present && pcm_usable)
 		cap_matches++;
 	if (engine->remote_access_present)
 		cap_matches++;
+	modulation_matches = 0U;
+	if (engine->remote_v34)
+		modulation_matches++;
+	if (engine->remote_v32)
+		modulation_matches++;
+	if (engine->remote_pcm_present && pcm_usable)
+		modulation_matches++;
 
 	/*
 	 * Protocol token (e.g. LAPM) is optional in CM; accept CM when the
@@ -2204,15 +2272,21 @@ static int v8_open_cm_sequence_valid(const struct v8_open_engine *engine)
 	 */
 	if (!engine->remote_call_data)
 		return 0;
-	if (engine->have_proto_match || cap_matches >= 2U ||
-	    (cap_matches >= 1U && engine->rx_token_count >= 3U)) {
-		V8OPEN_DBG("cm-stub: accepting CM without exact call token tokens=%u caps=v34:%u v32:%u pcm:%u access:%u proto=%u\n",
+	/*
+	 * Avoid access-only false positives. A plausible CM should expose at
+	 * least one modulation/PCM capability, or an explicit protocol token.
+	 */
+	if (engine->have_proto_match || modulation_matches >= 1U ||
+	    (cap_matches >= 2U && engine->rx_token_count >= 4U)) {
+		V8OPEN_DBG("cm-stub: accepting CM without exact call token tokens=%u mods=%u caps=v34:%u v32:%u pcm:%u access:%u proto=%u pcm_ok=%u\n",
 			  engine->rx_token_count,
+			  modulation_matches,
 			  engine->remote_v34,
 			  engine->remote_v32,
 			  engine->remote_pcm_present,
 			  engine->remote_access_present,
-			  engine->have_proto_match);
+			  engine->have_proto_match,
+			  pcm_usable);
 		return 1;
 	}
 	return 0;
@@ -2854,6 +2928,7 @@ static void v8_open_cm_collect_start(struct v8_open_engine *engine,
 	engine->cm_collect_index = 0U;
 	engine->cm_collect_pass = 0U;
 	engine->cm_even_words = 0U;
+	engine->cm_force_suppress_count = 0U;
 	engine->rx_seq_b_count = 0U;
 	engine->rx_token_count = 0U;
 	memset(engine->rx_seq_b, 0, sizeof(engine->rx_seq_b));
@@ -2905,23 +2980,38 @@ static int v8_open_try_salvage_best_cm(struct v8_open_engine *engine)
 			cap_matches++;
 		if (engine->remote_v32)
 			cap_matches++;
-		if (engine->remote_pcm_present)
+		if (engine->remote_pcm_present &&
+		    v8_open_pcm_negotiation_usable(engine))
 			cap_matches++;
 		if (engine->remote_access_present)
 			cap_matches++;
 
-		accepted = 0U;
-		if (v8_open_cm_sequence_valid(engine))
-			accepted = 1U;
-		else if (engine->remote_call_data &&
-			 (engine->remote_v34 || engine->remote_v32 ||
-			  engine->remote_access_present || engine->remote_pcm_present ||
-			  engine->rx_token_count >= 2U))
-			accepted = 1U;
-		else if (engine->rx_token_count >= 3U &&
-			 (cap_matches >= 2U ||
-			  (cap_matches >= 1U && engine->cm_best_pass >= 8U)))
-			accepted = 1U;
+		{
+			unsigned modulation_matches;
+			unsigned pcm_usable;
+
+			pcm_usable = v8_open_pcm_negotiation_usable(engine);
+			modulation_matches = 0U;
+			if (engine->remote_v34)
+				modulation_matches++;
+			if (engine->remote_v32)
+				modulation_matches++;
+			if (engine->remote_pcm_present && pcm_usable)
+				modulation_matches++;
+
+			accepted = 0U;
+			if (v8_open_cm_sequence_valid(engine))
+				accepted = 1U;
+			else if (engine->remote_call_data &&
+				 (engine->have_proto_match ||
+				  modulation_matches >= 1U ||
+				  (cap_matches >= 2U && engine->rx_token_count >= 4U)))
+				accepted = 1U;
+			else if (engine->rx_token_count >= 4U &&
+				 modulation_matches >= 1U &&
+				 cap_matches >= 2U)
+				accepted = 1U;
+		}
 
 		if (accepted) {
 			V8OPEN_DBG("cm-stub: salvage accepted best window pass=%u shift=%u words=%u tokens=%u remote=data:%u v34:%u v32:%u pcm:%u access:%u proto=%u\n",
@@ -2981,6 +3071,9 @@ static int v8_open_cj_sequence_valid(struct v8_open_engine *engine)
 	unsigned short word5;
 	unsigned cond_a;
 	unsigned cond_b;
+	unsigned strict_ok;
+	unsigned zero_run;
+	unsigned i;
 
 	if (engine->rx_seq_a_count < 6U)
 		return 0;
@@ -2989,18 +3082,45 @@ static int v8_open_cj_sequence_valid(struct v8_open_engine *engine)
 	word5 = engine->rx_seq_a[5];
 	cond_a = ((word1 & 0x03b9U) == 0x0181U);
 	cond_b = ((word1 & 0x0391U) == 0x0081U);
+	strict_ok = 1U;
 	if (!(cond_a || cond_b))
-		return 0;
+		strict_ok = 0U;
 	if (engine->rx_seq_a[2] != 0x03ffU || engine->rx_seq_a[3] != 0x0155U)
-		return 0;
+		strict_ok = 0U;
 	if (engine->rx_seq_a[4] != word1)
-		return 0;
+		strict_ok = 0U;
 	if ((word5 & 0x03f0U) != 0x03f0U)
-		return 0;
+		strict_ok = 0U;
 
-	engine->cj_sequence_valid = 1U;
-	engine->cj_variant_bit = (word1 >> 6) & 0x01U;
-	return 1;
+	if (strict_ok) {
+		engine->cj_sequence_valid = 1U;
+		engine->cj_variant_bit = (word1 >> 6) & 0x01U;
+		return 1;
+	}
+
+	/*
+	 * Interop fallback: many peers emit CJ as three zero octets. Accept a
+	 * short run of near-0x001 framed words, allowing one-bit corruption.
+	 */
+	zero_run = 0U;
+	for (i = 0U; i < engine->rx_seq_a_count; ++i) {
+		unsigned short cj_word;
+
+		cj_word = (unsigned short)((engine->rx_seq_a[i] | 0x0001U) & 0x03ffU);
+		if (v8_open_word_hamming10(cj_word, 0x0001U) <= 1U) {
+			zero_run++;
+			if (zero_run >= 3U) {
+				engine->cj_sequence_valid = 1U;
+				engine->cj_variant_bit = 0U;
+				V8OPEN_DBG("cj-stub: accepted zero-octet CJ run words=%u\n",
+					  engine->rx_seq_a_count);
+				return 1;
+			}
+		} else {
+			zero_run = 0U;
+		}
+	}
+	return 0;
 }
 
 static void v8_open_parse_rx_sequence_words(struct v8_open_engine *engine,
@@ -3378,20 +3498,51 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 							if (wants_force &&
 							    v8_open_stage2_monobit(engine,
 									       V8OPEN_CM_STAGE2_MONO_BITS_CARRY)) {
-								V8OPEN_DBG("cm-stub: stage2 force suppressed by mono-diversity avg=%u peak=%u bits=%u/%u runs=%u/%u/%u remaining=%u hits=%u\n",
-									  avg_abs,
-									  peak_abs,
-									  engine->rx_dbg_bit0,
-									  engine->rx_dbg_bit1,
-									  engine->rx_c23e,
-									  engine->rx_c240,
-									  engine->rx_c242,
-									  phase_remaining,
-									  engine->cm_seen_count);
-								wants_force = 0U;
+								unsigned suppress_remain;
+								unsigned suppress_override;
+
+								suppress_remain = v8_open_samples_from_ms(
+									engine,
+									V8OPEN_CM_FORCE_SUPPRESS_REMAIN_MS);
+								suppress_override = 0U;
+								if (engine->cm_force_suppress_count >=
+								    V8OPEN_CM_FORCE_SUPPRESS_MAX)
+									suppress_override = 1U;
+								if (phase_remaining <= suppress_remain)
+									suppress_override = 1U;
+								if (suppress_override) {
+									V8OPEN_DBG("cm-stub: stage2 force override despite mono-diversity avg=%u peak=%u bits=%u/%u runs=%u/%u/%u remaining=%u hits=%u suppress=%u/%u\n",
+										  avg_abs,
+										  peak_abs,
+										  engine->rx_dbg_bit0,
+										  engine->rx_dbg_bit1,
+										  engine->rx_c23e,
+										  engine->rx_c240,
+										  engine->rx_c242,
+										  phase_remaining,
+										  engine->cm_seen_count,
+										  engine->cm_force_suppress_count,
+										  V8OPEN_CM_FORCE_SUPPRESS_MAX);
+								} else {
+									engine->cm_force_suppress_count++;
+									V8OPEN_DBG("cm-stub: stage2 force suppressed by mono-diversity avg=%u peak=%u bits=%u/%u runs=%u/%u/%u remaining=%u hits=%u suppress=%u/%u\n",
+										  avg_abs,
+										  peak_abs,
+										  engine->rx_dbg_bit0,
+										  engine->rx_dbg_bit1,
+										  engine->rx_c23e,
+										  engine->rx_c240,
+										  engine->rx_c242,
+										  phase_remaining,
+										  engine->cm_seen_count,
+										  engine->cm_force_suppress_count,
+										  V8OPEN_CM_FORCE_SUPPRESS_MAX);
+									wants_force = 0U;
+								}
 								}
 
 								if (wants_force) {
+									engine->cm_force_suppress_count = 0U;
 									V8OPEN_DBG("cm-stub: stage2 deadline forcing collector avg=%u peak=%u bits=%u/%u runs=%u/%u/%u remaining=%u hits=%u\n",
 									  avg_abs,
 									  peak_abs,
@@ -3500,9 +3651,14 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 		v8_open_rx_reset_collect(engine);
 		v8_open_parse_rx_sequence(engine);
 		(void)signature;
-		V8OPEN_DBG("cm-stub: detected 2/2 avg=%u peak=%u remote=data:1 v34:1 v32:1 pcm:a:1 d:0 rxwords=%u\n",
+		V8OPEN_DBG("cm-stub: detected 2/2 avg=%u peak=%u remote=data:%u v34:%u v32:%u pcm:%u access:%u rxwords=%u\n",
 			  avg_abs,
 			  peak_abs,
+			  engine->remote_call_data,
+			  engine->remote_v34,
+			  engine->remote_v32,
+			  engine->remote_pcm_present,
+			  engine->remote_access_present,
 			  engine->rx_seq_b_count);
 		return;
 	}
@@ -3599,6 +3755,60 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 
 	samples = (const short *)in;
 	signature = v8_open_capture_signature(samples, cnt, &avg_abs, &peak_abs);
+
+	/*
+	 * CJ exchange is short and sparse; run a continuous collector once we
+	 * enter ANS_WAIT_FOR_CJ instead of depending on stage2 detector handoff.
+	 */
+	if (!engine->cj_collecting) {
+		engine->cj_signature = signature;
+		engine->cj_seen_count++;
+		v8_open_cj_collect_start(engine, samples, cnt);
+		V8OPEN_DBG("cj-stub: direct collector armed avg=%u peak=%u attempt=%u prof=%u\n",
+			  avg_abs,
+			  peak_abs,
+			  engine->cj_seen_count,
+			  engine->rx_demod_profile);
+	}
+
+	if (!v8_open_rx_consume_samples(engine, samples, cnt)) {
+		if (engine->cj_collect_deadline &&
+		    engine->samples_in_phase >= engine->cj_collect_deadline) {
+			V8OPEN_DBG("cj-stub: direct collector timeout avg=%u peak=%u bits=%u/%u runs=%u/%u/%u rearming\n",
+				  avg_abs,
+				  peak_abs,
+				  engine->rx_dbg_bit0,
+				  engine->rx_dbg_bit1,
+				  engine->rx_c23e,
+				  engine->rx_c240,
+				  engine->rx_c242);
+			engine->cj_collecting = 0U;
+			engine->cj_collect_deadline = 0U;
+			engine->cj_collect_index = 0U;
+			engine->rx_demod_profile =
+				(unsigned)((engine->rx_demod_profile + 1U) & 0x03U);
+			V8OPEN_DBG("cj-stub: direct rearm toggling demod profile=%u\n",
+				  engine->rx_demod_profile);
+			v8_open_rx_start_search(engine);
+		}
+		return;
+	}
+
+	engine->cj_predetecting = 0U;
+	engine->cj_predetect_deadline = 0U;
+	engine->cj_collecting = 0U;
+	engine->cj_collect_deadline = 0U;
+	engine->cj_detected = 1U;
+	engine->cj_guard_budget = v8_open_samples_from_ms(engine, 40U);
+	engine->samples_in_phase = 0U;
+	v8_open_rx_reset_collect(engine);
+	V8OPEN_DBG("cj-stub: detected direct avg=%u peak=%u rxwords=%u variant=%u attempts=%u\n",
+		  avg_abs,
+		  peak_abs,
+		  engine->rx_seq_a_count,
+		  engine->cj_variant_bit,
+		  engine->cj_seen_count);
+	return;
 
 	if (engine->cj_predetecting) {
 		unsigned stage2_before;
@@ -4116,21 +4326,36 @@ static void v8_open_transition(struct v8_open_engine *engine,
 			else if (engine->cm_collect_deadline)
 				coll_remain = 1U;
 
-			engine->cm_predetect_deadline = pred_remain;
-			engine->cm_collect_deadline = coll_remain;
-			V8OPEN_DBG("cm-stub: entering WAIT_FOR_CM, carrying active state hits=%u pred=%u collect=%u remain_pred=%u remain_collect=%u runs=%u/%u/%u bits=%u/%u prof=%u\n",
-				  engine->cm_seen_count,
-				  engine->cm_predetecting,
-				  engine->cm_collecting,
-				  pred_remain,
-				  coll_remain,
-				  engine->rx_c23e,
-				  engine->rx_c240,
-				  engine->rx_c242,
-				  engine->rx_dbg_bit0,
-				  engine->rx_dbg_bit1,
-				  engine->rx_demod_profile);
-		} else {
+			if (!pred_remain && !coll_remain) {
+				V8OPEN_DBG("cm-stub: entering WAIT_FOR_CM, dropping stale carry with no deadline hits=%u pred=%u collect=%u runs=%u/%u/%u bits=%u/%u prof=%u\n",
+					  engine->cm_seen_count,
+					  engine->cm_predetecting,
+					  engine->cm_collecting,
+					  engine->rx_c23e,
+					  engine->rx_c240,
+					  engine->rx_c242,
+					  engine->rx_dbg_bit0,
+					  engine->rx_dbg_bit1,
+					  engine->rx_demod_profile);
+				carry_active = 0U;
+			} else {
+				engine->cm_predetect_deadline = pred_remain;
+				engine->cm_collect_deadline = coll_remain;
+				V8OPEN_DBG("cm-stub: entering WAIT_FOR_CM, carrying active state hits=%u pred=%u collect=%u remain_pred=%u remain_collect=%u runs=%u/%u/%u bits=%u/%u prof=%u\n",
+					  engine->cm_seen_count,
+					  engine->cm_predetecting,
+					  engine->cm_collecting,
+					  pred_remain,
+					  coll_remain,
+					  engine->rx_c23e,
+					  engine->rx_c240,
+					  engine->rx_c242,
+					  engine->rx_dbg_bit0,
+					  engine->rx_dbg_bit1,
+					  engine->rx_demod_profile);
+			}
+		}
+		if (!carry_active) {
 		/*
 		 * Entering WAIT_FOR_CM should start with a fresh detector window.
 		 * Carrying stale ANS_SEND_ANSAM collector state causes immediate
@@ -4154,6 +4379,7 @@ static void v8_open_transition(struct v8_open_engine *engine,
 		engine->cm_collect_index = 0U;
 		engine->cm_collect_pass = 0U;
 		engine->cm_even_words = 0U;
+		engine->cm_force_suppress_count = 0U;
 		engine->cm_signature = 0U;
 		engine->cm_best_pass = 0U;
 		engine->cm_best_count = 0U;
@@ -4359,7 +4585,8 @@ static void v8_open_transition(struct v8_open_engine *engine,
 	}
 	if (next_phase == V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM &&
 	    engine->cj_detected &&
-	    !engine->ans_cm_timeout_fallback) {
+	    !engine->ans_cm_timeout_fallback &&
+	    !engine->ans_cj_timeout_fallback) {
 		engine->ans_cj_timeout_fallback = 0U;
 	}
 
@@ -4408,6 +4635,7 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->total_samples = 0U;
 	engine->last_status = V8_OPEN_STATUS_INIT;
 	engine->tone_phase_q16 = 0U;
+	engine->ansam_mod_phase_q16 = 0U;
 	engine->ansam_phase_samples = 0U;
 	engine->ansam_phase_invert = 0U;
 	engine->tx_bit_pos = 0U;
@@ -4434,6 +4662,7 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->cm_collect_index = 0U;
 	engine->cm_collect_pass = 0U;
 	engine->cm_even_words = 0U;
+	engine->cm_force_suppress_count = 0U;
 	engine->cm_best_pass = 0U;
 	engine->cm_best_count = 0U;
 	memset(engine->cm_best_seq, 0, sizeof(engine->cm_best_seq));
