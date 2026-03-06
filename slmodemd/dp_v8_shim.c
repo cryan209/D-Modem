@@ -385,6 +385,7 @@ static void v8_shim_open_handoff(struct v8_blob_wrapper *blob,
 				 struct v8_shim_state *state)
 {
 	enum DP_ID next_dp;
+	unsigned force_conservative_runtime;
 	long io_delay;
 
 	if (state->handoff_emitted)
@@ -401,23 +402,40 @@ static void v8_shim_open_handoff(struct v8_blob_wrapper *blob,
 	} else if (state->use_open_stub &&
 		   blob->v8_engine &&
 		   v8_open_answer_cj_timeout(blob->v8_engine)) {
-		next_dp = state->open_timeout_dp;
-		V8SHIM_DBG("open handoff: no-CJ timeout fallback, forcing next_dp=%d target=%d\n",
+		int recommended_dp;
+
+		recommended_dp = v8_open_answer_recommended_dp(blob->v8_engine);
+		if (recommended_dp == DP_V92 || recommended_dp == DP_V90)
+			recommended_dp = DP_V34;
+		if (recommended_dp > 0 &&
+		    v8_shim_open_target_allows(blob->target_dp_id,
+					       (enum DP_ID)recommended_dp)) {
+			next_dp = (enum DP_ID)recommended_dp;
+		} else {
+			next_dp = state->open_timeout_dp;
+		}
+		V8SHIM_DBG("open handoff: no-CJ timeout fallback, forcing next_dp=%d target=%d preferred=%d\n",
 			  next_dp,
-			  blob->target_dp_id);
+			  blob->target_dp_id,
+			  recommended_dp);
 	}
+	force_conservative_runtime = (next_dp == state->open_timeout_dp) ? 1U : 0U;
 	io_delay = modem_get_param(blob->base.modem, MDMPRM_IODELAY);
 	blob->handoff_delay = (int)(io_delay + 0x270);
 
 	if (blob->dsp_info) {
-		blob->dsp_info->qc_lapm = 0;
-		blob->dsp_info->qc_index = 9;
+		if (force_conservative_runtime) {
+			blob->dsp_info->qc_lapm = 0;
+			blob->dsp_info->qc_index = 9;
+		}
 	}
 
 	if (blob->dp_runtime) {
 		blob->dp_runtime->flags0 |= 0x01;
-		blob->dp_runtime->flags2 = 0x00;
-		blob->dp_runtime->qc_index = 9;
+		if (force_conservative_runtime) {
+			blob->dp_runtime->flags2 = 0x00;
+			blob->dp_runtime->qc_index = 9;
+		}
 	}
 
 	modem_set_param(blob->base.modem, MDMPRM_DP_REQUESTED, next_dp);

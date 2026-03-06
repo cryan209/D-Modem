@@ -28,6 +28,8 @@
 #define V8OPEN_ANSAM_SEND_MS (V8OPEN_ANSAM_LEADIN_MS + V8OPEN_ANSAM_TONE_MS)
 #define V8OPEN_ANSAM_AM_DIVISOR 5U
 #define V8OPEN_CM_WAIT_TAIL_MS 1200U
+#define V8OPEN_CJ_WAIT_MS 1200U
+#define V8OPEN_CJ_COLLECT_MIN_MS 420U
 #define V8OPEN_CM_COLLECT_WORDS_LONG ((V8OPEN_CM_WORDS * 2U) + 4U)
 #define V8OPEN_CM_COLLECT_WORDS_WAIT V8OPEN_CM_WORDS
 #define V8OPEN_CM_COLLECT_BURST 2U
@@ -37,6 +39,7 @@
 #define V8OPEN_DEMOD_HISTORY_SAMPLES 40U
 #define V8OPEN_CM_STALL_WORDS 8U
 #define V8OPEN_CM_INVALID_RELOCK_WORDS 12U
+#define V8OPEN_CJ_INVALID_RELOCK_WORDS 12U
 #define V8OPEN_CM_STAGE2_WAIT_MS 80U
 #define V8OPEN_CM_STAGE2_WAIT_CAP_MS 120U
 #define V8OPEN_CM_STAGE2_WAIT_LOG_MASK 0x003fU
@@ -326,6 +329,7 @@ struct v8_open_engine {
 	unsigned ans_predetector_seeded;
 	unsigned short rx_process_state;
 	struct v8_open_jm_shim jm;
+	enum DP_ID preferred_dp;
 	unsigned tone_phase_q16;
 	unsigned ansam_mod_phase_q16;
 	unsigned ansam_phase_samples;
@@ -1028,19 +1032,32 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 		/* Real JM dwell is about 0.82 s before V8_OK. */
 		return v8_open_samples_from_ms(engine, 820U);
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
+	{
+		unsigned wait_tail;
+		unsigned detector_deadline;
+
+		wait_tail = v8_open_samples_from_ms(engine, V8OPEN_CJ_WAIT_MS);
+		if (engine->cj_detected && engine->cj_guard_budget)
+			return engine->cj_guard_budget < wait_tail ?
+				engine->cj_guard_budget : wait_tail;
+
+		detector_deadline = 0U;
 		if (engine->cj_predetecting) {
 			if (engine->ans_det_06 && engine->cj_predetect_deadline)
-				return engine->cj_predetect_deadline;
-			if (engine->det_e60)
-				return engine->det_e60;
-			if (engine->cj_predetect_deadline)
-				return engine->cj_predetect_deadline;
+				detector_deadline = engine->cj_predetect_deadline;
+			else if (engine->det_e60)
+				detector_deadline = engine->det_e60;
+			else if (engine->cj_predetect_deadline)
+				detector_deadline = engine->cj_predetect_deadline;
 		}
-		if (engine->cj_collecting && engine->cj_collect_deadline)
-			return engine->cj_collect_deadline;
-		if (engine->cj_detected && engine->cj_guard_budget)
-			return engine->cj_guard_budget;
-		return v8_open_samples_from_ms(engine, 420U);
+		if (engine->cj_collecting && engine->cj_collect_deadline &&
+		    engine->cj_collect_deadline > detector_deadline)
+			detector_deadline = engine->cj_collect_deadline;
+
+		if (detector_deadline > wait_tail)
+			return detector_deadline;
+		return wait_tail;
+	}
 	case V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM:
 		/*
 		 * V.8 8.2.2 timeout fallback inserts a 75 ± 5 ms no-signal gap.
@@ -2680,12 +2697,33 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 			}
 		}
 	} else if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CJ) {
-		if (engine->cj_collect_index < V8OPEN_CJ_WORDS)
+		unsigned cj_valid;
+
+		if (engine->cj_collect_index < V8OPEN_CJ_WORDS) {
 			engine->rx_seq_a[engine->cj_collect_index++] = word;
-		if (engine->cj_collect_index >= V8OPEN_CJ_WORDS) {
-			engine->rx_seq_a_count = V8OPEN_CJ_WORDS;
-			if (v8_open_cj_sequence_valid(engine))
-				return 1;
+		} else {
+			memmove(engine->rx_seq_a,
+				engine->rx_seq_a + 1,
+				(V8OPEN_CJ_WORDS - 1U) * sizeof(engine->rx_seq_a[0]));
+			engine->rx_seq_a[V8OPEN_CJ_WORDS - 1U] = word;
+			engine->cj_collect_index++;
+		}
+
+		engine->rx_seq_a_count = engine->cj_collect_index < V8OPEN_CJ_WORDS ?
+			engine->cj_collect_index : V8OPEN_CJ_WORDS;
+		cj_valid = 0U;
+		if (engine->rx_seq_a_count >= 3U)
+			cj_valid = v8_open_cj_sequence_valid(engine);
+		if (cj_valid)
+			return 1;
+		if (engine->cj_collect_index >= V8OPEN_CJ_INVALID_RELOCK_WORDS) {
+			V8OPEN_DBG("cj-stub: invalid CJ window idx=%u raw=%03x norm=%03x runs=%u/%u/%u, re-locking preamble search\n",
+				  engine->cj_collect_index,
+				  (unsigned)raw_word,
+				  (unsigned)word,
+				  engine->rx_c23e,
+				  engine->rx_c240,
+				  engine->rx_c242);
 			engine->rx_word_sync = 0U;
 			engine->rx_align_locked = 0U;
 			engine->rx_skip_samples = 0U;
@@ -3051,6 +3089,8 @@ static void v8_open_cj_collect_start(struct v8_open_engine *engine,
 				     int cnt)
 {
 	unsigned samples_per_bit;
+	unsigned collect_span;
+	unsigned collect_min;
 
 	engine->cj_collecting = 1U;
 	engine->cj_collect_index = 0U;
@@ -3059,8 +3099,11 @@ static void v8_open_cj_collect_start(struct v8_open_engine *engine,
 	engine->cj_variant_bit = 0U;
 	memset(engine->rx_seq_a, 0, sizeof(engine->rx_seq_a));
 	samples_per_bit = v8_open_rx_samples_per_bit(engine);
-	engine->cj_collect_deadline = engine->samples_in_phase +
-		((V8OPEN_CJ_WORDS + 2U) * 10U * samples_per_bit);
+	collect_span = (V8OPEN_CJ_WORDS + 2U) * 10U * samples_per_bit;
+	collect_min = v8_open_samples_from_ms(engine, V8OPEN_CJ_COLLECT_MIN_MS);
+	if (collect_span < collect_min)
+		collect_span = collect_min;
+	engine->cj_collect_deadline = engine->samples_in_phase + collect_span;
 	v8_open_rx_start_collect(engine, V8_OPEN_RX_COLLECT_CJ, samples, cnt);
 	v8_open_rx_seed_sync_sequence(engine);
 }
@@ -3068,6 +3111,9 @@ static void v8_open_cj_collect_start(struct v8_open_engine *engine,
 static int v8_open_cj_sequence_valid(struct v8_open_engine *engine)
 {
 	unsigned short word1;
+	unsigned short word2;
+	unsigned short word3;
+	unsigned short word4;
 	unsigned short word5;
 	unsigned cond_a;
 	unsigned cond_b;
@@ -3075,27 +3121,33 @@ static int v8_open_cj_sequence_valid(struct v8_open_engine *engine)
 	unsigned zero_run;
 	unsigned i;
 
-	if (engine->rx_seq_a_count < 6U)
+	if (engine->rx_seq_a_count < 3U)
 		return 0;
 
-	word1 = engine->rx_seq_a[1];
-	word5 = engine->rx_seq_a[5];
-	cond_a = ((word1 & 0x03b9U) == 0x0181U);
-	cond_b = ((word1 & 0x0391U) == 0x0081U);
-	strict_ok = 1U;
-	if (!(cond_a || cond_b))
-		strict_ok = 0U;
-	if (engine->rx_seq_a[2] != 0x03ffU || engine->rx_seq_a[3] != 0x0155U)
-		strict_ok = 0U;
-	if (engine->rx_seq_a[4] != word1)
-		strict_ok = 0U;
-	if ((word5 & 0x03f0U) != 0x03f0U)
-		strict_ok = 0U;
+	if (engine->rx_seq_a_count >= 6U) {
+		word1 = engine->rx_seq_a[1];
+		word2 = engine->rx_seq_a[2];
+		word3 = engine->rx_seq_a[3];
+		word4 = engine->rx_seq_a[4];
+		word5 = engine->rx_seq_a[5];
+		cond_a = ((word1 & 0x03b9U) == 0x0181U);
+		cond_b = ((word1 & 0x0391U) == 0x0081U);
+		strict_ok = 1U;
+		if (!(cond_a || cond_b))
+			strict_ok = 0U;
+		if (v8_open_word_hamming10(word2, 0x03ffU) > 1U ||
+		    v8_open_word_hamming10(word3, 0x0155U) > 1U)
+			strict_ok = 0U;
+		if (v8_open_word_hamming10(word4, word1) > 1U)
+			strict_ok = 0U;
+		if ((word5 & 0x03f0U) != 0x03f0U)
+			strict_ok = 0U;
 
-	if (strict_ok) {
-		engine->cj_sequence_valid = 1U;
-		engine->cj_variant_bit = (word1 >> 6) & 0x01U;
-		return 1;
+		if (strict_ok) {
+			engine->cj_sequence_valid = 1U;
+			engine->cj_variant_bit = (word1 >> 6) & 0x01U;
+			return 1;
+		}
 	}
 
 	/*
@@ -4011,21 +4063,50 @@ static unsigned v8_open_phase_status(const struct v8_open_engine *engine,
 
 static enum DP_ID v8_open_preferred_dp(const struct v8_open_engine *engine)
 {
+	/*
+	 * When CM was detected but capability tokens are weak/ambiguous,
+	 * prefer conservative non-PCM fallback instead of jumping back to the
+	 * target DP and forcing V.34 training on bad evidence.
+	 */
+	if (engine->cm_detected) {
+		if (engine->cfg.advertise.v92 &&
+		    engine->cfg.advertise.access_digital &&
+		    engine->cfg.advertise.pcm_digital &&
+		    engine->remote_pcm_present)
+			return DP_V92;
+		if (engine->cfg.advertise.v90 &&
+		    engine->cfg.advertise.access_digital &&
+		    engine->cfg.advertise.pcm_digital &&
+		    engine->remote_pcm_present)
+			return DP_V90;
+		if (engine->cfg.advertise.v34 && engine->remote_v34)
+			return DP_V34;
+		if (engine->cfg.advertise.v32)
+			return DP_V32;
+		if (engine->cfg.advertise.v22)
+			return DP_V22;
+		return (enum DP_ID)engine->cfg.target_dp_id;
+	}
+
 	if (engine->cfg.advertise.v92 &&
 	    engine->cfg.advertise.access_digital &&
 	    engine->cfg.advertise.pcm_digital &&
-	    (!engine->cm_detected || engine->remote_pcm_present))
+	    engine->remote_pcm_present)
 		return DP_V92;
 	if (engine->cfg.advertise.v90 &&
 	    engine->cfg.advertise.access_digital &&
 	    engine->cfg.advertise.pcm_digital &&
-	    (!engine->cm_detected || engine->remote_pcm_present))
+	    engine->remote_pcm_present)
 		return DP_V90;
 	if (engine->cfg.advertise.v34 &&
-	    (!engine->cm_detected || engine->remote_v34))
+	    engine->remote_v34)
 		return DP_V34;
 	if (engine->cfg.advertise.v32 &&
-	    (!engine->cm_detected || engine->remote_v32))
+	    engine->remote_v32)
+		return DP_V32;
+	if (engine->cfg.advertise.v34)
+		return DP_V34;
+	if (engine->cfg.advertise.v32)
 		return DP_V32;
 	if (engine->cfg.advertise.v22)
 		return DP_V22;
@@ -4063,6 +4144,7 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	jm->lapm_supported = engine->cfg.advertise.lapm && engine->remote_lapm;
 	jm->quick_connect_supported = engine->cfg.advertise.quick_connect;
 	jm->preferred_dp = v8_open_preferred_dp(engine);
+	engine->preferred_dp = jm->preferred_dp;
 	jm->access_tag = 0x0161;
 	jm->access_octet = v8_open_decode_word_octet(jm->access_tag);
 	jm->access_call_cellular = engine->cfg.advertise.access_call_cellular;
@@ -4691,6 +4773,7 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->rx_orient_flip = 0U;
 	engine->ans_cm_timeout_fallback = 0U;
 	engine->ans_cj_timeout_fallback = 0U;
+	engine->preferred_dp = (enum DP_ID)cfg->target_dp_id;
 	v8_open_rx_reset_collect(engine);
 	if (cfg->answer_mode)
 		v8_open_answer_predetector_seed(engine);
@@ -4820,4 +4903,15 @@ int v8_open_answer_cj_timeout(const void *engine_ptr)
 		return 0;
 
 	return engine->ans_cj_timeout_fallback ? 1 : 0;
+}
+
+int v8_open_answer_recommended_dp(const void *engine_ptr)
+{
+	const struct v8_open_engine *engine;
+
+	engine = (const struct v8_open_engine *)engine_ptr;
+	if (!engine)
+		return 0;
+
+	return (int)engine->preferred_dp;
 }

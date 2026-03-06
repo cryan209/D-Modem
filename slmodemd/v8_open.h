@@ -55,5 +55,6 @@ void  v8_open_delete(void *engine);
 int   v8_open_process(void *engine, void *in, void *out, int cnt);
 int   v8_open_answer_cm_timeout(const void *engine);
 int   v8_open_answer_cj_timeout(const void *engine);
+int   v8_open_answer_recommended_dp(const void *engine);
 
 #endif /* __V8_OPEN_H__ */
