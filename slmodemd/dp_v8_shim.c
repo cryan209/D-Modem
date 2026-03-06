@@ -398,6 +398,13 @@ static void v8_shim_open_handoff(struct v8_blob_wrapper *blob,
 		V8SHIM_DBG("open handoff: no-CM timeout fallback, forcing next_dp=%d target=%d\n",
 			  next_dp,
 			  blob->target_dp_id);
+	} else if (state->use_open_stub &&
+		   blob->v8_engine &&
+		   v8_open_answer_cj_timeout(blob->v8_engine)) {
+		next_dp = state->open_timeout_dp;
+		V8SHIM_DBG("open handoff: no-CJ timeout fallback, forcing next_dp=%d target=%d\n",
+			  next_dp,
+			  blob->target_dp_id);
 	}
 	io_delay = modem_get_param(blob->base.modem, MDMPRM_IODELAY);
 	blob->handoff_delay = (int)(io_delay + 0x270);
