@@ -30,6 +30,7 @@
 #define V8OPEN_CM_WAIT_TAIL_MS 800U
 #define V8OPEN_CJ_WAIT_MS 5000U
 #define V8OPEN_CJ_COLLECT_MIN_MS 420U
+#define V8OPEN_CJ_TX_JM_MS 180U
 #define V8OPEN_CM_TIMEOUT_JM_PROMOTE_MIN_CANDIDATES 0x7fffffffU
 #define V8OPEN_CM_COLLECT_WORDS_LONG ((V8OPEN_CM_WORDS * 2U) + 4U)
 #define V8OPEN_CM_COLLECT_WORDS_WAIT V8OPEN_CM_WORDS
@@ -970,8 +971,14 @@ static void v8_open_emit_phase(struct v8_open_engine *engine, void *out, int cnt
 		memset(out, 0, (size_t)cnt * 2U);
 		break;
 	case V8_OPEN_PHASE_ANS_SEND_JM:
-	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
 		v8_open_emit_v21(engine, pcm, cnt, 1);
+		break;
+	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
+		if (engine->samples_in_phase <
+		    v8_open_samples_from_ms(engine, V8OPEN_CJ_TX_JM_MS))
+			v8_open_emit_v21(engine, pcm, cnt, 1);
+		else
+			memset(out, 0, (size_t)cnt * 2U);
 		break;
 	case V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM:
 		if (engine->ans_cm_timeout_fallback)
@@ -2357,6 +2364,8 @@ static int v8_open_rx_try_lock_preamble(struct v8_open_engine *engine,
 	unsigned inv_word;
 	unsigned rev_word;
 	unsigned rev_inv_word;
+	unsigned preamble_expected;
+	unsigned preamble_alt;
 	unsigned match_raw;
 	unsigned match_inv;
 	unsigned match_rev;
@@ -2367,10 +2376,18 @@ static int v8_open_rx_try_lock_preamble(struct v8_open_engine *engine,
 	inv_word = raw10 ^ 0x03ffU;
 	rev_word = v8_open_reverse_word10((unsigned short)raw10);
 	rev_inv_word = rev_word ^ 0x03ffU;
-	match_raw = (raw10 == engine->rx_preamble_expected);
-	match_inv = (inv_word == engine->rx_preamble_expected);
-	match_rev = (rev_word == engine->rx_preamble_expected);
-	match_rinv = (rev_inv_word == engine->rx_preamble_expected);
+	preamble_expected = engine->rx_preamble_expected;
+	preamble_alt = 0U;
+	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CJ)
+		preamble_alt = 0x03ffU;
+	match_raw = (raw10 == preamble_expected) ||
+		(preamble_alt && raw10 == preamble_alt);
+	match_inv = (inv_word == preamble_expected) ||
+		(preamble_alt && inv_word == preamble_alt);
+	match_rev = (rev_word == preamble_expected) ||
+		(preamble_alt && rev_word == preamble_alt);
+	match_rinv = (rev_inv_word == preamble_expected) ||
+		(preamble_alt && rev_inv_word == preamble_alt);
 
 	if (!match_raw && !match_inv && !match_rev && !match_rinv)
 		return 0;
@@ -2440,7 +2457,7 @@ static int v8_open_rx_try_lock_preamble(struct v8_open_engine *engine,
 	v8_open_rx_seed_sync_sequence(engine);
 	V8OPEN_DBG("rx-lock: mode=%s preamble=%03x orient=%s c23a=%03x runs=%u/%u/%u\n",
 		  engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM ? "cm" : "cj",
-		  engine->rx_preamble_expected,
+		  preamble_expected,
 		  orient,
 		  (unsigned)(engine->rx_c23a & 0x0fffU),
 		  engine->rx_c23e,
