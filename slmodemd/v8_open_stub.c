@@ -31,13 +31,13 @@
 #define V8OPEN_MAX_SAMPLES_PER_BIT 64U
 #define V8OPEN_DEMOD_STAGE_SAMPLES 12U
 #define V8OPEN_DEMOD_HISTORY_SAMPLES 40U
-#define V8OPEN_CM_STALL_WORDS 16U
-#define V8OPEN_CM_INVALID_RELOCK_WORDS 20U
+#define V8OPEN_CM_STALL_WORDS 8U
+#define V8OPEN_CM_INVALID_RELOCK_WORDS 12U
 #define V8OPEN_CM_STAGE2_WAIT_MS 80U
 #define V8OPEN_CM_STAGE2_WAIT_CAP_MS 120U
 #define V8OPEN_CM_STAGE2_WAIT_LOG_MASK 0x003fU
 #define V8OPEN_CM_STAGE2_MONO_BITS_CARRY 96U
-#define V8OPEN_CM_STAGE2_MONO_BITS_WAIT 256U
+#define V8OPEN_CM_STAGE2_MONO_BITS_WAIT 160U
 #define V8OPEN_CM_FORCE_COLLECT_HITS 192U
 #define V8OPEN_CM_FORCE_COLLECT_BITS 96U
 #define V8OPEN_CM_FORCE_COLLECT_REMAIN_MS 280U
@@ -3353,31 +3353,46 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 						  (unsigned)(engine->cm_predetect_deadline - engine->samples_in_phase));
 					}
 					return;
-				}
-					if (!handoff_ready) {
-						unsigned force_collect;
-
-						force_collect = 0U;
-						if (engine->phase == V8_OPEN_PHASE_ANS_WAIT_FOR_CM) {
+					}
+						if (!handoff_ready) {
+							if (engine->phase == V8_OPEN_PHASE_ANS_WAIT_FOR_CM) {
 							unsigned stage2_bits;
 							unsigned phase_budget;
 							unsigned phase_remaining;
+							unsigned wants_force;
 
 							stage2_bits = engine->rx_dbg_bit0 + engine->rx_dbg_bit1;
 							phase_budget = v8_open_phase_budget(engine, engine->phase);
 							phase_remaining = phase_budget > engine->samples_in_phase ?
 								(phase_budget - engine->samples_in_phase) : 0U;
-
+							wants_force = 0U;
 							if (engine->cm_seen_count >= V8OPEN_CM_FORCE_COLLECT_HITS)
-								force_collect = 1U;
+								wants_force = 1U;
 							if (stage2_bits >= V8OPEN_CM_FORCE_COLLECT_BITS &&
 							    engine->cm_seen_count >= (V8OPEN_CM_FORCE_COLLECT_HITS / 2U))
-								force_collect = 1U;
+								wants_force = 1U;
 							if (phase_remaining <=
 							    v8_open_samples_from_ms(engine, V8OPEN_CM_FORCE_COLLECT_REMAIN_MS))
-								force_collect = 1U;
-							if (force_collect) {
-								V8OPEN_DBG("cm-stub: stage2 deadline forcing collector avg=%u peak=%u bits=%u/%u runs=%u/%u/%u remaining=%u hits=%u\n",
+								wants_force = 1U;
+
+							if (wants_force &&
+							    v8_open_stage2_monobit(engine,
+									       V8OPEN_CM_STAGE2_MONO_BITS_CARRY)) {
+								V8OPEN_DBG("cm-stub: stage2 force suppressed by mono-diversity avg=%u peak=%u bits=%u/%u runs=%u/%u/%u remaining=%u hits=%u\n",
+									  avg_abs,
+									  peak_abs,
+									  engine->rx_dbg_bit0,
+									  engine->rx_dbg_bit1,
+									  engine->rx_c23e,
+									  engine->rx_c240,
+									  engine->rx_c242,
+									  phase_remaining,
+									  engine->cm_seen_count);
+								wants_force = 0U;
+								}
+
+								if (wants_force) {
+									V8OPEN_DBG("cm-stub: stage2 deadline forcing collector avg=%u peak=%u bits=%u/%u runs=%u/%u/%u remaining=%u hits=%u\n",
 									  avg_abs,
 									  peak_abs,
 									  engine->rx_dbg_bit0,
