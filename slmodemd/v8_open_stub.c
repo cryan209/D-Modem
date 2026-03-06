@@ -28,7 +28,7 @@
 #define V8OPEN_DEMOD_STAGE_SAMPLES 12U
 #define V8OPEN_DEMOD_HISTORY_SAMPLES 40U
 #define V8OPEN_CM_STALL_WORDS 16U
-#define V8OPEN_CM_INVALID_RELOCK_WORDS 8U
+#define V8OPEN_CM_INVALID_RELOCK_WORDS 20U
 #define V8OPEN_AGC_FIR_SAMPLES 40U
 #define V8OPEN_AGC_POWER_RING 36U
 #define V8OPEN_AGC_BLOCK_SAMPLES 4U
@@ -1364,6 +1364,41 @@ static void v8_open_rx_seq_a_push(struct v8_open_engine *engine,
 	engine->rx_seq_a[engine->rx_seq_a_count++] = word;
 }
 
+static int v8_open_word_match_category(unsigned short word,
+				       unsigned short category_masked)
+{
+	unsigned short w;
+	unsigned short c;
+
+	w = (unsigned short)(word & 0x03ffU);
+	c = (unsigned short)(category_masked & 0x03ffU);
+	if ((w & 0x03f1U) == (c & 0x03f1U))
+		return 1;
+
+	/* Tolerate occasional bit9 contamination from framing slips. */
+	w = (unsigned short)(w & 0x01ffU);
+	if ((w & 0x03f1U) == (c & 0x03f1U))
+		return 1;
+
+	/* Tolerate missing bit8 in weak-lock windows. */
+	if ((w & 0x01f1U) == (c & 0x01f1U))
+		return 1;
+
+	return 0;
+}
+
+static int v8_open_word_match_mod_ext(unsigned short word)
+{
+	unsigned short w;
+
+	w = (unsigned short)(word & 0x03ffU);
+	if ((w & 0x0039U) == 0x0011U)
+		return 1;
+
+	w = (unsigned short)(w & 0x01ffU);
+	return ((w & 0x0039U) == 0x0011U) ? 1 : 0;
+}
+
 static unsigned short v8_open_find_rx_token(const struct v8_open_engine *engine,
 					    unsigned short category_masked,
 					    unsigned nth)
@@ -1379,7 +1414,7 @@ static unsigned short v8_open_find_rx_token(const struct v8_open_engine *engine,
 			unsigned j;
 
 			token = engine->rx_tokens[i];
-			if ((token & 0xfff1U) != 0x0141U)
+			if (!v8_open_word_match_category(token, 0x0141U))
 				continue;
 
 			ext_seen = 0U;
@@ -1387,7 +1422,7 @@ static unsigned short v8_open_find_rx_token(const struct v8_open_engine *engine,
 				unsigned short ext;
 
 				ext = engine->rx_tokens[j];
-				if ((ext & 0x0039U) != 0x0011U)
+				if (!v8_open_word_match_mod_ext(ext))
 					break;
 				ext_seen++;
 				if (ext_seen == nth)
@@ -1403,7 +1438,7 @@ static unsigned short v8_open_find_rx_token(const struct v8_open_engine *engine,
 		unsigned short token;
 
 		token = engine->rx_tokens[i];
-		if ((token & 0xfff1U) != category_masked)
+		if (!v8_open_word_match_category(token, category_masked))
 			continue;
 		if (seen == nth)
 			return token;
@@ -2318,20 +2353,31 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 				  engine->rx_c242);
 		}
 	}
-	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM) {
-		if (engine->cm_collect_index == 0U) {
-			if (word == 0x0000U) {
-				engine->rx_invert_bits ^= 1U;
-				word ^= 0x03ffU;
-				V8OPEN_DBG("cm-stub: preamble polarity adjust raw=%03x norm=%03x invert=%u\n",
-					  (unsigned)raw_word,
-					  (unsigned)word,
-					  engine->rx_invert_bits);
+		if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM) {
+			if (engine->cm_collect_index == 0U) {
+				if (word == 0x0000U) {
+					engine->rx_invert_bits ^= 1U;
+					word ^= 0x03ffU;
+					V8OPEN_DBG("cm-stub: preamble polarity adjust raw=%03x norm=%03x invert=%u\n",
+						  (unsigned)raw_word,
+						  (unsigned)word,
+						  engine->rx_invert_bits);
+				}
+				if (word != 0x03ffU &&
+				    word != 0x000fU) {
+					/*
+					 * Keep CM decode as a sliding window even if lock
+					 * lands just after preamble; seed one preamble word
+					 * and continue with the current payload candidate.
+					 */
+					engine->rx_seq_b[0] = 0x03ffU;
+					engine->cm_collect_index = 1U;
+					engine->rx_seq_b_count = 1U;
+					V8OPEN_DBG("cm-stub: start gate bypass raw=%03x norm=%03x, seeding preamble and continuing\n",
+						  (unsigned)raw_word,
+						  (unsigned)word);
+				}
 			}
-			if (word != 0x03ffU &&
-			    word != 0x000fU)
-				return 0;
-		}
 
 		if (engine->cm_collect_index < V8OPEN_CM_WORDS) {
 			engine->rx_seq_b[engine->cm_collect_index++] = word;
@@ -2366,18 +2412,25 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 			 * with rx_bits_to_word=1, the next emit happens after 9 bits.
 			 */
 			engine->rx_bits_to_word = 1U;
-			engine->cm_collect_index = 0U;
+			/*
+			 * Avoid re-entering the strict idx=0 preamble gate right
+			 * after a framing nudge; seed one preamble word and keep
+			 * sliding so payload-like words can be parsed.
+			 */
+			memset(engine->rx_seq_b, 0, sizeof(engine->rx_seq_b));
+			engine->rx_seq_b[0] = 0x03ffU;
+			engine->cm_collect_index = 1U;
 			engine->cm_collect_pass = 0U;
 			engine->cm_even_words = 0U;
-			engine->rx_seq_b_count = 0U;
-			memset(engine->rx_seq_b, 0, sizeof(engine->rx_seq_b));
+			engine->rx_seq_b_count = 1U;
 			return 0;
 		}
 		if (engine->cm_collect_index >= V8OPEN_CM_STALL_WORDS &&
-		    engine->cm_collect_pass == 0U) {
+		    engine->cm_collect_pass <= 1U) {
 			v8_open_cm_advance_phase_scan(engine);
-			V8OPEN_DBG("cm-stub: framing stall idx=%u raw=%03x norm=%03x runs=%u/%u/%u, phase-scan skip=%u, re-locking preamble search\n",
+			V8OPEN_DBG("cm-stub: framing stall idx=%u pass=%u raw=%03x norm=%03x runs=%u/%u/%u, phase-scan skip=%u, re-locking preamble search\n",
 				  engine->cm_collect_index,
+				  engine->cm_collect_pass,
 				  (unsigned)raw_word,
 				  (unsigned)word,
 				  engine->rx_c23e,
@@ -2561,6 +2614,12 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 					 * (space_energy - mark_energy) > 0.
 					 */
 					bit = space_energy > mark_energy ? 1U : 0U;
+					/*
+					 * Profile bit1 enables polarity scan so timeout
+					 * rearms can explore both mark/space mappings.
+					 */
+					if (engine && (engine->rx_demod_profile & 0x02U))
+						bit ^= 1U;
 				}
 
 				if (mark_energy <= V8OPEN_DEMOD_ENERGY_FLOOR &&
@@ -2726,7 +2785,9 @@ static int v8_open_cj_sequence_valid(struct v8_open_engine *engine)
 	return 1;
 }
 
-static void v8_open_parse_rx_sequence(struct v8_open_engine *engine)
+static void v8_open_parse_rx_sequence_words(struct v8_open_engine *engine,
+					    const unsigned short *words,
+					    unsigned count)
 {
 	unsigned i;
 
@@ -2742,73 +2803,216 @@ static void v8_open_parse_rx_sequence(struct v8_open_engine *engine)
 	engine->matched_call_word = 0U;
 	engine->matched_proto_word = 0U;
 
-	for (i = 0U; i < engine->rx_seq_b_count; ++i) {
+	for (i = 0U; i < count; ++i) {
 		unsigned short word;
 
-		word = engine->rx_seq_b[i];
+		word = (unsigned short)(words[i] & 0x03ffU);
 
-		if ((word & 0xfff1U) == 0x0101U) {
-			if (word == 0x0107U || word == 0x0109U) {
+		if (v8_open_word_match_category(word, 0x0101U)) {
+			unsigned short call_word;
+
+			call_word = (unsigned short)(word & 0x01ffU);
+			if (call_word == 0x0007U || call_word == 0x0107U) {
 				engine->remote_call_data = 1U;
 				engine->have_call_match = 1U;
-				engine->matched_call_word = word;
+				engine->matched_call_word = 0x0107U;
+				call_word = 0x0107U;
+			} else if (call_word == 0x0009U || call_word == 0x0109U) {
+				engine->remote_call_data = 1U;
+				engine->have_call_match = 1U;
+				engine->matched_call_word = 0x0109U;
+				call_word = 0x0109U;
+			} else {
+				call_word = (unsigned short)(call_word | 0x0100U);
 			}
-			v8_open_rx_push_token(engine, word);
+			v8_open_rx_push_token(engine, call_word);
 			continue;
 		}
 
-		if ((word & 0xfff1U) == 0x0141U) {
+		if (v8_open_word_match_category(word, 0x0141U)) {
 			unsigned short mod0;
 
-			mod0 = word;
+			mod0 = (unsigned short)((word & 0x01ffU) | 0x0100U);
 			engine->remote_v34 = (mod0 & 0x0040U) ? 1U : 0U;
 			engine->remote_pcm_present = (mod0 & 0x0020U) ? 1U : 0U;
 			v8_open_rx_push_token(engine, mod0);
 
-			if ((i + 1U) < engine->rx_seq_b_count &&
-			    (engine->rx_seq_b[i + 1U] & 0x0039U) == 0x0011U) {
+			if ((i + 1U) < count &&
+			    v8_open_word_match_mod_ext(words[i + 1U])) {
 				unsigned short mod1;
 
-				mod1 = engine->rx_seq_b[i + 1U];
+				mod1 = (unsigned short)(words[i + 1U] & 0x01ffU);
+				mod1 |= 0x0001U;
 				engine->remote_v32 = (mod1 & 0x0001U) ? 1U : 0U;
 				v8_open_rx_push_token(engine, mod1);
 				i++;
 			}
-			if ((i + 1U) < engine->rx_seq_b_count &&
-			    (engine->rx_seq_b[i + 1U] & 0x0039U) == 0x0011U) {
-				v8_open_rx_push_token(engine, engine->rx_seq_b[i + 1U]);
+			if ((i + 1U) < count &&
+			    v8_open_word_match_mod_ext(words[i + 1U])) {
+				unsigned short mod2;
+
+				mod2 = (unsigned short)(words[i + 1U] & 0x01ffU);
+				mod2 |= 0x0001U;
+				v8_open_rx_push_token(engine, mod2);
 				i++;
 			}
 			continue;
 		}
 
-		if ((word & 0xfff1U) == 0x0161U) {
+		if (v8_open_word_match_category(word, 0x0161U)) {
+			unsigned short access_word;
+
+			access_word = (unsigned short)((word & 0x01ffU) | 0x0100U);
 			engine->remote_access_present = 1U;
-			v8_open_rx_push_token(engine, word);
+			v8_open_rx_push_token(engine, access_word);
 			continue;
 		}
 
-		if ((word & 0xfff1U) == 0x01c1U) {
+		if (v8_open_word_match_category(word, 0x01c1U)) {
+			unsigned short pcm_word;
+
+			pcm_word = (unsigned short)((word & 0x01ffU) | 0x0100U);
 			engine->remote_pcm_present = 1U;
-			v8_open_rx_push_token(engine, word);
-			if ((i + 1U) < engine->rx_seq_b_count &&
-			    (engine->rx_seq_b[i + 1U] & 0x0039U) == 0x0011U) {
-				v8_open_rx_push_token(engine, engine->rx_seq_b[i + 1U]);
+			v8_open_rx_push_token(engine, pcm_word);
+			if ((i + 1U) < count &&
+			    v8_open_word_match_mod_ext(words[i + 1U])) {
+				unsigned short ext_word;
+
+				ext_word = (unsigned short)(words[i + 1U] & 0x01ffU);
+				ext_word |= 0x0001U;
+				v8_open_rx_push_token(engine, ext_word);
 				i++;
 			}
 			continue;
 		}
 
-		if ((word & 0xfff1U) == 0x00a1U) {
-			if (word == 0x00a9U) {
+		if (v8_open_word_match_category(word, 0x00a1U)) {
+			unsigned short proto_word;
+
+			proto_word = (unsigned short)(word & 0x01ffU);
+			if (proto_word == 0x00a9U) {
 				engine->remote_lapm = 1U;
 				engine->have_proto_match = 1U;
-				engine->matched_proto_word = word;
+				engine->matched_proto_word = 0x00a9U;
+				proto_word = 0x00a9U;
 			}
-			v8_open_rx_push_token(engine, word);
+			v8_open_rx_push_token(engine, proto_word);
 			continue;
 		}
 	}
+}
+
+static unsigned v8_open_reframe_words_from_bit_offset(const unsigned short *words,
+						       unsigned count,
+						       unsigned bit_offset,
+						       unsigned short *out_words,
+						       unsigned out_cap)
+{
+	unsigned char bits[V8OPEN_CM_WORDS * 10U];
+	unsigned bit_len;
+	unsigned out_count;
+	unsigned i;
+	unsigned b;
+
+	if (!words || !out_words || count == 0U || out_cap == 0U || bit_offset >= 10U)
+		return 0U;
+
+	if (count > V8OPEN_CM_WORDS)
+		count = V8OPEN_CM_WORDS;
+
+	bit_len = 0U;
+	for (i = 0U; i < count; ++i) {
+		unsigned short w;
+
+		w = (unsigned short)(words[i] & 0x03ffU);
+		for (b = 0U; b < 10U; ++b)
+			bits[bit_len++] = (unsigned char)((w >> (9U - b)) & 0x01U);
+	}
+
+	if (bit_offset >= bit_len)
+		return 0U;
+
+	out_count = (bit_len - bit_offset) / 10U;
+	if (out_count > out_cap)
+		out_count = out_cap;
+
+	for (i = 0U; i < out_count; ++i) {
+		unsigned short w;
+		unsigned base;
+
+		w = 0U;
+		base = bit_offset + (i * 10U);
+		for (b = 0U; b < 10U; ++b)
+			w = (unsigned short)((w << 1) | (bits[base + b] & 0x01U));
+		out_words[i] = w;
+	}
+
+	return out_count;
+}
+
+static void v8_open_parse_rx_sequence(struct v8_open_engine *engine)
+{
+	unsigned short base[V8OPEN_CM_WORDS];
+	unsigned short oriented[V8OPEN_CM_WORDS];
+	unsigned short reframed[V8OPEN_CM_WORDS];
+	const unsigned short *candidate;
+	unsigned candidate_count;
+	unsigned count;
+	unsigned i;
+	unsigned h;
+	unsigned off;
+
+	count = engine->rx_seq_b_count;
+	if (count > V8OPEN_CM_WORDS)
+		count = V8OPEN_CM_WORDS;
+
+	for (i = 0U; i < count; ++i)
+		base[i] = (unsigned short)(engine->rx_seq_b[i] & 0x03ffU);
+
+	for (h = 0U; h < 4U; ++h) {
+		for (i = 0U; i < count; ++i) {
+			unsigned short w;
+
+			w = base[i];
+			if (h & 0x01U)
+				w ^= 0x03ffU;
+			if (h & 0x02U)
+				w = v8_open_reverse_word10(w);
+			oriented[i] = (unsigned short)(w & 0x03ffU);
+		}
+
+		for (off = 0U; off < 10U; ++off) {
+			if (off == 0U) {
+				candidate = oriented;
+				candidate_count = count;
+			} else {
+				candidate_count =
+					v8_open_reframe_words_from_bit_offset(oriented,
+								      count,
+								      off,
+								      reframed,
+								      V8OPEN_CM_WORDS);
+				candidate = reframed;
+			}
+
+				if (candidate_count < 6U)
+					continue;
+
+			v8_open_parse_rx_sequence_words(engine, candidate, candidate_count);
+			if (v8_open_cm_sequence_valid(engine)) {
+				if (h != 0U || off != 0U) {
+					V8OPEN_DBG("cm-stub: parser accepted orientation hypothesis=%u bitoff=%u tokens=%u\n",
+						  h,
+						  off,
+						  engine->rx_token_count);
+				}
+				return;
+			}
+		}
+	}
+
+	/* Restore default interpretation when no hypothesis validates. */
+	v8_open_parse_rx_sequence_words(engine, base, count);
 }
 
 static void v8_open_observe_cm(struct v8_open_engine *engine,
@@ -2919,7 +3123,8 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 				engine->cm_collect_index = 0U;
 				engine->cm_collect_pass = 0U;
 				engine->cm_even_words = 0U;
-				engine->rx_demod_profile ^= 1U;
+				engine->rx_demod_profile =
+					(unsigned)((engine->rx_demod_profile + 1U) & 0x03U);
 				v8_open_cm_advance_phase_scan(engine);
 				V8OPEN_DBG("cm-stub: rearm toggling demod profile=%u phase-scan skip=%u\n",
 					  engine->rx_demod_profile,
@@ -3123,7 +3328,8 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 				engine->cj_collecting = 0U;
 				engine->cj_collect_deadline = 0U;
 				engine->cj_collect_index = 0U;
-				engine->rx_demod_profile ^= 1U;
+				engine->rx_demod_profile =
+					(unsigned)((engine->rx_demod_profile + 1U) & 0x03U);
 				V8OPEN_DBG("cj-stub: rearm toggling demod profile=%u\n",
 					  engine->rx_demod_profile);
 				v8_open_rx_start_search(engine);
