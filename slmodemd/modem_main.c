@@ -1031,6 +1031,62 @@ static int socket_device_setup(struct device_struct *dev, const char *dev_name)
  */
 
 static char link_name[PATH_MAX];
+static pid_t link_cleanup_pid = 0;
+
+static void stop_link_cleanup_helper(void)
+{
+	if (link_cleanup_pid > 0) {
+		kill(link_cleanup_pid, SIGTERM);
+		link_cleanup_pid = 0;
+	}
+}
+
+static void start_link_cleanup_helper(const char *link_path,
+				      const char *pty_target)
+{
+	pid_t helper;
+
+	if (!link_path || !*link_path || !pty_target || !*pty_target)
+		return;
+
+	stop_link_cleanup_helper();
+
+	helper = fork();
+	if (helper < 0) {
+		ERR("cannot start link cleanup helper `%s': %s\n",
+		    link_path, strerror(errno));
+		return;
+	}
+
+	if (helper == 0) {
+		pid_t tracked_ppid = getppid();
+		char link_copy[PATH_MAX];
+		char target_copy[PATH_MAX];
+		char current_target[PATH_MAX];
+		ssize_t len;
+		int fd;
+
+		snprintf(link_copy, sizeof(link_copy), "%s", link_path);
+		snprintf(target_copy, sizeof(target_copy), "%s", pty_target);
+
+		for (fd = 3; fd < 64; ++fd)
+			close(fd);
+
+		while (getppid() == tracked_ppid)
+			usleep(200000);
+
+		len = readlink(link_copy, current_target, sizeof(current_target) - 1);
+		if (len >= 0) {
+			current_target[len] = '\0';
+			if (!strcmp(current_target, target_copy))
+				unlink(link_copy);
+		}
+
+		_exit(0);
+	}
+
+	link_cleanup_pid = helper;
+}
 
 static int increment_link_name_index(char *name, size_t size)
 {
@@ -1135,6 +1191,7 @@ int create_pty(struct modem *m)
 			if (!symlink(pty_name,link_name)) {
 				INFO("symbolic link `%s' -> `%s' created.\n",
 				     link_name, pty_name);
+				start_link_cleanup_helper(link_name, pty_name);
 				break;
 			}
 			if (!had_pty &&
