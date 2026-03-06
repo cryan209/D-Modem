@@ -76,6 +76,30 @@ If you want to initiate a direct call to a SIP endpoint without credentials, use
 
 ## Testing
 
+For local two-instance testing without Asterisk/SIP registration, set a unique `DMODEM_SELFTEST_ID` for each `slmodemd` process. This mode lets one instance dial the other directly by ID.
+
+Example for debugging mixed V.8 implementations (open stub vs proprietary):
+
+    # terminal 1 (caller side)
+    DMODEM_SELFTEST_ID=1001 SLMODEMD_V8_OPEN_STUB=1 \
+      ./slmodemd/slmodemd -d9 -e ./d-modem /dev/slamr0
+
+    # terminal 2 (answer side)
+    DMODEM_SELFTEST_ID=1002 SLMODEMD_V8_OPEN_STUB=0 \
+      ./slmodemd/slmodemd -d9 -e ./d-modem /dev/slamr1
+
+Then open both PTYs (for example with `minicom`) and dial from the caller to the answerer:
+
+    ATD1002
+
+On the other side, wait for `RING` and answer:
+
+    ATA
+
+Optional: set `DMODEM_SELFTEST_DIR` to choose where local UNIX sockets are created (default `/tmp`).
+
+For network/SIP testing:
+
 You should be running Asterisk or some other sip service.
 
 Run slmodemd from 2 terminals and specifying different modem devices. Export sip accounts per slmodem:

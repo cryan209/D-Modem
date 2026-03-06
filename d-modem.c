@@ -24,14 +24,21 @@
 #include <signal.h>
 #include <errno.h>
 #include <getopt.h>
+#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include <sys/socket.h>
+#include <sys/un.h>
 
 #include <pjsua-lib/pjsua.h>
 
 #include "slmodemd/modem.h"
 
 #define SIGNATURE PJMEDIA_SIG_CLASS_PORT_AUD('D','M')
+#define DMODEM_SELFTEST_ID_ENV "DMODEM_SELFTEST_ID"
+#define DMODEM_SELFTEST_DIR_ENV "DMODEM_SELFTEST_DIR"
+#define DMODEM_SELFTEST_DIR_DEFAULT "/tmp"
 
 struct dmodem {
 	pjmedia_port base;
@@ -48,10 +55,312 @@ static int volume = 0;
 static int sipsocket;
 static pjsua_call_id pending_call_id = PJSUA_INVALID_ID;
 static int sip_modem_hookstate =0;
+static int local_selftest_mode = 0;
+static volatile sig_atomic_t keep_running = 1;
 
 #ifdef WITH_AUDIO
 static pjsua_conf_port_id left_audio_id, right_audio_id;
 #endif
+
+static void selftest_sanitize_id(const char *src, char *dst, size_t dst_sz)
+{
+	size_t i;
+	size_t j = 0;
+
+	if (!dst_sz)
+		return;
+
+	for (i = 0; src && src[i] && j + 1 < dst_sz; ++i) {
+		unsigned char ch = (unsigned char)src[i];
+		if (isalnum(ch) || ch == '-' || ch == '_')
+			dst[j++] = (char)ch;
+		else
+			dst[j++] = '_';
+	}
+
+	if (!j)
+		dst[j++] = '0';
+
+	dst[j] = '\0';
+}
+
+static int selftest_build_path(char *dst, size_t dst_sz,
+			       const char *dir, const char *id)
+{
+	char safe_id[64];
+	int n;
+
+	if (!dir || !dir[0])
+		dir = DMODEM_SELFTEST_DIR_DEFAULT;
+	selftest_sanitize_id(id, safe_id, sizeof(safe_id));
+	n = snprintf(dst, dst_sz, "%s/dmodem-selftest-%s.sock", dir, safe_id);
+	if (n < 0 || (size_t)n >= dst_sz)
+		return -1;
+	return 0;
+}
+
+static int selftest_send_parent_info(int parent_sip_fd, const char *msg)
+{
+	struct socket_frame sf = { 0 };
+	int ret;
+
+	sf.type = SOCKET_FRAME_SIP_INFO;
+	snprintf(sf.data.sip.info, sizeof(sf.data.sip.info), "%s", msg ? msg : "");
+	ret = write(parent_sip_fd, &sf, sizeof(sf));
+	if (ret != (int)sizeof(sf)) {
+		perror("selftest: parent control write");
+		return -1;
+	}
+	return 0;
+}
+
+static int selftest_kick_parent_audio(int parent_audio_fd)
+{
+	struct socket_frame sf = { 0 };
+	int ret;
+
+	sf.type = SOCKET_FRAME_AUDIO;
+	ret = write(parent_audio_fd, &sf, sizeof(sf));
+	if (ret != (int)sizeof(sf)) {
+		perror("selftest: parent audio kick");
+		return -1;
+	}
+	return 0;
+}
+
+static int selftest_send_peer_info(int local_fd,
+				   const struct sockaddr_un *peer_addr,
+				   socklen_t peer_len,
+				   const char *msg)
+{
+	struct socket_frame sf = { 0 };
+	int ret;
+
+	if (!peer_addr || !peer_len)
+		return -1;
+
+	sf.type = SOCKET_FRAME_SIP_INFO;
+	snprintf(sf.data.sip.info, sizeof(sf.data.sip.info), "%s", msg ? msg : "");
+	ret = sendto(local_fd, &sf, sizeof(sf), 0,
+		     (const struct sockaddr *)peer_addr, peer_len);
+	if (ret != (int)sizeof(sf)) {
+		perror("selftest: peer control send");
+		return -1;
+	}
+	return 0;
+}
+
+static int selftest_set_peer(struct sockaddr_un *peer_addr,
+			     socklen_t *peer_len,
+			     const char *dir,
+			     const char *id)
+{
+	char path[sizeof(peer_addr->sun_path)];
+	size_t path_len;
+
+	if (selftest_build_path(path, sizeof(path), dir, id) < 0)
+		return -1;
+
+	memset(peer_addr, 0, sizeof(*peer_addr));
+	peer_addr->sun_family = AF_UNIX;
+	snprintf(peer_addr->sun_path, sizeof(peer_addr->sun_path), "%s", path);
+	path_len = strlen(peer_addr->sun_path);
+	*peer_len = (socklen_t)(sizeof(peer_addr->sun_family) + path_len + 1);
+	return 0;
+}
+
+static int run_local_selftest(const char *dialstr,
+			      int parent_audio_fd,
+			      int parent_sip_fd,
+			      const char *self_id,
+			      const char *self_dir)
+{
+	struct sockaddr_un local_addr;
+	struct sockaddr_un peer_addr;
+	socklen_t peer_len = 0;
+	int local_fd = -1;
+	int have_peer = 0;
+	int call_active = 0;
+	int incoming_pending = 0;
+	char local_path[sizeof(local_addr.sun_path)];
+	char self_id_safe[64];
+	char pending_caller[64] = "";
+
+	PJ_UNUSED_ARG(dialstr);
+
+	local_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+	if (local_fd < 0) {
+		perror("selftest: socket");
+		return -1;
+	}
+
+	if (selftest_build_path(local_path, sizeof(local_path), self_dir, self_id) < 0) {
+		fprintf(stderr, "selftest: invalid local socket path\n");
+		close(local_fd);
+		return -1;
+	}
+
+	memset(&local_addr, 0, sizeof(local_addr));
+	local_addr.sun_family = AF_UNIX;
+	snprintf(local_addr.sun_path, sizeof(local_addr.sun_path), "%s", local_path);
+
+	unlink(local_addr.sun_path);
+	if (bind(local_fd, (struct sockaddr *)&local_addr, sizeof(local_addr)) < 0) {
+		perror("selftest: bind");
+		close(local_fd);
+		return -1;
+	}
+
+	selftest_sanitize_id(self_id, self_id_safe, sizeof(self_id_safe));
+	printf("local selftest mode: id=%s socket=%s\n", self_id_safe, local_addr.sun_path);
+
+	while (keep_running) {
+		fd_set rset;
+		int maxfd;
+		int sret;
+
+		FD_ZERO(&rset);
+		FD_SET(parent_audio_fd, &rset);
+		FD_SET(parent_sip_fd, &rset);
+		FD_SET(local_fd, &rset);
+
+		maxfd = parent_audio_fd;
+		if (parent_sip_fd > maxfd)
+			maxfd = parent_sip_fd;
+		if (local_fd > maxfd)
+			maxfd = local_fd;
+
+		sret = select(maxfd + 1, &rset, NULL, NULL, NULL);
+		if (sret < 0) {
+			if (errno == EINTR)
+				continue;
+			perror("selftest: select");
+			break;
+		}
+
+		if (FD_ISSET(parent_sip_fd, &rset)) {
+			struct socket_frame sf = { 0 };
+			int len = read(parent_sip_fd, &sf, sizeof(sf));
+			char *packet;
+
+			if (len <= 0)
+				break;
+			if (len != (int)sizeof(sf) || sf.type != SOCKET_FRAME_SIP_INFO)
+				continue;
+
+			sf.data.sip.info[sizeof(sf.data.sip.info) - 1] = '\0';
+			packet = sf.data.sip.info;
+			if (packet[0] != 'M')
+				continue;
+
+			packet++;
+			if (packet[0] == 'D') {
+				char msg[sizeof(sf.data.sip.info)];
+				packet++;
+				if (!packet[0])
+					continue;
+				if (selftest_set_peer(&peer_addr, &peer_len, self_dir, packet) < 0) {
+					fprintf(stderr, "selftest: bad dial target `%s`\n", packet);
+					continue;
+				}
+				snprintf(pending_caller, sizeof(pending_caller), "%s", packet);
+				have_peer = 1;
+				call_active = 0;
+				incoming_pending = 0;
+				snprintf(msg, sizeof(msg), "D%s", self_id_safe);
+				selftest_send_peer_info(local_fd, &peer_addr, peer_len, msg);
+			} else if (packet[0] == 'A') {
+				if (incoming_pending && have_peer) {
+					selftest_send_peer_info(local_fd, &peer_addr, peer_len, "A");
+					call_active = 1;
+					incoming_pending = 0;
+					selftest_kick_parent_audio(parent_audio_fd);
+				}
+			} else if (packet[0] == 'H') {
+				int hs = atoi(packet + 1);
+				if (!hs) {
+					if (have_peer)
+						selftest_send_peer_info(local_fd, &peer_addr, peer_len, "H");
+					call_active = 0;
+					incoming_pending = 0;
+				}
+			}
+		}
+
+		if (FD_ISSET(parent_audio_fd, &rset)) {
+			struct socket_frame sf = { 0 };
+			int len = read(parent_audio_fd, &sf, sizeof(sf));
+			int wr;
+
+			if (len <= 0)
+				break;
+			if (len != (int)sizeof(sf))
+				continue;
+			if (!call_active || !have_peer)
+				continue;
+
+			wr = sendto(local_fd, &sf, sizeof(sf), 0,
+				    (struct sockaddr *)&peer_addr, peer_len);
+			if (wr != (int)sizeof(sf))
+				perror("selftest: peer audio send");
+		}
+
+		if (FD_ISSET(local_fd, &rset)) {
+			struct socket_frame sf = { 0 };
+			struct sockaddr_un src_addr;
+			socklen_t src_len = sizeof(src_addr);
+			int len = recvfrom(local_fd, &sf, sizeof(sf), 0,
+					   (struct sockaddr *)&src_addr, &src_len);
+
+			if (len <= 0)
+				continue;
+			if (len != (int)sizeof(sf))
+				continue;
+
+			if (sf.type == SOCKET_FRAME_AUDIO) {
+				if (!call_active)
+					continue;
+				if (write(parent_audio_fd, &sf, sizeof(sf)) != (int)sizeof(sf))
+					perror("selftest: parent audio write");
+			} else if (sf.type == SOCKET_FRAME_SIP_INFO) {
+				char *packet = sf.data.sip.info;
+
+				sf.data.sip.info[sizeof(sf.data.sip.info) - 1] = '\0';
+				if (packet[0] == 'D') {
+					packet++;
+					memcpy(&peer_addr, &src_addr, sizeof(peer_addr));
+					peer_len = src_len;
+					have_peer = 1;
+					call_active = 0;
+					incoming_pending = 1;
+					snprintf(pending_caller, sizeof(pending_caller), "%s", packet);
+					printf("selftest: incoming call from %s\n",
+					       pending_caller[0] ? pending_caller : "<unknown>");
+					selftest_send_parent_info(parent_sip_fd, "SR");
+				} else if (packet[0] == 'A') {
+					memcpy(&peer_addr, &src_addr, sizeof(peer_addr));
+					peer_len = src_len;
+					have_peer = 1;
+					call_active = 1;
+					incoming_pending = 0;
+					printf("selftest: call answered\n");
+					selftest_kick_parent_audio(parent_audio_fd);
+				} else if (packet[0] == 'H') {
+					call_active = 0;
+					incoming_pending = 0;
+					selftest_send_parent_info(parent_sip_fd, "SH");
+				}
+			}
+		}
+	}
+
+	if (call_active && have_peer)
+		selftest_send_peer_info(local_fd, &peer_addr, peer_len, "H");
+
+	close(local_fd);
+	unlink(local_addr.sun_path);
+	return 0;
+}
 
 static void error_exit(const char *title, pj_status_t status) {
 	pjsua_perror(__FILE__, title, status);
@@ -288,6 +597,9 @@ static void sig_handler(int sig, siginfo_t *si, void *x) {
 	PJ_UNUSED_ARG(x);
 	switch(sig) {
 		case SIGTERM:
+			keep_running = 0;
+			if (local_selftest_mode)
+				return;
 			pjsua_call_hangup_all();
 			exit(EXIT_SUCCESS);
 			break;
@@ -335,9 +647,29 @@ int main(int argc, char *argv[]) {
 	char *dialstr = argv[optind];
 	int audiosocket = atoi(argv[optind + 1]);
 	sipsocket       = atoi(argv[optind + 2]);
+	{
+		const char *selftest_id = getenv(DMODEM_SELFTEST_ID_ENV);
+		const char *selftest_dir = getenv(DMODEM_SELFTEST_DIR_ENV);
+		struct sigaction sa = { 0 };
 
-	printf("dmodem begin...\n");
-	printf("args: dialstr=%s audio_sock=%d sip_sock=%d\n", dialstr, audiosocket, sipsocket);
+		if (!selftest_dir || !selftest_dir[0])
+			selftest_dir = DMODEM_SELFTEST_DIR_DEFAULT;
+
+		printf("dmodem begin...\n");
+		printf("args: dialstr=%s audio_sock=%d sip_sock=%d\n", dialstr, audiosocket, sipsocket);
+
+		signal(SIGPIPE,SIG_IGN);
+		sa.sa_flags = SA_SIGINFO;
+		sigemptyset(&sa.sa_mask);
+		sa.sa_sigaction = sig_handler;
+		sigaction(SIGTERM, &sa, NULL);
+
+		if (selftest_id && selftest_id[0]) {
+			local_selftest_mode = 1;
+			return run_local_selftest(dialstr, audiosocket, sipsocket,
+						 selftest_id, selftest_dir);
+		}
+	}
 
 	if (sip_user && sip_domain) {
 		if (!sip_pass) {
@@ -351,7 +683,6 @@ int main(int argc, char *argv[]) {
 	}
 
 	printf("dmodem starting..\n");
-	signal(SIGPIPE,SIG_IGN);
 
 	if (strchr(dialstr, '@')) {
 		printf("Found '@' in %s, continuing with direct call\n", dialstr);
@@ -501,12 +832,6 @@ int main(int argc, char *argv[]) {
 	{
 		printf("Empty Dial String. waiting for command\n");
 	}
-
-	struct sigaction sa = { 0 };
-	sa.sa_flags = SA_SIGINFO;
-	sigemptyset(&sa.sa_mask);
-	sa.sa_sigaction = sig_handler;
-	sigaction(SIGTERM, &sa, NULL);
 
 	printf("Dialer PID: %d\n", getpid());
 
