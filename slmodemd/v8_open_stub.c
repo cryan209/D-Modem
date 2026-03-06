@@ -22,8 +22,10 @@
 #define V8OPEN_V21_ORG_MARK 980U
 #define V8OPEN_V21_ORG_SPACE 1180U
 #define V8OPEN_ANSAM_REVERSAL_MS 450U
-#define V8OPEN_ANSAM_SEND_MS 4680U
-#define V8OPEN_CM_WAIT_TAIL_MS 320U
+#define V8OPEN_ANSAM_SEND_MS 3800U
+#define V8OPEN_CM_WAIT_TAIL_MS 1200U
+#define V8OPEN_CM_COLLECT_WORDS_LONG ((V8OPEN_CM_WORDS * 2U) + 4U)
+#define V8OPEN_CM_COLLECT_WORDS_WAIT V8OPEN_CM_WORDS
 #define V8OPEN_CM_COLLECT_BURST 2U
 #define V8OPEN_CJ_COLLECT_BURST 2U
 #define V8OPEN_MAX_SAMPLES_PER_BIT 64U
@@ -947,26 +949,19 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 	case V8_OPEN_PHASE_BOOT:
 		/* V.8 8.2: at least 0.2 s no-signal after line connection. */
 		return v8_open_samples_from_ms(engine, 200U);
-		case V8_OPEN_PHASE_ANS_SEND_ANSAM:
-			/*
-			 * V.8 8.2.2: if not terminated by CM/sigC, ANSam is 5 ± 1 s.
-			 * Keep the total ANSam+CM wait at about 5 s, but reserve a longer
-			 * receive-focused tail in WAIT_FOR_CM.
-			 */
-			if (engine->cm_detected && engine->cm_guard_budget)
-				return engine->cm_guard_budget;
-			return v8_open_samples_from_ms(engine, V8OPEN_ANSAM_SEND_MS);
-		case V8_OPEN_PHASE_ANS_WAIT_FOR_CM:
-		{
-			unsigned wait_tail;
+	case V8_OPEN_PHASE_ANS_SEND_ANSAM:
+		/*
+		 * V.8 8.2.2: if not terminated by CM/sigC, ANSam is 5 +- 1 s.
+		 * Keep total ANSam + CM wait near 5 s, with a receive-focused tail.
+		 */
+		if (engine->cm_detected && engine->cm_guard_budget)
+			return engine->cm_guard_budget;
+		return v8_open_samples_from_ms(engine, V8OPEN_ANSAM_SEND_MS);
+	case V8_OPEN_PHASE_ANS_WAIT_FOR_CM:
+	{
+		unsigned wait_tail;
 
-			wait_tail = v8_open_samples_from_ms(engine, V8OPEN_CM_WAIT_TAIL_MS);
-			/*
-			 * Do not extend this phase to the long detector timeout.
-			 */
-			if (engine->cm_collecting && engine->cm_collect_deadline)
-				return engine->cm_collect_deadline < wait_tail ?
-				engine->cm_collect_deadline : wait_tail;
+		wait_tail = v8_open_samples_from_ms(engine, V8OPEN_CM_WAIT_TAIL_MS);
 		if (engine->cm_detected && engine->cm_guard_budget)
 			return engine->cm_guard_budget < wait_tail ?
 				engine->cm_guard_budget : wait_tail;
@@ -1372,6 +1367,22 @@ static void v8_open_rx_seq_a_push(struct v8_open_engine *engine,
 	engine->rx_seq_a[engine->rx_seq_a_count++] = word;
 }
 
+static unsigned v8_open_word_hamming_masked10(unsigned short a,
+					      unsigned short b,
+					      unsigned short mask)
+{
+	unsigned x;
+	unsigned d;
+
+	x = (unsigned)((a ^ b) & mask & 0x03ffU);
+	d = 0U;
+	while (x) {
+		d += (x & 0x01U);
+		x >>= 1;
+	}
+	return d;
+}
+
 static int v8_open_word_match_category(unsigned short word,
 				       unsigned short category_masked)
 {
@@ -1382,14 +1393,20 @@ static int v8_open_word_match_category(unsigned short word,
 	c = (unsigned short)(category_masked & 0x03ffU);
 	if ((w & 0x03f1U) == (c & 0x03f1U))
 		return 1;
+	if (v8_open_word_hamming_masked10(w, c, 0x03f1U) <= 1U)
+		return 1;
 
 	/* Tolerate occasional bit9 contamination from framing slips. */
 	w = (unsigned short)(w & 0x01ffU);
 	if ((w & 0x03f1U) == (c & 0x03f1U))
 		return 1;
+	if (v8_open_word_hamming_masked10(w, c, 0x01f1U) <= 1U)
+		return 1;
 
 	/* Tolerate missing bit8 in weak-lock windows. */
 	if ((w & 0x01f1U) == (c & 0x01f1U))
+		return 1;
+	if (v8_open_word_hamming_masked10(w, c, 0x01f1U) <= 1U)
 		return 1;
 
 	return 0;
@@ -2109,21 +2126,51 @@ static int v8_open_cj_sequence_valid(struct v8_open_engine *engine);
 
 static int v8_open_cm_sequence_valid(const struct v8_open_engine *engine)
 {
+	unsigned cap_matches;
+
 	if (!engine)
 		return 0;
-	if (!engine->have_call_match)
-		return 0;
+
+	cap_matches = 0U;
+	if (engine->remote_v34)
+		cap_matches++;
+	if (engine->remote_v32)
+		cap_matches++;
+	if (engine->remote_pcm_present)
+		cap_matches++;
+	if (engine->remote_access_present)
+		cap_matches++;
 
 	/*
 	 * Protocol token (e.g. LAPM) is optional in CM; accept CM when the
 	 * call-function token is present with any negotiated capability.
 	 */
-	if (engine->have_proto_match)
+	if (engine->have_call_match) {
+		if (engine->have_proto_match)
+			return 1;
+		if (cap_matches > 0U)
+			return 1;
+		return 0;
+	}
+
+	/*
+	 * In noisy loops we often recover the call-function category but miss
+	 * exact 0x0107/0x0109 by 1-2 bits. Accept this only when additional CM
+	 * structure is present.
+	 */
+	if (!engine->remote_call_data)
+		return 0;
+	if (engine->have_proto_match || cap_matches >= 2U ||
+	    (cap_matches >= 1U && engine->rx_token_count >= 3U)) {
+		V8OPEN_DBG("cm-stub: accepting CM without exact call token tokens=%u caps=v34:%u v32:%u pcm:%u access:%u proto=%u\n",
+			  engine->rx_token_count,
+			  engine->remote_v34,
+			  engine->remote_v32,
+			  engine->remote_pcm_present,
+			  engine->remote_access_present,
+			  engine->have_proto_match);
 		return 1;
-	if (engine->remote_v34 || engine->remote_v32 || engine->remote_pcm_present)
-		return 1;
-	if (engine->remote_access_present)
-		return 1;
+	}
 	return 0;
 }
 
@@ -2747,6 +2794,7 @@ static void v8_open_cm_collect_start(struct v8_open_engine *engine,
 				     int cnt)
 {
 	unsigned samples_per_bit;
+	unsigned words_budget;
 
 	engine->cm_collecting = 1U;
 	engine->cm_collect_index = 0U;
@@ -2757,8 +2805,10 @@ static void v8_open_cm_collect_start(struct v8_open_engine *engine,
 	memset(engine->rx_seq_b, 0, sizeof(engine->rx_seq_b));
 	memset(engine->rx_tokens, 0, sizeof(engine->rx_tokens));
 	samples_per_bit = v8_open_rx_samples_per_bit(engine);
+	words_budget = (engine->phase == V8_OPEN_PHASE_ANS_WAIT_FOR_CM) ?
+		V8OPEN_CM_COLLECT_WORDS_WAIT : V8OPEN_CM_COLLECT_WORDS_LONG;
 	engine->cm_collect_deadline = engine->samples_in_phase +
-		(((V8OPEN_CM_WORDS * 2U) + 4U) * 10U * samples_per_bit);
+		(words_budget * 10U * samples_per_bit);
 	v8_open_rx_start_collect(engine, V8_OPEN_RX_COLLECT_CM, samples, cnt);
 	v8_open_rx_seed_sync_sequence(engine);
 }
@@ -2838,6 +2888,7 @@ static void v8_open_parse_rx_sequence_words(struct v8_open_engine *engine,
 			unsigned short call_canon;
 
 			call_word = (unsigned short)(word & 0x01ffU);
+			engine->remote_call_data = 1U;
 			/*
 			 * CM words are odd; tolerate a one-bit parity/framing slip
 			 * on call/proto words by forcing odd and allowing 1-bit
@@ -3120,19 +3171,6 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 			handoff_ready = v8_open_handoff_ready(engine, avg_abs, peak_abs);
 			deadline_expired = engine->cm_predetect_deadline &&
 				(engine->samples_in_phase >= engine->cm_predetect_deadline);
-			if (!handoff_ready && !deadline_expired &&
-			    engine->phase == V8_OPEN_PHASE_ANS_WAIT_FOR_CM &&
-			    engine->samples_in_phase >= v8_open_samples_from_ms(engine, 40U)) {
-				deadline_expired = 1U;
-				V8OPEN_DBG("cm-stub: wait-tail forcing collector avg=%u peak=%u bits=%u/%u runs=%u/%u/%u\n",
-					  avg_abs,
-					  peak_abs,
-					  engine->rx_dbg_bit0,
-					  engine->rx_dbg_bit1,
-					  engine->rx_c23e,
-					  engine->rx_c240,
-					  engine->rx_c242);
-			}
 			if (!handoff_ready && !deadline_expired) {
 				engine->ans_rx_14 = (unsigned short)(engine->ans_rx_14 + 1U);
 				if ((engine->ans_rx_14 &
@@ -3146,23 +3184,35 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 						  engine->rx_c240,
 						  engine->rx_c242,
 						  (unsigned)(engine->cm_predetect_deadline - engine->samples_in_phase));
+					}
+					return;
 				}
-				return;
-			}
-			if (!handoff_ready) {
-				V8OPEN_DBG("cm-stub: stage2 deadline forcing collector avg=%u peak=%u bits=%u/%u runs=%u/%u/%u\n",
-					  avg_abs,
-					  peak_abs,
-					  engine->rx_dbg_bit0,
-					  engine->rx_dbg_bit1,
-					  engine->rx_c23e,
-					  engine->rx_c240,
-					  engine->rx_c242);
-			}
-			engine->cm_predetecting = 0U;
-			engine->cm_predetect_deadline = 0U;
-			engine->cm_signature = signature;
-			v8_open_cm_collect_start(engine, samples, cnt);
+				if (!handoff_ready) {
+					V8OPEN_DBG("cm-stub: stage2 deadline no-diversity avg=%u peak=%u bits=%u/%u runs=%u/%u/%u, rearming detector\n",
+						  avg_abs,
+						  peak_abs,
+						  engine->rx_dbg_bit0,
+						  engine->rx_dbg_bit1,
+						  engine->rx_c23e,
+						  engine->rx_c240,
+						  engine->rx_c242);
+					engine->cm_predetect_deadline = 0U;
+					engine->rx_demod_profile =
+						(unsigned)((engine->rx_demod_profile + 1U) & 0x03U);
+					v8_open_cm_advance_phase_scan(engine);
+					V8OPEN_DBG("cm-stub: stage2 rearm toggling demod profile=%u phase-scan skip=%u\n",
+						  engine->rx_demod_profile,
+						  engine->rx_lock_skip_bits);
+					v8_open_rx_start_search(engine);
+					v8_open_answer_predetector_arm(engine);
+					engine->cm_predetecting = 1U;
+					engine->cm_predetect_deadline = 0U;
+					return;
+				}
+				engine->cm_predetecting = 0U;
+				engine->cm_predetect_deadline = 0U;
+				engine->cm_signature = signature;
+				v8_open_cm_collect_start(engine, samples, cnt);
 			V8OPEN_DBG("cm-stub: detector handoff avg=%u peak=%u hits=%u stage2=%u starting long collector %u/%u\n",
 				  avg_abs,
 				  peak_abs,
