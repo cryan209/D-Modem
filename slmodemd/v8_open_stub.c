@@ -28,7 +28,7 @@
 #define V8OPEN_ANSAM_SEND_MS (V8OPEN_ANSAM_LEADIN_MS + V8OPEN_ANSAM_TONE_MS)
 #define V8OPEN_ANSAM_AM_DIVISOR 5U
 #define V8OPEN_CM_WAIT_TAIL_MS 800U
-#define V8OPEN_CJ_WAIT_MS 5000U
+#define V8OPEN_CJ_WAIT_MS 900U
 #define V8OPEN_CJ_COLLECT_MIN_MS 420U
 #define V8OPEN_CM_TIMEOUT_JM_PROMOTE_MIN_CANDIDATES 0x7fffffffU
 #define V8OPEN_CM_COLLECT_WORDS_LONG ((V8OPEN_CM_WORDS * 2U) + 4U)
@@ -3112,53 +3112,37 @@ static void v8_open_cj_collect_start(struct v8_open_engine *engine,
 
 static int v8_open_cj_sequence_valid(struct v8_open_engine *engine)
 {
-	unsigned hyp;
+	unsigned zero_run;
+	unsigned max_zero_run;
 	unsigned i;
 
 	if (engine->rx_seq_a_count < 3U)
 		return 0;
 
-	for (hyp = 0U; hyp < 4U; ++hyp) {
-		unsigned zero_run;
-		unsigned max_zero_run;
+	zero_run = 0U;
+	max_zero_run = 0U;
+	for (i = 0U; i < engine->rx_seq_a_count; ++i) {
+		unsigned short cj_word;
 
-		/*
-		 * Try CJ decoding over the 4 orientation hypotheses:
-		 * raw / inverted / reversed / reversed+inverted.
-		 */
-		zero_run = 0U;
-		max_zero_run = 0U;
-
-		for (i = 0U; i < engine->rx_seq_a_count; ++i) {
-			unsigned short cj_word;
-
-			cj_word = (unsigned short)(engine->rx_seq_a[i] & 0x03ffU);
-			if (hyp & 0x02U)
-				cj_word = v8_open_reverse_word10(cj_word);
-			if (hyp & 0x01U)
-				cj_word ^= 0x03ffU;
-
-			if ((cj_word & 0x03feU) == 0x0000U) {
-				zero_run++;
-				if (zero_run > max_zero_run)
-					max_zero_run = zero_run;
-			} else {
-				zero_run = 0U;
-			}
-		}
-
-		/* Keep CJ acceptance strict: require 3 consecutive zero octets. */
-		if (max_zero_run >= 3U) {
-			engine->cj_sequence_valid = 1U;
-			engine->cj_variant_bit = hyp;
-			V8OPEN_DBG("cj-stub: accepted zero-octet CJ run hypothesis=%u run=%u words=%u\n",
-				  hyp,
-				  max_zero_run,
-				  engine->rx_seq_a_count);
-			return 1;
+		cj_word = (unsigned short)(engine->rx_seq_a[i] & 0x03ffU);
+		if ((cj_word & 0x03feU) == 0x0000U) {
+			zero_run++;
+			if (zero_run > max_zero_run)
+				max_zero_run = zero_run;
+		} else {
+			zero_run = 0U;
 		}
 	}
-	return 0;
+
+	if (max_zero_run < 3U)
+		return 0;
+
+	engine->cj_sequence_valid = 1U;
+	engine->cj_variant_bit = 0U;
+	V8OPEN_DBG("cj-stub: accepted zero-octet CJ run run=%u words=%u\n",
+		  max_zero_run,
+		  engine->rx_seq_a_count);
+	return 1;
 }
 
 static void v8_open_parse_rx_sequence_words(struct v8_open_engine *engine,
