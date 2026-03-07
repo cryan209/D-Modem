@@ -1612,10 +1612,13 @@ static unsigned v8_open_rx_quantize_transition_clear(unsigned *counter)
 	remainder = phase_count & 0x03U;
 	whole_bits = phase_count >> 2;
 	/*
-	 * Blob v8_fskdemodulate keeps the modulo-4 remainder on transition
-	 * (counter = counter & 3), then computes a rounded emit count.
+	 * Blob v8_fskdemodulate temporarily stores the modulo-4 remainder for
+	 * the threshold calculation, then clears the counter to zero after the
+	 * transition.  The remainder influences the rounding decision but does
+	 * NOT carry forward into the next accumulation cycle.
 	 */
-	*counter = remainder;
+	/* remainder is used only for threshold check below, then counter is cleared */
+	*counter = 0U;
 	stride = whole_bits > 2U ? 3U : (whole_bits + 1U);
 	threshold = 4U - stride;
 	emit_count = whole_bits;
