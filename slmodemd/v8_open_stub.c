@@ -75,7 +75,7 @@
 #define V8OPEN_RX_AGC_GAIN_DECAY_COEFF 0x390aU
 #define V8OPEN_RX_AGC_GAIN_GROW_COEFF 0x47cfU
 #define V8OPEN_RX_AGC_GAIN_GROW_LIMIT 0x6a00U
-#define V8OPEN_DEMOD_ENERGY_FLOOR 0xc34fULL
+#define V8OPEN_DEMOD_ENERGY_FLOOR 0xc34fU
 
 static const short v8_open_sine_32[32] = {
 	0, 1951, 3827, 5556, 7071, 8315, 9239, 9808,
@@ -2806,13 +2806,13 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 			unsigned idx;
 			phase_sched = engine->rx_phase_offset;
 			for (idx = 0U; idx < V8OPEN_DEMOD_STAGE_SAMPLES; ++idx) {
-				unsigned long long mark_energy;
-				unsigned long long space_energy;
+				unsigned int mark_energy;
+				unsigned int space_energy;
 				unsigned bit;
-				long long acc0;
-				long long acc1;
-				long long acc2;
-				long long acc3;
+				int acc0;
+				int acc1;
+				int acc2;
+				int acc3;
 				unsigned tap;
 
 				if (phase_sched > idx)
@@ -2834,32 +2834,32 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 						h = V8OPEN_DEMOD_HISTORY_SAMPLES + idx - tap;
 						s = engine->rx_demod_history[h];
 					}
-					acc0 += (long long)s * (long long)filt_dd8[tap];
-					acc1 += (long long)s * (long long)filt_ddc[tap];
-					acc2 += (long long)s * (long long)filt_de0[tap];
-					acc3 += (long long)s * (long long)filt_de4[tap];
+					acc0 += (int)s * (int)filt_dd8[tap];
+					acc1 += (int)s * (int)filt_ddc[tap];
+					acc2 += (int)s * (int)filt_de0[tap];
+					acc3 += (int)s * (int)filt_de4[tap];
 				}
 				{
 					short f0;
 					short f1;
 					short f2;
 					short f3;
-					long long e0;
-					long long e1;
-					long long e2;
-					long long e3;
+					int e0;
+					int e1;
+					int e2;
+					int e3;
 
 					/* Blob v8_fskdemodulate truncates each filtered branch to s16. */
 					f0 = (short)(acc0 >> 14);
 					f1 = (short)(acc1 >> 14);
 					f2 = (short)(acc2 >> 14);
 					f3 = (short)(acc3 >> 14);
-					e0 = (long long)f0 * (long long)f0;
-					e1 = (long long)f1 * (long long)f1;
-					e2 = (long long)f2 * (long long)f2;
-					e3 = (long long)f3 * (long long)f3;
-					mark_energy = (unsigned long long)(e0 + e1);
-					space_energy = (unsigned long long)(e2 + e3);
+					e0 = (int)f0 * (int)f0;
+					e1 = (int)f1 * (int)f1;
+					e2 = (int)f2 * (int)f2;
+					e3 = (int)f3 * (int)f3;
+					mark_energy = (unsigned int)(e0 + e1);
+					space_energy = (unsigned int)(e2 + e3);
 					/*
 					 * Blob v8_fskdemodulate sets the bit when
 					 * (space_energy - mark_energy) > 0.
