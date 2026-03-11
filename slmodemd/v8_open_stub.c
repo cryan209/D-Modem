@@ -75,7 +75,7 @@
 #define V8OPEN_RX_AGC_GAIN_DECAY_COEFF 0x390aU
 #define V8OPEN_RX_AGC_GAIN_GROW_COEFF 0x47cfU
 #define V8OPEN_RX_AGC_GAIN_GROW_LIMIT 0x6a00U
-#define V8OPEN_DEMOD_ENERGY_FLOOR 0x0800ULL
+#define V8OPEN_DEMOD_ENERGY_FLOOR 0xc34fULL
 
 static const short v8_open_sine_32[32] = {
 	0, 1951, 3827, 5556, 7071, 8315, 9239, 9808,
@@ -2874,8 +2874,19 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 				}
 
 				if (mark_energy <= V8OPEN_DEMOD_ENERGY_FLOOR &&
-				    space_energy <= V8OPEN_DEMOD_ENERGY_FLOOR)
+				    space_energy <= V8OPEN_DEMOD_ENERGY_FLOOR) {
 					engine->rx_dbg_low_energy++;
+					/*
+					 * Blob v8_fskdemodulate clears BOTH tick
+					 * counters when energy is below the floor
+					 * (0x78e7f-0x78e8d).  This prevents noise
+					 * during silence from corrupting subsequent
+					 * bit detection.
+					 */
+					engine->rx_mark_ticks = 0U;
+					engine->rx_space_ticks = 0U;
+					continue;
+				}
 
 				if (bit) {
 					/* bit=1: (space-mark) > 0 in blob demod. */
