@@ -57,10 +57,27 @@ static pjsua_call_id pending_call_id = PJSUA_INVALID_ID;
 static int sip_modem_hookstate =0;
 static int local_selftest_mode = 0;
 static volatile sig_atomic_t keep_running = 1;
+static pjsua_conf_port_id modem_audio_id = PJSUA_INVALID_ID;
+static pjsua_conf_port_id active_call_conf_slot = PJSUA_INVALID_ID;
 
 #ifdef WITH_AUDIO
-static pjsua_conf_port_id left_audio_id, right_audio_id;
+static pjsua_conf_port_id left_audio_id = PJSUA_INVALID_ID;
+static pjsua_conf_port_id right_audio_id = PJSUA_INVALID_ID;
 #endif
+
+static void disconnect_call_media_slot(pjsua_conf_port_id call_slot)
+{
+	if (call_slot == PJSUA_INVALID_ID)
+		return;
+	if (modem_audio_id != PJSUA_INVALID_ID) {
+		pjsua_conf_disconnect(call_slot, modem_audio_id);
+		pjsua_conf_disconnect(modem_audio_id, call_slot);
+	}
+#ifdef WITH_AUDIO
+	if (left_audio_id != PJSUA_INVALID_ID)
+		pjsua_conf_disconnect(call_slot, left_audio_id);
+#endif
+}
 
 static void selftest_sanitize_id(const char *src, char *dst, size_t dst_sz)
 {
@@ -427,8 +444,10 @@ static pj_status_t dmodem_get_frame(pjmedia_port *this_port, pjmedia_frame *fram
 						level = socket_frame.data.volume.value / 3.0;
 					}
 #ifdef WITH_AUDIO
-					pjsua_conf_adjust_tx_level(left_audio_id, level);
-					pjsua_conf_adjust_tx_level(right_audio_id, level);
+					if (left_audio_id != PJSUA_INVALID_ID)
+						pjsua_conf_adjust_tx_level(left_audio_id, level);
+					if (right_audio_id != PJSUA_INVALID_ID)
+						pjsua_conf_adjust_tx_level(right_audio_id, level);
 #endif
 					volume = socket_frame.data.volume.value;
 					printf("dmodem_get_frame: Volume: %d -> %f\n", volume, level);
@@ -462,6 +481,10 @@ static void on_call_state(pjsua_call_id call_id, pjsip_event *e) {
 				ci.state_text.ptr));
 
 	if (ci.state == PJSIP_INV_STATE_DISCONNECTED) {
+		if (active_call_conf_slot == ci.conf_slot) {
+			disconnect_call_media_slot(active_call_conf_slot);
+			active_call_conf_slot = PJSUA_INVALID_ID;
+		}
 		/* Notify slmodemd of remote hangup */
 		struct socket_frame sf = { 0 };
 		sf.type = SOCKET_FRAME_SIP_INFO;
@@ -490,71 +513,82 @@ static void on_call_state(pjsua_call_id call_id, pjsip_event *e) {
 /* Callback called by the library when call's media state has changed */
 static void on_call_media_state(pjsua_call_id call_id) {
 	printf("on_call_media_state: callback\n");
-	pjmedia_snd_port *audiodev;
 	pjmedia_port *sc, *left, *right;
 	pjmedia_aud_dev_index devidx = -1;
 	pjsua_call_info ci;
-	pjsua_conf_port_id port_id;
-	static int done=0;
+	struct socket_frame socket_frame = { 0 };
 	
 	pjsua_call_get_info(call_id, &ci);
 
 //	printf("media_status %d media_cnt %d ci.conf_slot %d aud.conf_slot %d\n",ci.media_status,ci.media_cnt,ci.conf_slot,ci.media[0].stream.aud.conf_slot);
-	if (ci.media_status == PJSUA_CALL_MEDIA_ACTIVE) {
-		if (!done) {
-			struct socket_frame socket_frame = { 0 };
-			if (pjsua_conf_add_port(pool, &port.base, &port_id) != PJ_SUCCESS)
-				error_exit("can't add modem port",0);
-			if (pjsua_conf_connect(ci.conf_slot, port_id) != PJ_SUCCESS)
-				error_exit("can't connect modem port (out)",0);
-			if (pjsua_conf_connect(port_id, ci.conf_slot) != PJ_SUCCESS)
-				error_exit("can't connect modem port (in)",0);
+	if (ci.media_status != PJSUA_CALL_MEDIA_ACTIVE ||
+	    ci.conf_slot == PJSUA_INVALID_ID)
+		return;
 
-			//pjsua_conf_adjust_rx_level(port_id, 1.0);
-			//pjsua_conf_adjust_rx_level(ci.conf_slot, 1.0);
+	if (modem_audio_id == PJSUA_INVALID_ID) {
+		if (pjsua_conf_add_port(pool, &port.base, &modem_audio_id) != PJ_SUCCESS)
+			error_exit("can't add modem port",0);
 
 #ifdef WITH_AUDIO
-			if (pjmedia_splitcomb_create(pool, SIP_RATE, 2, SIP_FRAMESIZE, 16, 0, &sc) != PJ_SUCCESS)
-				error_exit("can't create splitter/combiner",0);
+		if (pjmedia_splitcomb_create(pool, SIP_RATE, 2, SIP_FRAMESIZE, 16, 0, &sc) != PJ_SUCCESS)
+			error_exit("can't create splitter/combiner",0);
 
-			// left
-			if (pjmedia_splitcomb_create_rev_channel(pool, sc, 0, 0, &left) != PJ_SUCCESS)
-				error_exit("can't create left channel",0);
-			if (pjsua_conf_add_port(pool, left, &left_audio_id) != PJ_SUCCESS)
-				error_exit("can't add left port",0);
-			if (pjsua_conf_connect(ci.conf_slot, left_audio_id) != PJ_SUCCESS)
-				error_exit("can't connect left port",0);
-			pjsua_conf_adjust_tx_level(left_audio_id, 0.0);
+		// left: SIP call -> monitor/playback.
+		if (pjmedia_splitcomb_create_rev_channel(pool, sc, 0, 0, &left) != PJ_SUCCESS)
+			error_exit("can't create left channel",0);
+		if (pjsua_conf_add_port(pool, left, &left_audio_id) != PJ_SUCCESS)
+			error_exit("can't add left port",0);
+		pjsua_conf_adjust_tx_level(left_audio_id, 0.0);
 
-			// right
-			if (pjmedia_splitcomb_create_rev_channel(pool, sc, 1, 0, &right) != PJ_SUCCESS)
-				error_exit("can't create right channel",0);
-			if (pjsua_conf_add_port(pool, right, &right_audio_id) != PJ_SUCCESS)
-				error_exit("can't add right port",0);
-			if (pjsua_conf_connect(port_id, right_audio_id) != PJ_SUCCESS)
-				error_exit("can't connect right port",0);
-			pjsua_conf_adjust_tx_level(right_audio_id, 0.0);
+		// right: d-modem -> monitor/playback.
+		if (pjmedia_splitcomb_create_rev_channel(pool, sc, 1, 0, &right) != PJ_SUCCESS)
+			error_exit("can't create right channel",0);
+		if (pjsua_conf_add_port(pool, right, &right_audio_id) != PJ_SUCCESS)
+			error_exit("can't add right port",0);
+		if (pjsua_conf_connect(modem_audio_id, right_audio_id) != PJ_SUCCESS)
+			error_exit("can't connect right port",0);
+		pjsua_conf_adjust_tx_level(right_audio_id, 0.0);
 
-			if (pjmedia_aud_dev_lookup("ALSA", "default", &devidx) != PJ_SUCCESS) {
-				devidx = -1;
-			}
+		if (pjmedia_aud_dev_lookup("ALSA", "default", &devidx) != PJ_SUCCESS)
+			devidx = -1;
 
+		{
+			pjmedia_snd_port *audiodev;
 			if (pjmedia_snd_port_create_player(pool, devidx, SIP_RATE, 2, SIP_FRAMESIZE, 16, 0, &audiodev) == PJ_SUCCESS) {
 				if (pjmedia_snd_port_connect(audiodev, sc) != PJ_SUCCESS)
 					error_exit("can't connect audio device port",0);
 			} else {
 				pjsua_perror(__FILE__,"can't create audio device port",PJ_SUCCESS);
 			}
-#endif
-
-			//Kick off audio
-			printf("Kicking off audio!\n");
-			socket_frame.type = SOCKET_FRAME_AUDIO;
-			write(port.sock, &socket_frame, sizeof(socket_frame));
-
-			done = 1;
 		}
+#endif
 	}
+
+	if (active_call_conf_slot != PJSUA_INVALID_ID &&
+	    active_call_conf_slot != ci.conf_slot)
+		disconnect_call_media_slot(active_call_conf_slot);
+
+	/* Ensure reconnect works after call-id/slot churn. */
+	disconnect_call_media_slot(ci.conf_slot);
+	if (pjsua_conf_connect(ci.conf_slot, modem_audio_id) != PJ_SUCCESS)
+		error_exit("can't connect modem port (out)",0);
+	if (pjsua_conf_connect(modem_audio_id, ci.conf_slot) != PJ_SUCCESS)
+		error_exit("can't connect modem port (in)",0);
+#ifdef WITH_AUDIO
+	if (left_audio_id != PJSUA_INVALID_ID) {
+		if (pjsua_conf_connect(ci.conf_slot, left_audio_id) != PJ_SUCCESS)
+			error_exit("can't connect left port",0);
+		pjsua_conf_adjust_tx_level(left_audio_id, 0.0);
+	}
+#endif
+	active_call_conf_slot = ci.conf_slot;
+	printf("on_call_media_state: bridge call=%d conf_slot=%d modem_port=%d\n",
+	       call_id, ci.conf_slot, modem_audio_id);
+
+	// Kick off audio for each newly active call.
+	printf("Kicking off audio!\n");
+	socket_frame.type = SOCKET_FRAME_AUDIO;
+	write(port.sock, &socket_frame, sizeof(socket_frame));
 }
 
 /* Callback called by the library upon receiving incoming call */

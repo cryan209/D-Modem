@@ -161,6 +161,23 @@ static struct timeval sip_ring_last = { 0, 0 };
 static void *rcSIPtoMODEM = NULL;
 static void *rcMODEMtoSIP = NULL;
 
+static void sip_report_ring(struct modem *m)
+{
+	struct timeval now;
+	long elapsed_ms;
+
+	if (!sip_ringing)
+		return;
+
+	gettimeofday(&now, NULL);
+	elapsed_ms = (now.tv_sec - sip_ring_last.tv_sec) * 1000L +
+		     (now.tv_usec - sip_ring_last.tv_usec) / 1000L;
+	if (sip_ring_last.tv_sec == 0 || elapsed_ms >= 2000) {
+		modem_ring_notify(m);
+		sip_ring_last = now;
+	}
+}
+
 /*
  *    ALSA 'driver'
  *
@@ -776,22 +793,25 @@ static int socket_dial (struct modem *m)
 {
 	char dialreturn[256];
 	
-	//No AT cmd
-	if (m->at_cmd[0] == '\0'){
+	/* Auto-answer may start without ATA in m->at_cmd. */
+	if (m->at_cmd[0] == '\0' && !sip_ringing) {
 		return 0;
 	}
 	//AT Dial
 	if (strncasecmp(m->at_cmd,"ATD",3)==0){
-	DBG("socket_dial: dialing %s\n",m->dial_string);
-	sip_modem_hookstate = 1;
-	snprintf(dialreturn,255,"MD%s",m->dial_string);	
-	return_data_to_child(m,dialreturn);
+		DBG("socket_dial: dialing %s\n",m->dial_string);
+		sip_modem_hookstate = 1;
+		snprintf(dialreturn,255,"MD%s",m->dial_string);	
+		return_data_to_child(m,dialreturn);
+		return 0;
 	}
-	//AT Answer
-	if (strncasecmp(m->at_cmd,"ATA",3)==0){
-		DBG("socket_dial: answering\n");
+	/* Explicit ATA and ATS0 auto-answer both need to accept the pending SIP call. */
+	if (strncasecmp(m->at_cmd,"ATA",3)==0 || sip_ringing) {
+		DBG("socket_dial: answering%s\n",
+		    strncasecmp(m->at_cmd,"ATA",3)==0 ? "" : " (auto)");
 		sip_ringing = 0;
 		sip_ring_last.tv_sec = 0;
+		sip_ring_last.tv_usec = 0;
 		snprintf(dialreturn,255,"MA");
 		return_data_to_child(m,dialreturn);
 	}
@@ -1331,17 +1351,7 @@ static int modem_run(struct modem *m, struct device_struct *dev)
 		}
 				//DBG("keep_running select audio");
 				//DBG("check sip ring loop");
-				if(sip_ringing == 1){
-						struct timeval now;
-						gettimeofday(&now, NULL);
-						long elapsed_ms = (now.tv_sec - sip_ring_last.tv_sec) * 1000
-							+ (now.tv_usec - sip_ring_last.tv_usec) / 1000;
-						if (elapsed_ms >= 2000 || sip_ring_last.tv_sec == 0) {
-							modem_send_to_tty(m,"RING",4);
-							modem_send_to_tty(m,CRLF_CHARS(m),2);
-							sip_ring_last = now;
-						}
-					}
+				sip_report_ring(m);
 
                 ret = select(max_fd + 1,&rset,NULL,&eset,&tmo);
 				
@@ -1375,17 +1385,7 @@ static int modem_run(struct modem *m, struct device_struct *dev)
 				}
 				//DBG("keep_running scount val %d",scount);				
 				//DBG("check sip ring loop");
-				if(sip_ringing == 1){
-						struct timeval now;
-						gettimeofday(&now, NULL);
-						long elapsed_ms = (now.tv_sec - sip_ring_last.tv_sec) * 1000
-							+ (now.tv_usec - sip_ring_last.tv_usec) / 1000;
-						if (elapsed_ms >= 2000 || sip_ring_last.tv_sec == 0) {
-							modem_send_to_tty(m,"RING",4);
-							modem_send_to_tty(m,CRLF_CHARS(m),2);
-							sip_ring_last = now;
-						}
-					}
+				sip_report_ring(m);
 
 
                 if (ret < 0) {

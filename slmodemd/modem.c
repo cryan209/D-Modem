@@ -727,6 +727,32 @@ static void schedule_event(struct modem *m, unsigned mask, unsigned long when)
 	timer_add(&m->event_timer);
 }
 
+static int modem_can_auto_answer(struct modem *m)
+{
+#ifdef MODEM_CONFIG_RING_DETECTOR
+	return (!m->started || m->rd_obj);
+#else
+	return !m->started;
+#endif
+}
+
+static void modem_report_ring(struct modem *m)
+{
+	TOTAL_RINGS_COUNT(m)++;
+	if(TOTAL_RINGS_COUNT(m) == 1)
+		modem_put_chars(m,CRLF_CHARS(m),2);
+	modem_report_result(m,RESULT_RING);
+	if (ANSWER_AFTER_RINGS(m) &&
+	    modem_can_auto_answer(m) &&
+	    TOTAL_RINGS_COUNT(m) >= ANSWER_AFTER_RINGS(m)) {
+		TOTAL_RINGS_COUNT(m) = 0;
+		modem_answer(m);
+	}
+	else {
+		schedule_event(m,MDMEVENT_RING_CHECK,RING_OFF_MAX(m) + 1);
+	}
+}
+
 
 void modem_event(struct modem *m)
 {
@@ -750,24 +776,7 @@ void modem_event(struct modem *m)
 		else {
 			MODEM_DBG("ring valid.\n");
 			m->ring_count = 0;
-			TOTAL_RINGS_COUNT(m)++;
-			if(TOTAL_RINGS_COUNT(m) == 1)
-				modem_put_chars(m,CRLF_CHARS(m),2);
-			modem_report_result(m,RESULT_RING);
-			if (ANSWER_AFTER_RINGS(m) &&
-#ifdef MODEM_CONFIG_RING_DETECTOR
-			    (!m->started || m->rd_obj) &&
-#else
-			    !m->started &&
-#endif
-			    TOTAL_RINGS_COUNT(m) >= ANSWER_AFTER_RINGS(m)) {
-				TOTAL_RINGS_COUNT(m) = 0;
-				modem_answer(m);
-			}
-			else {
-				schedule_event(m,MDMEVENT_RING_CHECK,
-					       RING_OFF_MAX(m) + 1);
-			}
+			modem_report_ring(m);
 		}
 	}
 	if(event&MDMEVENT_ESCAPE) {
@@ -807,6 +816,16 @@ void modem_ring(struct modem *m)
 		}
 	}
 	m->ring_last = now;
+}
+
+void modem_ring_notify(struct modem *m)
+{
+	if (m->state != STATE_MODEM_IDLE)
+		return;
+	MODEM_DBG("modem_ring_notify...\n");
+	m->ring_count = 0;
+	m->ring_first = m->ring_last = get_time();
+	modem_report_ring(m);
 }
 
 
@@ -1975,5 +1994,4 @@ void modem_delete(struct modem *m)
 	timer_del(&m->event_timer);
 	free(m);
 }
-
 
