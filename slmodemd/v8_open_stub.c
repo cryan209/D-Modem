@@ -30,7 +30,7 @@
 #define V8OPEN_CM_WAIT_TAIL_MS 800U
 #define V8OPEN_CJ_WAIT_MS 900U
 #define V8OPEN_CJ_COLLECT_MIN_MS 420U
-#define V8OPEN_CM_TIMEOUT_JM_PROMOTE_MIN_CANDIDATES 0x7fffffffU
+#define V8OPEN_CM_TIMEOUT_JM_PROMOTE_MIN_CANDIDATES 200U
 #define V8OPEN_CM_COLLECT_WORDS_LONG ((V8OPEN_CM_WORDS * 2U) + 4U)
 #define V8OPEN_CM_COLLECT_WORDS_WAIT V8OPEN_CM_WORDS
 #define V8OPEN_CM_COLLECT_BURST 2U
@@ -75,7 +75,7 @@
 #define V8OPEN_RX_AGC_GAIN_DECAY_COEFF 0x390aU
 #define V8OPEN_RX_AGC_GAIN_GROW_COEFF 0x47cfU
 #define V8OPEN_RX_AGC_GAIN_GROW_LIMIT 0x6a00U
-#define V8OPEN_DEMOD_ENERGY_FLOOR 0xc34fU
+#define V8OPEN_DEMOD_ENERGY_FLOOR 50000
 
 static const short v8_open_sine_32[32] = {
 	0, 1951, 3827, 5556, 7071, 8315, 9239, 9808,
@@ -2625,7 +2625,7 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 				engine->cm_even_words++;
 			engine->rx_seq_b_count = engine->cm_collect_index < V8OPEN_CM_WORDS ?
 				engine->cm_collect_index : V8OPEN_CM_WORDS;
-			if (engine->rx_seq_b_count >= 6U &&
+			if (engine->rx_seq_b_count >= 4U &&
 			    (engine->cm_collect_pass > engine->cm_best_pass ||
 			     (engine->cm_collect_pass == engine->cm_best_pass &&
 			      engine->rx_seq_b_count > engine->cm_best_count))) {
@@ -2697,7 +2697,7 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 			return 0;
 		}
 
-		if (engine->rx_seq_b_count >= 8U) {
+		if (engine->rx_seq_b_count >= 5U) {
 			v8_open_parse_rx_sequence(engine);
 			if (v8_open_cm_sequence_valid(engine))
 				return 1;
@@ -2806,8 +2806,8 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 			unsigned idx;
 			phase_sched = engine->rx_phase_offset;
 			for (idx = 0U; idx < V8OPEN_DEMOD_STAGE_SAMPLES; ++idx) {
-				unsigned int mark_energy;
-				unsigned int space_energy;
+				int mark_energy;
+				int space_energy;
 				unsigned bit;
 				int acc0;
 				int acc1;
@@ -2858,13 +2858,15 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 					e1 = (int)f1 * (int)f1;
 					e2 = (int)f2 * (int)f2;
 					e3 = (int)f3 * (int)f3;
-					mark_energy = (unsigned int)(e0 + e1);
-					space_energy = (unsigned int)(e2 + e3);
+					mark_energy = e0 + e1;
+					space_energy = e2 + e3;
 					/*
-					 * Blob v8_fskdemodulate sets the bit when
+					 * Blob v8_fskdemodulate uses signed
+					 * subtraction: bit is set when
 					 * (space_energy - mark_energy) > 0.
+					 * Both energies are signed int in the blob.
 					 */
-					bit = space_energy > mark_energy ? 1U : 0U;
+					bit = (space_energy - mark_energy) > 0 ? 1U : 0U;
 					/*
 					 * Profile bit1 enables polarity scan so timeout
 					 * rearms can explore both mark/space mappings.
@@ -2873,8 +2875,8 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 						bit ^= 1U;
 				}
 
-				if (mark_energy <= V8OPEN_DEMOD_ENERGY_FLOOR &&
-				    space_energy <= V8OPEN_DEMOD_ENERGY_FLOOR) {
+				if (mark_energy < V8OPEN_DEMOD_ENERGY_FLOOR &&
+				    space_energy < V8OPEN_DEMOD_ENERGY_FLOOR) {
 					engine->rx_dbg_low_energy++;
 					/*
 					 * Blob v8_fskdemodulate clears BOTH tick
@@ -3012,14 +3014,14 @@ static int v8_open_try_salvage_best_cm(struct v8_open_engine *engine)
 	unsigned shift;
 	unsigned i;
 
-	if (!engine || engine->cm_best_count < 6U)
+	if (!engine || engine->cm_best_count < 4U)
 		return 0;
 
 	saved_count = engine->rx_seq_b_count;
 	for (i = 0U; i < V8OPEN_CM_WORDS; ++i)
 		saved_seq[i] = engine->rx_seq_b[i];
 
-	max_shift = (engine->cm_best_count > 6U) ? (engine->cm_best_count - 6U) : 0U;
+	max_shift = (engine->cm_best_count > 4U) ? (engine->cm_best_count - 4U) : 0U;
 	if (max_shift > 6U)
 		max_shift = 6U;
 
@@ -3355,6 +3357,31 @@ static unsigned v8_open_reframe_words_from_bit_offset(const unsigned short *word
 	return out_count;
 }
 
+static unsigned v8_open_parse_score(const struct v8_open_engine *engine)
+{
+	unsigned score;
+
+	score = 0U;
+	if (engine->remote_call_data)
+		score++;
+	if (engine->have_call_match)
+		score += 2U;
+	if (engine->remote_v34)
+		score += 4U;
+	if (engine->remote_v32)
+		score += 2U;
+	if (engine->remote_pcm_present)
+		score += 2U;
+	if (engine->remote_access_present)
+		score++;
+	if (engine->have_proto_match)
+		score += 2U;
+	if (engine->remote_lapm)
+		score += 2U;
+	score += engine->rx_token_count;
+	return score;
+}
+
 static void v8_open_parse_rx_sequence(struct v8_open_engine *engine)
 {
 	unsigned short base[V8OPEN_CM_WORDS];
@@ -3367,12 +3394,43 @@ static void v8_open_parse_rx_sequence(struct v8_open_engine *engine)
 	unsigned h;
 	unsigned off;
 
+	/* Saved state for the best hypothesis found so far. */
+	unsigned best_score;
+	unsigned best_h;
+	unsigned best_off;
+	unsigned best_token_count;
+	unsigned best_remote_call_data;
+	unsigned best_remote_v34;
+	unsigned best_remote_v32;
+	unsigned best_remote_lapm;
+	unsigned best_remote_pcm_present;
+	unsigned best_remote_access_present;
+	unsigned best_have_call_match;
+	unsigned best_have_proto_match;
+	unsigned short best_matched_call_word;
+	unsigned short best_matched_proto_word;
+
 	count = engine->rx_seq_b_count;
 	if (count > V8OPEN_CM_WORDS)
 		count = V8OPEN_CM_WORDS;
 
 	for (i = 0U; i < count; ++i)
 		base[i] = (unsigned short)(engine->rx_seq_b[i] & 0x03ffU);
+
+	best_score = 0U;
+	best_h = 0U;
+	best_off = 0U;
+	best_token_count = 0U;
+	best_remote_call_data = 0U;
+	best_remote_v34 = 0U;
+	best_remote_v32 = 0U;
+	best_remote_lapm = 0U;
+	best_remote_pcm_present = 0U;
+	best_remote_access_present = 0U;
+	best_have_call_match = 0U;
+	best_have_proto_match = 0U;
+	best_matched_call_word = 0U;
+	best_matched_proto_word = 0U;
 
 	for (h = 0U; h < 4U; ++h) {
 		for (i = 0U; i < count; ++i) {
@@ -3387,6 +3445,8 @@ static void v8_open_parse_rx_sequence(struct v8_open_engine *engine)
 		}
 
 		for (off = 0U; off < 10U; ++off) {
+			unsigned cur_score;
+
 			if (off == 0U) {
 				candidate = oriented;
 				candidate_count = count;
@@ -3400,20 +3460,53 @@ static void v8_open_parse_rx_sequence(struct v8_open_engine *engine)
 				candidate = reframed;
 			}
 
-				if (candidate_count < 6U)
+				if (candidate_count < 4U)
 					continue;
 
 			v8_open_parse_rx_sequence_words(engine, candidate, candidate_count);
-			if (v8_open_cm_sequence_valid(engine)) {
-				if (h != 0U || off != 0U) {
-					V8OPEN_DBG("cm-stub: parser accepted orientation hypothesis=%u bitoff=%u tokens=%u\n",
-						  h,
-						  off,
-						  engine->rx_token_count);
-				}
-				return;
+			if (!v8_open_cm_sequence_valid(engine))
+				continue;
+
+			cur_score = v8_open_parse_score(engine);
+			if (cur_score > best_score) {
+				best_score = cur_score;
+				best_h = h;
+				best_off = off;
+				best_token_count = engine->rx_token_count;
+				best_remote_call_data = engine->remote_call_data;
+				best_remote_v34 = engine->remote_v34;
+				best_remote_v32 = engine->remote_v32;
+				best_remote_lapm = engine->remote_lapm;
+				best_remote_pcm_present = engine->remote_pcm_present;
+				best_remote_access_present = engine->remote_access_present;
+				best_have_call_match = engine->have_call_match;
+				best_have_proto_match = engine->have_proto_match;
+				best_matched_call_word = engine->matched_call_word;
+				best_matched_proto_word = engine->matched_proto_word;
 			}
 		}
+	}
+
+	if (best_score > 0U) {
+		/* Restore the best hypothesis result. */
+		engine->rx_token_count = best_token_count;
+		engine->remote_call_data = best_remote_call_data;
+		engine->remote_v34 = best_remote_v34;
+		engine->remote_v32 = best_remote_v32;
+		engine->remote_lapm = best_remote_lapm;
+		engine->remote_pcm_present = best_remote_pcm_present;
+		engine->remote_access_present = best_remote_access_present;
+		engine->have_call_match = best_have_call_match;
+		engine->have_proto_match = best_have_proto_match;
+		engine->matched_call_word = best_matched_call_word;
+		engine->matched_proto_word = best_matched_proto_word;
+		if (best_h != 0U || best_off != 0U) {
+			V8OPEN_DBG("cm-stub: parser accepted orientation hypothesis=%u bitoff=%u tokens=%u\n",
+				  best_h,
+				  best_off,
+				  best_token_count);
+		}
+		return;
 	}
 
 	/* Restore default interpretation when no hypothesis validates. */
