@@ -443,10 +443,14 @@ struct v8_open_engine {
 	unsigned rx_dbg_low_energy;
 	unsigned rx_dbg_bit0;
 	unsigned rx_dbg_bit1;
+	unsigned rx_dbg_energy_log_counter;
+	int rx_dbg_last_mark_e;
+	int rx_dbg_last_space_e;
 	unsigned rx_demod_profile;
 	short rx_input_dc_state;
 	unsigned ans_cm_timeout_fallback;
 	unsigned ans_cj_timeout_fallback;
+	unsigned ans_cm_was_synthetic;
 	short rx_agc_fir_hist[V8OPEN_AGC_FIR_SAMPLES];
 	short rx_demod_history[V8OPEN_DEMOD_HISTORY_SAMPLES];
 	short rx_bit_window[V8OPEN_MAX_SAMPLES_PER_BIT];
@@ -2016,6 +2020,9 @@ static void v8_open_rx_reset_collect(struct v8_open_engine *engine)
 	engine->rx_dbg_low_energy = 0U;
 	engine->rx_dbg_bit0 = 0U;
 	engine->rx_dbg_bit1 = 0U;
+	engine->rx_dbg_energy_log_counter = 0U;
+	engine->rx_dbg_last_mark_e = 0;
+	engine->rx_dbg_last_space_e = 0;
 	engine->rx_input_dc_state = 0;
 	engine->ans_rx_ac = 0U;
 	memset(engine->rx_agc_ring, 0, sizeof(engine->rx_agc_ring));
@@ -2867,6 +2874,16 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 					 * Both energies are signed int in the blob.
 					 */
 					bit = (space_energy - mark_energy) > 0 ? 1U : 0U;
+					engine->rx_dbg_last_mark_e = mark_energy;
+					engine->rx_dbg_last_space_e = space_energy;
+					engine->rx_dbg_energy_log_counter++;
+					if ((engine->rx_dbg_energy_log_counter & 0x7fU) == 1U)
+						V8OPEN_DBG("demod-energy: mark=%d space=%d diff=%d bit=%u f0=%d f1=%d f2=%d f3=%d prof=%u alt=%u\n",
+							  mark_energy, space_energy,
+							  space_energy - mark_energy,
+							  bit, (int)f0, (int)f1, (int)f2, (int)f3,
+							  engine->rx_demod_profile,
+							  use_alt_bank);
 					/*
 					 * Profile bit1 enables polarity scan so timeout
 					 * rearms can explore both mark/space mappings.
@@ -4742,6 +4759,7 @@ static void v8_open_transition(struct v8_open_engine *engine,
 			engine->matched_proto_word = 0U;
 			engine->cm_detected = 1U;
 			engine->ans_cm_timeout_fallback = 0U;
+			engine->ans_cm_was_synthetic = 1U;
 			V8OPEN_DBG("cm-stub: timeout salvage promoted synthetic CM after %u candidate(s), continuing with JM remote=data:1 v34:1 v32:0 pcm:0 access:0\n",
 				  engine->cm_seen_count);
 			next_phase = V8_OPEN_PHASE_ANS_SEND_JM;
@@ -4953,6 +4971,7 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->rx_orient_flip = 0U;
 	engine->ans_cm_timeout_fallback = 0U;
 	engine->ans_cj_timeout_fallback = 0U;
+	engine->ans_cm_was_synthetic = 0U;
 	engine->preferred_dp = (enum DP_ID)cfg->target_dp_id;
 	v8_open_rx_reset_collect(engine);
 	if (cfg->answer_mode)
