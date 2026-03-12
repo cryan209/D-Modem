@@ -3141,7 +3141,10 @@ static int v8_open_cj_sequence_valid(struct v8_open_engine *engine)
 		unsigned short cj_word;
 
 		cj_word = (unsigned short)(engine->rx_seq_a[i] & 0x03ffU);
-		if ((cj_word & 0x03feU) == 0x0000U) {
+		/* CJ is continuous mark — appears as all-zeros or all-ones
+		   depending on orientation. Accept both patterns. */
+		if ((cj_word & 0x03feU) == 0x0000U ||
+		    (cj_word & 0x03feU) == 0x03feU) {
 			zero_run++;
 			if (zero_run > max_zero_run)
 				max_zero_run = zero_run;
@@ -3155,7 +3158,7 @@ static int v8_open_cj_sequence_valid(struct v8_open_engine *engine)
 
 	engine->cj_sequence_valid = 1U;
 	engine->cj_variant_bit = 0U;
-	V8OPEN_DBG("cj-stub: accepted zero-octet CJ run run=%u words=%u\n",
+	V8OPEN_DBG("cj-stub: accepted uniform CJ run run=%u words=%u\n",
 		  max_zero_run,
 		  engine->rx_seq_a_count);
 	return 1;
@@ -3922,9 +3925,31 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 	}
 
 	if (!v8_open_rx_consume_samples(engine, samples, cnt)) {
+		/*
+		 * Fast-track CJ acceptance: after preamble lock, the CJ signal
+		 * is too short to collect 3 full 10-bit words at the slow demod
+		 * rate. If preamble lock found alternating pattern (0x155) or
+		 * all-ones (0x3ff) and the shift register contains a CJ-like
+		 * value, accept CJ immediately.
+		 */
+		if (engine->rx_word_sync) {
+			unsigned short reg;
+
+			reg = (unsigned short)(engine->rx_c23a & 0x03ffU);
+			if ((reg & 0x03feU) == 0x03feU ||
+			    (reg & 0x03feU) == 0x0000U) {
+				V8OPEN_DBG("cj-stub: fast-track accept on preamble lock c23a=%03x reg=%03x avg=%u peak=%u\n",
+					  (unsigned)engine->rx_c23a,
+					  (unsigned)reg,
+					  avg_abs,
+					  peak_abs);
+				goto cj_accept;
+			}
+		}
 		return;
 	}
 
+cj_accept:
 	engine->cj_predetecting = 0U;
 	engine->cj_predetect_deadline = 0U;
 	engine->cj_collecting = 0U;

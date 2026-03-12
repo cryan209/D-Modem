@@ -749,11 +749,13 @@ int main(int argc, char *argv[]) {
 		med_cfg.ec_tail_len = 0;
 		med_cfg.snd_use_sw_clock = true;
 		/* Fixed jitter buffer for modem traffic - adaptive mode
-		   drops/inserts frames which corrupts modem data */
+		   drops/inserts frames which corrupts modem data.
+		   min_pre == max_pre == init forces fixed (non-adaptive) mode;
+		   0 means "use default" which enables adaptation. */
 		med_cfg.jb_max = 500;
-		med_cfg.jb_min_pre = 0;
-		med_cfg.jb_max_pre = 0;
-		med_cfg.jb_init = 100;
+		med_cfg.jb_min_pre = 60;
+		med_cfg.jb_max_pre = 60;
+		med_cfg.jb_init = 60;
 		med_cfg.audio_frame_ptime = 20;
 		med_cfg.has_ioqueue = true;
 		med_cfg.thread_cnt = 1;
