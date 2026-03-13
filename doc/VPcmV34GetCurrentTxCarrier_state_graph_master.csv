@@ -1,0 +1,6 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,ENTRY,ctx359c_eq_0x66,SIDE66_PATH,0x7114|0x711c,H,side-66 path selected,VPcmV34GetCurrentTxCarrier_state_graph_edges.csv
+control,ENTRY,ctx359c_ne_0x66,SIDE_OTHER_PATH,0x711e|0x7120,H,non-66 path selected,VPcmV34GetCurrentTxCarrier_state_graph_edges.csv
+control,SIDE66_PATH,adj_le_1,RET_0,0x7134|0x7137|0x713c,H,zero in side66 low-state window,VPcmV34GetCurrentTxCarrier_state_graph_edges.csv
+control,SIDE_OTHER_PATH,state_eq_2,RET_0,0x7120|0x7123,H,zero in non-66 state2,VPcmV34GetCurrentTxCarrier_state_graph_edges.csv
+param,RET_CTX_AA94,ctx+0xaa94,return_value,0x7125,H,dynamic fallback carrier,VPcmV34GetCurrentTxCarrier_state_graph_param_edges.csv

@@ -1,0 +1,12 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,R0_ENTRY,0x7c10,H,function entry,VPcmV34GetMaxUpstreamRateIndex_state_graph_edges.csv
+control,R1_PROFILE_GATE,no_profile,R5_LOG_REGULAR_RET,0x7c32,H,fast path without profile,VPcmV34GetMaxUpstreamRateIndex_state_graph_edges.csv
+control,R2_MODE_GATE,ctx24c_gt1,R3_CAP_ENABLE_GATE,0x7c3b|0x7c54,H,enter sensitive-profile gating,VPcmV34GetMaxUpstreamRateIndex_state_graph_edges.csv
+control,R3_CAP_ENABLE_GATE,param4f8_ne0,R4_CAP_COMPARE,0x7c62|0x7c64,H,apply optional cap,VPcmV34GetMaxUpstreamRateIndex_state_graph_edges.csv
+control,R4_CAP_COMPARE,fallthrough,R6_LOG_SENSITIVE_RET,0x7c70|0x7c74,H,sensitive log/return path,VPcmV34GetMaxUpstreamRateIndex_state_graph_edges.csv
+param,rt+0x3c,read,base_max_upstream_rate,0x7c27,H,baseline candidate,VPcmV34GetMaxUpstreamRateIndex_state_graph_param_edges.csv
+param,params+0x4f8/0x4fc,read,cap_controls,0x7c5a|0x7c64,H,cap enable/index fields,VPcmV34GetMaxUpstreamRateIndex_state_graph_param_edges.csv
+call,R5_LOG_REGULAR_RET,edprintf,regular_isp_log,0x7c48,H,regular path print,VPcmV34GetMaxUpstreamRateIndex_state_graph_param_edges.csv
+call,R6_LOG_SENSITIVE_RET,edprintf,sensitive_isp_log,0x7c7f,H,sensitive path print,VPcmV34GetMaxUpstreamRateIndex_state_graph_param_edges.csv
+return,R5_LOG_REGULAR_RET,eax,return_rate,0x7c50|0x7c53,H,regular return,VPcmV34GetMaxUpstreamRateIndex_state_graph_param_edges.csv
+return,R6_LOG_SENSITIVE_RET,eax,return_rate,0x7c87|0x7c8a,H,sensitive return,VPcmV34GetMaxUpstreamRateIndex_state_graph_param_edges.csv

@@ -1,0 +1,8 @@
+layer,state_hex,evidence_addresses,count
+control,RANGE_GATE,0x6f09|0x6f0c,2
+control,MASK_E7,0x6f13|0x6f15|0x6f18,3
+control,MASK_408,0x6f1a|0x6f20,2
+control,MASK_310,0x6f22|0x6f28|0x6f2a,3
+return,RET_CTX_ABCC,0x6f32,1
+return,RET_1,0x6f2a,1
+return,RET_0,0x6f01|0x6f30,2

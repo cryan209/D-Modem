@@ -1,0 +1,12 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,R0_ENTRY,0x7c10,H,function entry
+R0_ENTRY,fallthrough,R1_PROFILE_GATE,0x7c30,H,pointers and baseline rate loaded
+R1_PROFILE_GATE,no_profile,R5_LOG_REGULAR_RET,0x7c32,H,flo+0x6120 == 0
+R1_PROFILE_GATE,profile_present,R2_MODE_GATE,0x7c34,H,flo+0x6120 != 0
+R2_MODE_GATE,ctx24c_le1,R5_LOG_REGULAR_RET,0x7c3b,H,not in sensitive-profile mode
+R2_MODE_GATE,ctx24c_gt1,R3_CAP_ENABLE_GATE,0x7c54,H,profile mode active
+R3_CAP_ENABLE_GATE,param4f8_eq0,R5_LOG_REGULAR_RET,0x7c62,H,no cap enabled
+R3_CAP_ENABLE_GATE,param4f8_ne0,R4_CAP_COMPARE,0x7c64,H,cap enabled
+R4_CAP_COMPARE,fallthrough,R6_LOG_SENSITIVE_RET,0x7c70|0x7c74,H,cap candidate applied if needed
+R5_LOG_REGULAR_RET,ret,RET,0x7c53,H,return ebx
+R6_LOG_SENSITIVE_RET,ret,RET,0x7c8a,H,return ebx

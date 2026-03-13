@@ -1,0 +1,20 @@
+# VPcmV34RequestDPNotification State Graph
+
+## Nodes
+
+- ENTRY
+- PENDING_GATE
+- COPY_OUT
+- CLEAR_PENDING
+- CLEAR_RUNTIME_BIT
+- RET_1
+- RET_0
+
+## Edges
+
+- ENTRY -> PENDING_GATE
+- PENDING_GATE -> RET_0 (`ctx+0xac40 < 0`)
+- PENDING_GATE -> COPY_OUT (`ctx+0xac40 >= 0`)
+- COPY_OUT -> CLEAR_PENDING
+- CLEAR_PENDING -> CLEAR_RUNTIME_BIT
+- CLEAR_RUNTIME_BIT -> RET_1

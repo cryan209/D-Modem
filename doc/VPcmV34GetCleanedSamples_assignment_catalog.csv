@@ -1,0 +1,7 @@
+layer,state_hex,evidence_addresses,count
+control,READ_LATCH,0x71d8,1
+control,WRITE_COUNT_OUT,0x71df,1
+control,CLEAR_LATCH,0x71e1|0x71e3,2
+control,RETURN_BUFFER_PTR,0x71ea|0x71ef,2
+param,count_latch,0x71d8|0x71e3,2
+param,buffer_ptr,0x71ea,1

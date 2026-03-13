@@ -1,0 +1,7 @@
+from,to,condition,kind,target
+ENTRY,SIDE66_PATH,ctx359c_eq_0x66,branch,
+ENTRY,SIDE_OTHER_PATH,ctx359c_ne_0x66,branch,
+SIDE66_PATH,RET_0,adj_le_1,return,0
+SIDE66_PATH,RET_CTX_AA94,otherwise,return,ctx+0xaa94
+SIDE_OTHER_PATH,RET_0,state_eq_2,return,0
+SIDE_OTHER_PATH,RET_CTX_AA94,otherwise,return,ctx+0xaa94

@@ -1,0 +1,3 @@
+source,parameter,access,notes
+ENTRY,arg1_timing_offset,read_signed,16-bit offset value
+STORE_OFFSET,ctx+0xac0c,write,timing offset log field

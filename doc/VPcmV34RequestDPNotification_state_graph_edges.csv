@@ -1,0 +1,7 @@
+from,to,condition,kind,target
+ENTRY,PENDING_GATE,always,flow,
+PENDING_GATE,RET_0,pending_lt_0,return,0
+PENDING_GATE,COPY_OUT,pending_ge_0,branch,
+COPY_OUT,CLEAR_PENDING,always,write,out pointers
+CLEAR_PENDING,CLEAR_RUNTIME_BIT,always,write,ctx+ac40/44/48
+CLEAR_RUNTIME_BIT,RET_1,always,return,1

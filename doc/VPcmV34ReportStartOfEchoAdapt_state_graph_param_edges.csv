@@ -1,0 +1,3 @@
+source,parameter,access,notes
+DEBUG_GATE,dsplibs_debug_level,read,verbosity gate
+LOG,format@0xff0,read,fixed start-of-echo-adapt message

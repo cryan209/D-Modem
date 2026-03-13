@@ -1,0 +1,11 @@
+from,to,condition,kind,target
+ENTRY,COUNT_GATE,always,flow,
+COUNT_GATE,RETURN_SCORE,count_le_0,return,0
+COUNT_GATE,DIVIDE_Q,count_gt_0,branch,
+DIVIDE_Q,POSITIVE_Q_GATE,always,compute,q=energy/count
+POSITIVE_Q_GATE,RETURN_SCORE,q_le_0,return,0
+POSITIVE_Q_GATE,COARSE_LOOP,q_gt_0,loop_enter,
+COARSE_LOOP,COARSE_LOOP,t_gt_0,loop,snr_idx+=6
+COARSE_LOOP,FINE_LOOP,t_le_0,branch,use_q_last
+FINE_LOOP,FINE_LOOP,scaled_q_gt_0,loop,snr_idx+=1
+FINE_LOOP,RETURN_SCORE,scaled_q_le_0,return,snr_idx

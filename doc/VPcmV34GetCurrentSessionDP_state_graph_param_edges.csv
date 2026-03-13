@@ -1,0 +1,5 @@
+source,parameter,access,notes
+ENTRY,ctx+0x0,read,main state selector
+STATE1_FLAGS,ctx+0xabc6,read,v92/session-ready flag A
+STATE1_FLAGS,ctx+0xabc8,read,v92/session-ready flag B
+RETURN,eax,write,selected session DP code

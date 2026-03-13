@@ -1,0 +1,15 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,R0_ENTRY_STATE_GATE,0x6530,H,function entry
+R0_ENTRY_STATE_GATE,state_in_1_2,R1_LIVE_DEMOD_FORWARD,0x655c,H,live-demod forward path
+R0_ENTRY_STATE_GATE,state_other,R2_REQ_DISPATCH,0x6580,H,reneg dispatch path
+R1_LIVE_DEMOD_FORWARD,ret,RET,0x657f,H,after demod field update
+R2_REQ_DISPATCH,req_eq_2_or_5,R3_DEC_TARGET,0x6583|0x6597,H,decrement path
+R2_REQ_DISPATCH,req_eq_3,R4_INC_TARGET,0x658e,H,increment path
+R2_REQ_DISPATCH,req_other,R5_SET_NEG1,0x6599,H,sentinel path
+R3_DEC_TARGET,cand_in_bound,R6_STORE_TARGET,0x660d|0x660f,H,store decremented target
+R3_DEC_TARGET,cand_underflow,R7_COMMON_REINIT,0x660d,H,skip target store
+R4_INC_TARGET,cand_in_bound,R6_STORE_TARGET,0x662b|0x6631|0x660f,H,store incremented target
+R4_INC_TARGET,cand_overflow,R7_COMMON_REINIT,0x662b,H,skip target store
+R5_SET_NEG1,fallthrough,R7_COMMON_REINIT,0x659e|0x65a4,H,target set to -1
+R6_STORE_TARGET,fallthrough,R7_COMMON_REINIT,0x6615|0x65a4,H,continue with re-init
+R7_COMMON_REINIT,ret,RET,0x65ff,H,post-reset return

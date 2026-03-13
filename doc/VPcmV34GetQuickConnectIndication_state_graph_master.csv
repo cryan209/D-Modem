@@ -1,0 +1,7 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,RANGE_GATE,state_gt_10,RET_0,0x6f0c,H,hard upper bound on state,VPcmV34GetQuickConnectIndication_state_graph_edges.csv
+control,RANGE_GATE,state_le_10,MASK_E7,0x6f0e,H,bitmask dispatch path,VPcmV34GetQuickConnectIndication_state_graph_edges.csv
+control,MASK_E7,bit_and_e7_nonzero,RET_CTX_ABCC,0x6f15|0x6f18|0x6f32,H,state family returns ctx flag,VPcmV34GetQuickConnectIndication_state_graph_edges.csv
+control,MASK_408,bit_and_408_nonzero,RET_0,0x6f1a|0x6f20,H,explicit zero-return family,VPcmV34GetQuickConnectIndication_state_graph_edges.csv
+control,MASK_310,bit_and_310_nonzero,RET_1,0x6f22|0x6f2a,H,quick-connect true family,VPcmV34GetQuickConnectIndication_state_graph_edges.csv
+param,RET_CTX_ABCC,ctx+0xabcc,return_value,0x6f32,H,signed indication value from context,VPcmV34GetQuickConnectIndication_state_graph_param_edges.csv

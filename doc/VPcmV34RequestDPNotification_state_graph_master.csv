@@ -1,0 +1,6 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,PENDING_GATE,pending_lt_0,RET_0,0x7a1c|0x7a1e|0x7a68,H,no pending notification,VPcmV34RequestDPNotification_state_graph_edges.csv
+control,PENDING_GATE,pending_ge_0,COPY_OUT,0x7a20|0x7a3c,H,copy pending triplet to outputs,VPcmV34RequestDPNotification_state_graph_edges.csv
+control,COPY_OUT,clear_pending,CLEAR_PENDING,0x7a45|0x7a51|0x7a59,H,reset internal queue fields,VPcmV34RequestDPNotification_state_graph_edges.csv
+param,CLEAR_RUNTIME_BIT,ctx+0xac3c+0x51,bit0_clear,0x7a4b|0x7a5f,H,clear runtime notification bit,VPcmV34RequestDPNotification_state_graph_param_edges.csv
+return,CLEAR_RUNTIME_BIT,ret1,RET_1,0x7a63|0x7a68,H,success return,VPcmV34RequestDPNotification_state_graph_edges.csv

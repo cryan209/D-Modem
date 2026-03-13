@@ -1,0 +1,5 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,ENTRY,read_latch,WRITE_COUNT_OUT,0x71d8|0x71df,H,latch copied to output pointer,VPcmV34GetCleanedSamples_state_graph_edges.csv
+control,WRITE_COUNT_OUT,clear_latch,CLEAR_LATCH,0x71e1|0x71e3,H,count latch consumed,VPcmV34GetCleanedSamples_state_graph_edges.csv
+control,CLEAR_LATCH,return_ptr,RETURN_BUFFER_PTR,0x71ea|0x71ef,H,returns cleaned-sample buffer pointer,VPcmV34GetCleanedSamples_state_graph_edges.csv
+param,READ_LATCH,ctx+0x2aa6,count_latch,0x71d8,H,signed 16-bit count,VPcmV34GetCleanedSamples_state_graph_param_edges.csv

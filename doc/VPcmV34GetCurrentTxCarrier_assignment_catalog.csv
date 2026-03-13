@@ -1,0 +1,6 @@
+layer,state_hex,evidence_addresses,count
+control,SIDE_SELECTOR,0x7114|0x711c|0x7130,3
+control,SIDE66_COMPARE,0x7134|0x7137,2
+control,SIDE_OTHER_COMPARE,0x7120|0x7123,2
+return,RET_0,0x712c|0x713c,2
+return,DYNAMIC_AA94,0x7125,1

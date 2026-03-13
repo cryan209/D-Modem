@@ -1,0 +1,8 @@
+source,parameter,access,notes
+COUNT_GATE,ctx+0x264+0x21a,read_signed,sample count gate
+DIVIDE_Q,ctx+0x264+0x248,read,energy accumulator numerator
+DIVIDE_Q,q,write,integer quotient energy/count
+COARSE_LOOP,snr_idx,read_write,+6 step accumulator
+COARSE_LOOP,q_last,write,last positive q before coarse underflow
+FINE_LOOP,snr_idx,read_write,+1 step accumulator
+RETURN_SCORE,eax,write,final SNR score index

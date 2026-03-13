@@ -1,0 +1,4 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,DEBUG_GATE,debug_le_1,RETURN,0x7fe7|0x7fe9,H,no-op unless verbose,VPcmV34ReportStartOfEchoAdapt_state_graph_edges.csv
+control,DEBUG_GATE,debug_gt_1,LOG,0x7ff0|0x7ff9,H,emit debug message,VPcmV34ReportStartOfEchoAdapt_state_graph_edges.csv
+call,LOG,dsplibs_debug_printf,RETURN,0x7ff9,H,tail-call style logging,VPcmV34ReportStartOfEchoAdapt_state_graph_param_edges.csv

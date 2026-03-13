@@ -1,0 +1,4 @@
+from,to,condition,kind,target
+ENTRY,STORE_TX_SCALE,always,flow,
+STORE_TX_SCALE,LOG,always,call_setup,edprintf
+LOG,RETURN,always,return,

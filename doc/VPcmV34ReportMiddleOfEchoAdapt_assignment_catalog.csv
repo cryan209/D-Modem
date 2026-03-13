@@ -1,0 +1,4 @@
+layer,state_hex,evidence_addresses,count
+control,DEBUG_GATE,0x8000|0x8007,2
+call,LOG_CALL,0x8019,1
+return,RET_FAST,0x8009,1

@@ -1,0 +1,16 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,rt+0x44,read_clamp_to_-10_7,txpr_db,0x7ac6|0x7ace|0x7ba0,H,signed minimum TX power reduction request
+param,ctx+0xac3c,read,runtime_ptr,0x7aba,H,dp_runtime/config pointer
+param,ctx+0x3548,read,flo_ptr,0x7ac0,H,VPcmFloModem pointer
+param,flo+0x6120,read,profile_present,0x7ad9|0x7adf,H,profile/session object exists
+param,ctx+0x24c,read,profile_mode_gate,0x7ae3|0x7aeb,H,profile-aware mode gate
+param,flo+0x610c,read,params_ptr,0x7af1|0x7bf0,H,V90Parameters pointer
+param,params+0x4f8,read,forced_window_enable,0x7bf8|0x7bff,H,controls ctx+0x250 bypass/enforce
+param,ctx+0x250,read,policy_gate,0x7af9|0x7b01,H,zero-forcing gate
+param,params+0x4f4,write,cfg_flag_0_or_1,0x7b1c|0x7bc0,H,path selector reflected in final log
+param,ctx+0x3554,write,echo_decay_start_2000,0x7b27|0x7bd1,H,shared constant 0x7d0
+param,ctx+0x3558,write,echo_decay_factor,0x7b2d|0x7bd7,H,0x7fdf (positive) or 0x7fcb (non-positive)
+param,rt+0x54,read,codec_type,0x7bc8|0x7bdd,H,codec_type==4 selects value 4 else 6
+param,ctx+0x355c,write,echo_beta_selector,0x7b33|0x7be4,H,2 on positive path else 4/6
+call,B9_LOG_AND_RETURN,edprintf,diag_prints,0x7b62|0x7b82,H,two diagnostics: final constants and return/cfg
+return,B9_LOG_AND_RETURN,eax,return_txpr_db,0x7b87|0x7b9c,H,returns final clamped/gated reduction value

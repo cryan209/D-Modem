@@ -1,0 +1,6 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,ENTRY,ctx359c_eq_0x66,SIDE66_ADJ,0x70b4|0x70bc,H,side-66 adjustment path,VPcmV34GetCurrentTxBaudRate_state_graph_edges.csv
+control,ENTRY,ctx359c_ne_0x66,SIDE_OTHER_ADJ,0x70be|0x70c1,H,non-66 adjustment path,VPcmV34GetCurrentTxBaudRate_state_graph_edges.csv
+control,SIDE66_ADJ,adj_le_1,RET_0x1f40,0x70c1|0x70c4|0x70c9,H,fixed 8000 baud,VPcmV34GetCurrentTxBaudRate_state_graph_edges.csv
+control,SIDE_OTHER_ADJ,adj_le_1,RET_0x1f40,0x70c1|0x70c4|0x70c9,H,fixed 8000 baud,VPcmV34GetCurrentTxBaudRate_state_graph_edges.csv
+param,RET_CTX_AA84,ctx+0xaa84,return_value,0x70cb,H,dynamic fallback baud rate,VPcmV34GetCurrentTxBaudRate_state_graph_param_edges.csv

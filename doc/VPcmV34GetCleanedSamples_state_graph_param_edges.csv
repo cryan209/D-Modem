@@ -1,0 +1,5 @@
+source,parameter,access,notes
+READ_LATCH,ctx+0x2aa6,read_signed,pending cleaned-samples count latch
+WRITE_COUNT_OUT,arg1_count_out,write,exports count to caller
+CLEAR_LATCH,ctx+0x2aa6,write_zero,consumes latch
+RETURN_BUFFER_PTR,ctx+0x2f58,read_addr,base of cleaned-sample buffer

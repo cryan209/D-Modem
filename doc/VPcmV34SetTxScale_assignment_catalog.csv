@@ -1,0 +1,7 @@
+layer,state_hex,evidence_addresses,count
+control,S0_ENTRY,0x7a70|0x7a73|0x7a7c,3
+control,S1_STORE,0x7a81,1
+control,S2_LOG,0x7a88|0x7a8c|0x7a93,3
+control,S3_RETURN,0x7a98|0x7a9b,2
+param,tx_scale_field,0x7a81,1
+call,edprintf_log,0x7a93,1

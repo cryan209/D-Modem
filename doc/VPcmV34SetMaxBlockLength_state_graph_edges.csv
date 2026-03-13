@@ -1,0 +1,6 @@
+from,to,condition,kind,target
+ENTRY,STORE_MAX_BLOCK,always,write,ctx+0x8
+STORE_MAX_BLOCK,DEBUG_GATE,always,flow,
+DEBUG_GATE,RETURN,debug_le_1,return,
+DEBUG_GATE,LOG,debug_gt_1,tail_call,dsplibs_debug_printf
+LOG,RETURN,always,return,

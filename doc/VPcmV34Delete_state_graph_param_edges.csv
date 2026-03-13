@@ -1,0 +1,3 @@
+source,parameter,access,notes
+ENTRY,arg0_ctx,read,unused argument
+RETURN_0,eax,write,constant zero return

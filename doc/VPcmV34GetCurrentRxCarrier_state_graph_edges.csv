@@ -1,0 +1,7 @@
+from,to,condition,kind,target
+ENTRY,SIDE66_ADJ,ctx359c_eq_0x66,branch,
+ENTRY,SIDE_OTHER_ADJ,ctx359c_ne_0x66,branch,
+SIDE66_ADJ,RET_0,adj_le_1,return,0
+SIDE66_ADJ,RET_CTX_AAA8,otherwise,return,ctx+0xaaa8
+SIDE_OTHER_ADJ,RET_0,adj_le_1,return,0
+SIDE_OTHER_ADJ,RET_CTX_AAA8,otherwise,return,ctx+0xaaa8

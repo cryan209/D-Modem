@@ -1,0 +1,6 @@
+layer,state_hex,evidence_addresses,count
+control,PENDING_GATE,0x7a16|0x7a1c|0x7a1e,3
+control,COPY_OUT,0x7a24|0x7a30|0x7a3c,3
+control,CLEAR_PENDING,0x7a45|0x7a51|0x7a59,3
+param,RUNTIME_BIT_CLEAR,0x7a4b|0x7a5f,2
+return,RET0_OR_RET1,0x7a63|0x7a68,2

@@ -1,0 +1,5 @@
+source,parameter,access,notes
+ENTRY,ctx+0x359c,read,side selector
+SIDE66_ADJ,ctx+0x0,read,state base for (state-1)
+SIDE_OTHER_ADJ,ctx+0x0,read,state base for (state-2)
+RET_CTX_AAA8,ctx+0xaaa8,read_signed,dynamic RX carrier

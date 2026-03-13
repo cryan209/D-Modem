@@ -1,0 +1,7 @@
+from,to,condition,kind,target
+ENTRY,RET_0x5c,state_eq_2,return,0x5c
+ENTRY,RET_0x38,state_eq_3,return,0x38
+ENTRY,STATE1_FLAGS,state_eq_1,branch,
+ENTRY,RET_0x22,default,return,0x22
+STATE1_FLAGS,RET_0x5c,abc6_ne0_and_abc8_ne0,return,0x5c
+STATE1_FLAGS,RET_0x5a,otherwise,return,0x5a

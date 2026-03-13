@@ -1,0 +1,5 @@
+from,to,condition,kind,target
+ENTRY,READ_LATCH,always,flow,
+READ_LATCH,WRITE_COUNT_OUT,always,store,*count_out
+WRITE_COUNT_OUT,CLEAR_LATCH,always,write,ctx+0x2aa6
+CLEAR_LATCH,RETURN_BUFFER_PTR,always,return,ctx+0x2f58

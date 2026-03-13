@@ -1,0 +1,14 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0xac3c,read,runtime_ptr,0x7c21,H,dp_runtime pointer
+param,rt+0x3c,read,base_max_upstream_rate,0x7c27,H,initial return candidate
+param,ctx+0x3548,read,flo_ptr,0x7c18,H,VPcmFloModem pointer
+param,flo+0x6120,read,profile_present,0x7c2a|0x7c30,H,profile object gate
+param,ctx+0x24c,read,profile_mode_index,0x7c34|0x7c3b,H,must be >1 for sensitive path
+param,flo+0x610c,read,params_ptr,0x7c54,H,V90Parameters pointer
+param,params+0x4f8,read,forced_window_enable,0x7c5a|0x7c62,H,enables cap path
+param,params+0x4fc,read,forced_window_index,0x7c64,H,cap index multiplied by 0x960
+param,rate_local,write,cap_applied_if_needed,0x7c6e|0x7c72,H,rate=min(rate,cap)
+call,R5_LOG_REGULAR_RET,edprintf,regular_isp_log,0x7c48,H,format .rodata+0xe7c
+call,R6_LOG_SENSITIVE_RET,edprintf,sensitive_isp_log,0x7c7f,H,format .rodata+0xeb8
+return,R5_LOG_REGULAR_RET,eax,return_rate,0x7c50|0x7c53,H,regular path return
+return,R6_LOG_SENSITIVE_RET,eax,return_rate,0x7c87|0x7c8a,H,sensitive path return

@@ -161,6 +161,34 @@ static struct timeval sip_ring_last = { 0, 0 };
 static void *rcSIPtoMODEM = NULL;
 static void *rcMODEMtoSIP = NULL;
 
+/* RX audio dump for diagnostics — writes raw 16-bit signed 9600Hz mono to /tmp/modem_rx.raw */
+static int rx_dump_fd = -1;
+
+static void rx_dump_open(void)
+{
+	if (rx_dump_fd >= 0) return;
+	rx_dump_fd = open("/tmp/modem_rx.raw", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	if (rx_dump_fd < 0)
+		ERR("rx_dump: cannot create /tmp/modem_rx.raw: %s\n", strerror(errno));
+	else
+		DBG("rx_dump: opened /tmp/modem_rx.raw\n");
+}
+
+static void rx_dump_write(const char *buf, int samples)
+{
+	if (rx_dump_fd >= 0)
+		write(rx_dump_fd, buf, samples * 2);
+}
+
+static void rx_dump_close(void)
+{
+	if (rx_dump_fd >= 0) {
+		close(rx_dump_fd);
+		rx_dump_fd = -1;
+		DBG("rx_dump: closed /tmp/modem_rx.raw\n");
+	}
+}
+
 static void sip_report_ring(struct modem *m)
 {
 	struct timeval now;
@@ -859,7 +887,7 @@ static int socket_ioctl(struct modem *m, unsigned int cmd, unsigned long arg)
 		ret = -EINVAL;
 		break;
 	case MDMCTL_CODECTYPE:
-		ret = CODEC_AD1803; // CODEC_STLC7550; XXX this worked fine as 0 (CODEC_UNKNOWN)...
+		ret = CODEC_UNKNOWN; /* VoIP path has no physical codec — disable hardware-specific prefilter compensation */
 		break;
 	case MDMCTL_IODELAY: // kernel module returns s->delay + ST7554_HW_IODELAY (48)
 		ret = dev->delay;
@@ -923,6 +951,7 @@ static int mdm_device_read(struct device_struct *dev, char *buf, int size)
 				}
 
 				RcFixed_Resample(rcSIPtoMODEM, socket_frame.data.audio.buf, sizeof(socket_frame.data.audio.buf)/2, buf, &size);
+				rx_dump_write(buf, size);
 				return size;
 				break;
 

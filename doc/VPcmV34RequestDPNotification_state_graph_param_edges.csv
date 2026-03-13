@@ -1,0 +1,6 @@
+source,parameter,access,notes
+PENDING_GATE,ctx+0xac40,read,pending notification primary field
+COPY_OUT,ctx+0xac40/0xac44/0xac48,read,copied into out0/out1/out2
+COPY_OUT,arg1/arg2/arg3_out_ptrs,write,caller outputs
+CLEAR_PENDING,ctx+0xac40/0xac44/0xac48,write,reset to -1/0/0
+CLEAR_RUNTIME_BIT,ctx+0xac3c+0x51,read_write,clear pending-notification flag bit0

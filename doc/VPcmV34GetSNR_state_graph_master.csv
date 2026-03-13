@@ -1,0 +1,11 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,ENTRY,count_le_0,RETURN_SCORE,0x7157|0x715a,H,early return on non-positive sample count,VPcmV34GetSNR_state_graph_edges.csv
+control,ENTRY,count_gt_0,DIVIDE_Q,0x715c|0x7168,H,compute q=energy/count,VPcmV34GetSNR_state_graph_edges.csv
+control,DIVIDE_Q,q_le_0,RETURN_SCORE,0x716a|0x716c,H,non-positive quotient returns zero,VPcmV34GetSNR_state_graph_edges.csv
+control,DIVIDE_Q,q_gt_0,COARSE_LOOP,0x7175,H,enter coarse loop (+6 increments),VPcmV34GetSNR_state_graph_edges.csv
+control,COARSE_LOOP,t_gt_0,COARSE_LOOP,0x7182|0x7184|0x7172,H,repeat coarse stage while positive,VPcmV34GetSNR_state_graph_edges.csv
+control,COARSE_LOOP,t_le_0,FINE_LOOP,0x7186|0x7188,H,transition to fine loop with q_last,VPcmV34GetSNR_state_graph_edges.csv
+control,FINE_LOOP,scaled_q_gt_0,FINE_LOOP,0x719a|0x719c|0x7190,H,repeat fine stage while positive,VPcmV34GetSNR_state_graph_edges.csv
+param,COUNT_GATE,ctx+0x264+0x21a,sample_count,0x7150,H,signed count field,VPcmV34GetSNR_state_graph_param_edges.csv
+param,DIVIDE_Q,ctx+0x264+0x248,energy_acc,0x715c,H,accumulated energy,VPcmV34GetSNR_state_graph_param_edges.csv
+param,LOOPS,snr_idx,score_accumulator,0x7172|0x7190,H,+6/+1 quantized accumulation,VPcmV34GetSNR_state_graph_param_edges.csv

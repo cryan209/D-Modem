@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,STORE_LEN,0x6508|0x6512,2
+control,DEBUG_GATE,0x650b|0x6515,2
+call,LOG_CALL,0x6525,1
+return,RET_FAST,0x6517,1

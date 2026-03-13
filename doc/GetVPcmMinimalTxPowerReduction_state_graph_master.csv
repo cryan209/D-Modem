@@ -1,0 +1,13 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY_CLAMP,0x7aa0,H,function entry,GetVPcmMinimalTxPowerReduction_state_graph_edges.csv
+control,B0_ENTRY_CLAMP,jge_7ba0,B1_CLAMP_HIGH_CHECK,0x7ace,H,lower-bound clamp check,GetVPcmMinimalTxPowerReduction_state_graph_edges.csv
+control,B1_CLAMP_HIGH_CHECK,jmp_7ad9_set_7,B2_PROFILE_GATE,0x7baa|0x7baf,H,upper clamp to +7,GetVPcmMinimalTxPowerReduction_state_graph_edges.csv
+control,B2_PROFILE_GATE,have_profile_and_ctx24c,B3_PROFILE_CFG_GATE,0x7adf|0x7aeb,H,profile-aware policy path,GetVPcmMinimalTxPowerReduction_state_graph_edges.csv
+control,B3_PROFILE_CFG_GATE,param4f8_eq0,B5_SIGN_GATE,0x7bff,H,bypass ctx+0x250 gate,GetVPcmMinimalTxPowerReduction_state_graph_edges.csv
+control,B5_SIGN_GATE,txpr_gt0,B6_CFG0_POSITIVE_PATH,0x7b0a,H,positive tuning constants,GetVPcmMinimalTxPowerReduction_state_graph_edges.csv
+control,B5_SIGN_GATE,txpr_le0,B8_CFG1_CODEC_PATH,0x7b0a,H,codec-dependent non-positive constants,GetVPcmMinimalTxPowerReduction_state_graph_edges.csv
+param,params+0x4f4,write,cfg_flag_0_or_1,0x7b1c|0x7bc0,H,tracks selected policy path,GetVPcmMinimalTxPowerReduction_state_graph_param_edges.csv
+param,ctx+0x3554/0x3558/0x355c,write,echo_adapt_constants,0x7b27|0x7b2d|0x7b33|0x7bd1|0x7bd7|0x7be4,H,echo decay/beta constants for downstream use,GetVPcmMinimalTxPowerReduction_state_graph_param_edges.csv
+param,rt+0x54,read,codec_type_gate,0x7bc8|0x7bdd,H,codec_type==4 yields selector 4 else 6,GetVPcmMinimalTxPowerReduction_state_graph_param_edges.csv
+call,B9_LOG_AND_RETURN,edprintf,diagnostic_logging,0x7b62|0x7b82,H,prints final constants and return cfg,GetVPcmMinimalTxPowerReduction_state_graph_param_edges.csv
+return,B9_LOG_AND_RETURN,eax,return_txpr_db,0x7b87|0x7b9c,H,function result,GetVPcmMinimalTxPowerReduction_state_graph_param_edges.csv

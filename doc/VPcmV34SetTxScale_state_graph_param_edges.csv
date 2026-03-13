@@ -1,0 +1,5 @@
+source,parameter,access,notes
+ENTRY,ctx,read,function argument
+STORE_TX_SCALE,ctx+0x25d4,write,forced tx scale set to 0x16a1
+LOG,format@0xd9c,read,rodata message string
+LOG,tx_scale,read,logged value

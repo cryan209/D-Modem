@@ -1,0 +1,5 @@
+source,parameter,access,notes
+ENTRY,ctx+0x359c,read,side selector
+SIDE66_PATH,ctx+0x0,read,state base for (state-2)
+SIDE_OTHER_PATH,ctx+0x0,read,state direct compare to 2
+RET_CTX_AA94,ctx+0xaa94,read_signed,dynamic TX carrier

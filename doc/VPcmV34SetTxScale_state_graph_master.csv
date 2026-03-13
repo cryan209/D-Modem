@@ -1,0 +1,6 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,S0_ENTRY,0x7a70,H,function entry,VPcmV34SetTxScale_state_graph_edges.csv
+control,S0_ENTRY,fallthrough,S1_STORE,0x7a81,H,constant prepared then stored,VPcmV34SetTxScale_state_graph_edges.csv
+control,S1_STORE,fallthrough,S2_LOG,0x7a88,H,prepare edprintf args,VPcmV34SetTxScale_state_graph_edges.csv
+call,S2_LOG,edprintf,S3_RETURN,0x7a93,H,tx scale diagnostic print,VPcmV34SetTxScale_state_graph_param_edges.csv
+param,ctx+0x25d4,write,tx_scale_word,0x7a81,H,forced value 0x16a1,VPcmV34SetTxScale_state_graph_param_edges.csv

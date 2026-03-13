@@ -1,0 +1,6 @@
+source,parameter,access,notes
+RANGE_GATE,ctx+0x0,read,state value
+MASK_E7,state_bit,read,computed as (1 << state)
+MASK_408,state_bit,read,secondary mask gate
+MASK_310,state_bit,read,quick-connect positive mask
+RET_CTX_ABCC,ctx+0xabcc,read_signed,returned when E7 mask path selected

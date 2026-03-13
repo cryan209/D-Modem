@@ -1,0 +1,5 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,ENTRY,store_len,DEBUG_GATE,0x6508|0x6512,H,max block length stored first,VPcmV34SetMaxBlockLength_state_graph_edges.csv
+control,DEBUG_GATE,debug_le_1,RETURN,0x6515|0x6517,H,fast return path,VPcmV34SetMaxBlockLength_state_graph_edges.csv
+control,DEBUG_GATE,debug_gt_1,LOG,0x6518|0x6525,H,verbose logging path,VPcmV34SetMaxBlockLength_state_graph_edges.csv
+call,LOG,dsplibs_debug_printf,RETURN,0x6525,H,tail-call style debug print,VPcmV34SetMaxBlockLength_state_graph_param_edges.csv

@@ -1,0 +1,5 @@
+source,parameter,access,notes
+STORE_MAX_BLOCK,arg1_max_block_len,read,input block length
+STORE_MAX_BLOCK,ctx+0x8,write,stored max block length
+DEBUG_GATE,dsplibs_debug_level,read,verbosity gate
+LOG,format@0x980,read,debug print format

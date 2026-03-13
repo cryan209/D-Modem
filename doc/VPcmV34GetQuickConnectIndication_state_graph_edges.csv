@@ -1,0 +1,10 @@
+from,to,condition,kind,target
+ENTRY,RANGE_GATE,always,flow,
+RANGE_GATE,RET_0,state_gt_10,return,0
+RANGE_GATE,MASK_E7,state_le_10,branch,
+MASK_E7,RET_CTX_ABCC,bit_and_e7_nonzero,return,ctx+0xabcc
+MASK_E7,MASK_408,otherwise,branch,
+MASK_408,RET_0,bit_and_408_nonzero,return,0
+MASK_408,MASK_310,otherwise,branch,
+MASK_310,RET_1,bit_and_310_nonzero,return,1
+MASK_310,RET_0,otherwise,return,0

@@ -1,0 +1,18 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_ENTRY_CLAMP,0x7aa0,H,function entry
+B0_ENTRY_CLAMP,jge_7ba0,B1_CLAMP_HIGH_CHECK,0x7ace,H,check lower clamp boundary
+B0_ENTRY_CLAMP,lt_neg10_set_f6,B2_PROFILE_GATE,0x7ad4,H,force -10 then continue
+B1_CLAMP_HIGH_CHECK,jle_7ad9,B2_PROFILE_GATE,0x7ba4,H,value already <=7
+B1_CLAMP_HIGH_CHECK,jmp_7ad9_set_7,B2_PROFILE_GATE,0x7baa|0x7baf,H,force upper clamp to +7
+B2_PROFILE_GATE,have_profile_and_ctx24c,B3_PROFILE_CFG_GATE,0x7adf|0x7aeb,H,profile-specific gating
+B2_PROFILE_GATE,default,B4_GATE_LOAD,0x7ae1|0x7af1,H,regular gating path
+B3_PROFILE_CFG_GATE,param4f8_eq0,B5_SIGN_GATE,0x7bff,H,bypass ctx+0x250 gate
+B3_PROFILE_CFG_GATE,param4f8_ne0,B4_GATE_LOAD,0x7c05,H,enforce ctx+0x250 gate
+B4_GATE_LOAD,ctx250_eq0,B7_CFG1_FORCE_ZERO,0x7b01,H,force returned txpr to zero
+B4_GATE_LOAD,ctx250_ne0,B5_SIGN_GATE,0x7b01,H,keep clamped value
+B5_SIGN_GATE,txpr_gt0,B6_CFG0_POSITIVE_PATH,0x7b0a,H,positive configuration profile
+B5_SIGN_GATE,txpr_le0,B8_CFG1_CODEC_PATH,0x7b0a,H,non-positive configuration profile
+B7_CFG1_FORCE_ZERO,fallthrough,B8_CFG1_CODEC_PATH,0x7bb4,H,zero then run cfg1 path
+B6_CFG0_POSITIVE_PATH,fallthrough,B9_LOG_AND_RETURN,0x7b39,H,enter shared print/return block
+B8_CFG1_CODEC_PATH,jmp_common_log,B9_LOG_AND_RETURN,0x7bea,H,jump to shared print/return block
+B9_LOG_AND_RETURN,ret,RET,0x7b9c,H,returns ebx in eax

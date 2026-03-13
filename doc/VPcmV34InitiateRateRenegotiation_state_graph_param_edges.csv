@@ -1,0 +1,14 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0x0,read,main_state,0x6547|0x6558,H,state gate for live-demod forwarding
+param,ctx+0x3548,read,flo_ptr,0x654c,H,VPcmFloModem pointer
+param,flo+0x175c+0x20c+0x8c,write,demod_reneg_request,0x6564|0x656a,H,live state request forwarding
+param,arg_req,read,request_code,0x6533|0x6580,H,request dispatch selector
+param,ctx+0x228,read,current_index,0x6600|0x661e,H,basis for +/-1 candidate
+param,ctx+0x220,read,lower_bound,0x6607,H,decrement bound check
+param,ctx+0x224,read,upper_bound,0x6625,H,increment bound check
+param,ctx+0x22c,write,target_selector,0x659e|0x660f,H,-1 sentinel or bounded candidate
+call,R7_COMMON_REINIT,v34handshakinit,reneg_reinit,0x65b0,H,re-init with mode 2
+param,ctx+0x4,write,post_state_6,0x65b5,H,sets next main state to 6
+param,ctx+0x4bc/0x4be/0x4c0,write,zero_words,0x65bf|0x65cd|0x65d4,H,post-init small counters reset
+param,ctx+0x2218,write,reneg_reason_5,0x65db,H,sets reneg reason/class code
+param,ctx+0xac0e,read_write,reneg_counter_inc,0x65e1|0x65e9,H,increments reneg counter

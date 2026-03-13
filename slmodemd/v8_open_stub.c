@@ -24,11 +24,11 @@
 #define V8OPEN_V21_ORG_SPACE 1180U
 #define V8OPEN_ANSAM_REVERSAL_MS 450U
 #define V8OPEN_ANSAM_LEADIN_MS 200U
-#define V8OPEN_ANSAM_TONE_MS 5000U
+#define V8OPEN_ANSAM_TONE_MS 2500U
 #define V8OPEN_ANSAM_SEND_MS (V8OPEN_ANSAM_LEADIN_MS + V8OPEN_ANSAM_TONE_MS)
 #define V8OPEN_CI_DETECT_THRESHOLD 600U
 #define V8OPEN_CI_DETECT_FRAMES 48U
-#define V8OPEN_CI_WAIT_TIMEOUT_MS 8000U
+#define V8OPEN_CI_WAIT_TIMEOUT_MS 3000U
 #define V8OPEN_ANSAM_AM_DIVISOR 5U
 #define V8OPEN_CM_WAIT_TAIL_MS 800U
 #define V8OPEN_CJ_WAIT_MS 900U
@@ -43,7 +43,7 @@
 #define V8OPEN_DEMOD_STAGE_SAMPLES 12U
 #define V8OPEN_DEMOD_HISTORY_SAMPLES 40U
 #define V8OPEN_CM_STALL_WORDS 8U
-#define V8OPEN_CM_EARLY_PROMOTE_STALLS 3U
+#define V8OPEN_CM_EARLY_PROMOTE_STALLS 2U
 #define V8OPEN_CM_INVALID_RELOCK_WORDS 12U
 #define V8OPEN_CJ_INVALID_RELOCK_WORDS 12U
 #define V8OPEN_CM_STAGE2_WAIT_MS 80U
@@ -82,11 +82,44 @@
 #define V8OPEN_RX_AGC_GAIN_GROW_LIMIT 0x6a00U
 #define V8OPEN_DEMOD_ENERGY_FLOOR 50000
 
-static const short v8_open_sine_32[32] = {
-	0, 1951, 3827, 5556, 7071, 8315, 9239, 9808,
-	10000, 9808, 9239, 8315, 7071, 5556, 3827, 1951,
-	0, -1951, -3827, -5556, -7071, -8315, -9239, -9808,
-	-10000, -9808, -9239, -8315, -7071, -5556, -3827, -1951
+/*
+ * 256-entry sine table, amplitude ±10000.
+ * sin(2*pi*i/256) * 10000, rounded to nearest integer.
+ * Used by v8_open_wave_sample_phase for clean tone generation.
+ */
+static const short v8_open_sine_256[256] = {
+	    0,   245,   491,   736,   980,  1224,  1467,  1710,
+	 1951,  2191,  2430,  2667,  2903,  3137,  3369,  3599,
+	 3827,  4052,  4276,  4496,  4714,  4929,  5141,  5350,
+	 5556,  5758,  5957,  6152,  6344,  6532,  6716,  6895,
+	 7071,  7242,  7410,  7572,  7730,  7883,  8032,  8176,
+	 8315,  8449,  8577,  8701,  8819,  8932,  9040,  9142,
+	 9239,  9330,  9415,  9495,  9569,  9638,  9700,  9757,
+	 9808,  9853,  9892,  9925,  9952,  9973,  9988,  9997,
+	10000,  9997,  9988,  9973,  9952,  9925,  9892,  9853,
+	 9808,  9757,  9700,  9638,  9569,  9495,  9415,  9330,
+	 9239,  9142,  9040,  8932,  8819,  8701,  8577,  8449,
+	 8315,  8176,  8032,  7883,  7730,  7572,  7410,  7242,
+	 7071,  6895,  6716,  6532,  6344,  6152,  5957,  5758,
+	 5556,  5350,  5141,  4929,  4714,  4496,  4276,  4052,
+	 3827,  3599,  3369,  3137,  2903,  2667,  2430,  2191,
+	 1951,  1710,  1467,  1224,   980,   736,   491,   245,
+	    0,  -245,  -491,  -736,  -980, -1224, -1467, -1710,
+	-1951, -2191, -2430, -2667, -2903, -3137, -3369, -3599,
+	-3827, -4052, -4276, -4496, -4714, -4929, -5141, -5350,
+	-5556, -5758, -5957, -6152, -6344, -6532, -6716, -6895,
+	-7071, -7242, -7410, -7572, -7730, -7883, -8032, -8176,
+	-8315, -8449, -8577, -8701, -8819, -8932, -9040, -9142,
+	-9239, -9330, -9415, -9495, -9569, -9638, -9700, -9757,
+	-9808, -9853, -9892, -9925, -9952, -9973, -9988, -9997,
+	-10000, -9997, -9988, -9973, -9952, -9925, -9892, -9853,
+	-9808, -9757, -9700, -9638, -9569, -9495, -9415, -9330,
+	-9239, -9142, -9040, -8932, -8819, -8701, -8577, -8449,
+	-8315, -8176, -8032, -7883, -7730, -7572, -7410, -7242,
+	-7071, -6895, -6716, -6532, -6344, -6152, -5957, -5758,
+	-5556, -5350, -5141, -4929, -4714, -4496, -4276, -4052,
+	-3827, -3599, -3369, -3137, -2903, -2667, -2430, -2191,
+	-1951, -1710, -1467, -1224,  -980,  -736,  -491,  -245
 };
 
 static const short v8_open_v21_filt_0[40] = {
@@ -460,6 +493,7 @@ struct v8_open_engine {
 	unsigned cm_framing_stalls;
 	unsigned ci_detected;
 	unsigned ci_energy_counter;
+	int tx_filt_state;
 	short rx_agc_fir_hist[V8OPEN_AGC_FIR_SAMPLES];
 	short rx_demod_history[V8OPEN_DEMOD_HISTORY_SAMPLES];
 	short rx_bit_window[V8OPEN_MAX_SAMPLES_PER_BIT];
@@ -647,6 +681,7 @@ static void v8_open_reset_tx(struct v8_open_engine *engine)
 	engine->ansam_mod_phase_q16 = 0U;
 	engine->ansam_phase_samples = 0U;
 	engine->ansam_phase_invert = 0U;
+	engine->tx_filt_state = 0;
 	engine->tx_current_bit = 1U;
 	engine->tx_bit_pos = 0U;
 	engine->tx_bit_samples = 0U;
@@ -829,8 +864,8 @@ static short v8_open_wave_sample_phase(const struct v8_open_engine *engine,
 	rate = engine->cfg.sample_rate ? engine->cfg.sample_rate : 9600U;
 	step = (unsigned)(((unsigned long long)freq_hz << 16) / rate);
 	*phase_q16 += step;
-	index = (*phase_q16 >> 11) & 0x1fU;
-	return v8_open_sine_32[index];
+	index = (*phase_q16 >> 8) & 0xffU;
+	return v8_open_sine_256[index];
 }
 
 static short v8_open_wave_sample(struct v8_open_engine *engine,
@@ -843,6 +878,24 @@ static short v8_open_wave_sample(struct v8_open_engine *engine,
 	if (invert)
 		sample = (short)-sample;
 	return sample;
+}
+
+/*
+ * Simple single-pole IIR lowpass on TX ANSam path.
+ * Cutoff ~3500 Hz at 9600 Hz sample rate.
+ * alpha = 1 - exp(-2*pi*3500/9600) ≈ 0.899.
+ * Attenuates 2100 Hz by only ~0.8 dB, suppresses aliased harmonics.
+ * Uses Q14 fixed-point: alpha=14726 (0.899), (1-alpha)=1658 (0.101).
+ */
+static short v8_open_tx_filter(struct v8_open_engine *engine, short sample)
+{
+	int out;
+
+	out = (14726 * (int)sample + 1658 * engine->tx_filt_state) >> 14;
+	if (out > 32767) out = 32767;
+	if (out < -32767) out = -32767;
+	engine->tx_filt_state = out;
+	return (short)out;
 }
 
 static void v8_open_emit_ansam(struct v8_open_engine *engine,
@@ -879,7 +932,7 @@ static void v8_open_emit_ansam(struct v8_open_engine *engine,
 					      V8OPEN_ANSAM_AM_FREQ);
 		envelope = V8OPEN_PCM_AMPLITUDE + (am / (int)V8OPEN_ANSAM_AM_DIVISOR);
 		sample = ((int)carrier * envelope) / V8OPEN_PCM_AMPLITUDE;
-		pcm[i] = (short)sample;
+		pcm[i] = v8_open_tx_filter(engine, (short)sample);
 		engine->ansam_phase_samples++;
 		if (engine->ansam_phase_samples >= reversal_samples) {
 			engine->ansam_phase_samples = 0U;
@@ -5091,6 +5144,7 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->cm_framing_stalls = 0U;
 	engine->ci_detected = 0U;
 	engine->ci_energy_counter = 0U;
+	engine->tx_filt_state = 0;
 	engine->preferred_dp = (enum DP_ID)cfg->target_dp_id;
 	v8_open_rx_reset_collect(engine);
 	if (cfg->answer_mode)
