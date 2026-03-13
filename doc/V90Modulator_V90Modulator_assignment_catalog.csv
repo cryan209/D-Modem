@@ -1,0 +1,20 @@
+kind,offset_or_symbol,width,access,description
+field,this+0x00,32,write,V90Phase2Info*
+field,this+0x04,32,write,V90Jd*
+field,this+0x08,32,write,V92Jd*
+field,this+0x0c,32,write,DIL descriptor*
+field,this+0x10,32,write,V90MappingParams* A
+field,this+0x14,32,write,V90MappingParams* B
+field,this+0x18,32,write,Additional CP info*
+field,this+0x1c,32,write,V90MP*
+field,this+0x20,32,write,V90CP*
+field,this+0x24,32,write,V90Parameters*
+field,this+0x28,32,write,session/mode word
+field,this+0x38,32,write,V90Phase3Modulator*
+field,this+0x3c,32,write,V90Phase4Modulator*
+field,this+0x40,32,write,V90BitsToSymbol*
+field,this+0x44,embedded,construct,Scrambler<int8,int16>
+field,this+0x64,32,write,size scalar N
+field,this+0x68,32,write,buffer ptr (2*N)
+field,this+0x6c,32,write,buffer ptr (8*N)
+call,sysdep_malloc,func,invoke,allocator for buffers/children

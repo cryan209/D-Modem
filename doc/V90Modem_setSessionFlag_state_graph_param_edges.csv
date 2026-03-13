@@ -1,0 +1,5 @@
+caller,callee,arg_index,source,notes
+V90Modem::setSessionFlag,V90Modulator::setSessionFlag,0,this->modulator (this+0x0),child this pointer
+V90Modem::setSessionFlag,V90Modulator::setSessionFlag,1,flag,input session flag
+V90Modem::setSessionFlag,V90Demodulator::setSessionFlag,0,this->demodulator (this+0x4),child this pointer
+V90Modem::setSessionFlag,V90Demodulator::setSessionFlag,1,flag,input session flag

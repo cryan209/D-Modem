@@ -1,0 +1,17 @@
+kind,offset_or_symbol,width,access,description
+field,this+0x0000,32,write,modulator pointer
+field,this+0x0004,32,write,demodulator pointer
+field,this+0x0008,32,write,V90Phase2Info pointer
+field,this+0x000c,32,write,V90Jd pointer
+field,this+0x0010,32,write,V92Jd pointer
+field,this+0x0014,32,write,DIL descriptor pointer
+field,this+0x49b4,32,write,V90Parameters pointer
+field,this+0x49b8,32,write,session flag cache
+field,this+0x49bc,32,write,modem side selector
+field,this+0x0cd0,embedded,construct,V90MP object
+field,this+0x0df4,embedded,construct,V90CP object
+global,dsplibs_debug_level,32,read,debug gate
+rodata,.rodata.str1.4+0x42b0,string,read,construction message format
+rodata,.rodata.str1.4+0x42d8,string,read,illegal-side message
+rodata,.rodata.str1.1+0x1089,string,read,Digital
+rodata,.rodata.str1.1+0x1091,string,read,Analog

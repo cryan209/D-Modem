@@ -1,0 +1,9 @@
+from,to,condition,kind,target
+ENTRY,INIT_SCRAMBLER,always,construct,_ZN9ScramblerIihEC1Ejjj
+INIT_SCRAMBLER,STORE_ARGUMENT_FIELDS,always,write,this+0x00..0x28,this+0x64
+STORE_ARGUMENT_FIELDS,ALLOC_WORKBUF_A,always,call,sysdep_malloc(2*field64)
+ALLOC_WORKBUF_A,ALLOC_WORKBUF_B,always,call,sysdep_malloc(8*field64)
+ALLOC_WORKBUF_B,BUILD_BITS_TO_SYMBOL,always,construct,_ZN15V90BitsToSymbolC1EjP13V90Parameters
+BUILD_BITS_TO_SYMBOL,BUILD_PHASE3,always,construct,_ZN18V90Phase3ModulatorC1EP13V90Parametersj
+BUILD_PHASE3,BUILD_PHASE4,always,construct,_ZN18V90Phase4ModulatorC1EP13V90ParametersjP15V90BitsToSymbolP5V90MPP16V90MappingParamsS7_P5V90CPj
+BUILD_PHASE4,RETURN,always,return,

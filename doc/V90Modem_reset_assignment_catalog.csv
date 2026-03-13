@@ -1,0 +1,12 @@
+kind,offset_or_symbol,width,access,description
+field,this+0x49bc,32,read,modem side selector
+field,this+0x0000,32,read,modulator object pointer
+field,this+0x0004,32,read,demodulator object pointer
+field,this+0x0014,32,read,DIL descriptor pointer
+field,this+0x49b4,32,read,parameter/runtime block pointer
+field,(*(this+0x49b4)+0x4),32,read,probe-mode gate for QC masking
+global,dsplibs_debug_level,32,read,debug verbosity gate
+rodata,.rodata.str1.1+0x1098,string,read,reset debug format string
+rodata,.rodata.str1.4+0x4304,string,read,illegal modemSide message
+rodata,.rodata.str1.4+0x4328,string,read,probe-mode quick-connect masked warning
+call,_Z16setDilDescriptorP19tagV90DILdescriptor7DilType,func,invoke,DIL type update prior to demod reset

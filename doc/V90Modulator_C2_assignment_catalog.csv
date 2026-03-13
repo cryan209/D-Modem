@@ -1,0 +1,20 @@
+kind,offset_or_symbol,width,access,description
+field,this+0x00,32,write,V90Phase2Info pointer
+field,this+0x04,32,write,V90Jd pointer
+field,this+0x08,32,write,V92Jd pointer
+field,this+0x0c,32,write,DIL descriptor pointer
+field,this+0x10,32,write,Mapping params A
+field,this+0x14,32,write,Mapping params B
+field,this+0x18,32,write,Additional CP info pointer
+field,this+0x1c,32,write,V90MP pointer
+field,this+0x20,32,write,V90CP pointer
+field,this+0x24,32,write,V90Parameters pointer
+field,this+0x28,32,write,session/mode word
+field,this+0x38,32,write,V90Phase3Modulator pointer
+field,this+0x3c,32,write,V90Phase4Modulator pointer
+field,this+0x40,32,write,V90BitsToSymbol pointer
+field,this+0x44,embedded,construct,Scrambler<int8,int16>
+field,this+0x64,32,write,size scalar arg
+field,this+0x68,32,write,malloc(2*scalar)
+field,this+0x6c,32,write,malloc(8*scalar)
+call,sysdep_malloc,func,invoke,allocator used for all dynamic children

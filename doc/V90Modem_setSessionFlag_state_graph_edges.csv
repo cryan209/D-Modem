@@ -1,0 +1,8 @@
+from,to,condition,kind,target
+ENTRY,CACHE_FLAG,always,flow,
+CACHE_FLAG,READ_SIDE,always,write,this+0x49b8
+READ_SIDE,TO_MODULATOR,side==0,branch,
+READ_SIDE,TO_DEMODULATOR,side==1,branch,
+READ_SIDE,RETURN,else,branch,
+TO_MODULATOR,RETURN,always,tailcall,_ZN12V90Modulator14setSessionFlagEj
+TO_DEMODULATOR,RETURN,always,call,_ZN14V90Demodulator14setSessionFlagEj

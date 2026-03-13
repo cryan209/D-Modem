@@ -1,0 +1,25 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0xac3c,runtime_ptr_set,0xab0f,H,stores dp_runtime/config pointer
+param,ctx+0x3548,flo_ptr_restore,0xaaff|0xab15,H,preserve/restore flo modem pointer
+param,ctx+0xac18,k56_ptr_restore,0xaa92|0xaaf9,H,preserve/restore K56 object pointer
+param,ctx+4+0x248,phase_root_rw,0xac3f|0xac70|0xafd6|0xb329,H,main phase root initialization and session overrides
+param,ctx+4+0x24c,micro_root_rw,0xac45|0xb347,H,micro/root mode flag (notably session 3/4 path)
+param,ctx+0x359c,role_marker_rw,0xac87|0xb090,H,role select 0x65/0x66
+param,ctx+0x359a,rate_guard_flag,0xad05|0xb0ec,H,set during min/max clamp special case
+param,ctx+0xaa7c,derived_timing_word,0xaf2b,H,derived from runtime+0x64
+param,ctx+0x25c,echo_delay_word,0xaf45,H,derived from runtime+0x68
+param,ctx+0x7f5c,post_mode_flag,0xaf97|0xb299|0xb257,H,set/clear by runtime mode and thresholds
+param,ctx+0xabce..0xabd4,session_cfg_words,0xaff1..0xb02e,H,loaded from flo config bytes on session2 path
+param,ctx+0xabc6/abca,session_channel_flags,0xaff1|0xaff8,H,session2 path channel flags
+call,init,sysdep_memset,0xaada|0xaaf5,H,full state zeroing
+call,init,V34InitializeImplementationSpecific,0xab1f,H,implementation-specific setup
+call,init,v34handshakinit,0xad37,H,handshake initializer
+call,session,VPcmFloModem::externalReset,0xafe0|0xb0d3,H,flo reset paths
+call,session,K56FlexFloModem::externalReset,0xb351,H,k56 reset path
+call,session,V90Demodulator::enterChannelVerification,0xb3a8,H,channel verification path
+call,rate,V90ConstellationDesigner::setMinMaxRates,0xb2ec,H,v90 backend rate propagation
+call,rate,K56FlexFloModem::setMinMaxRates,0xb318,H,k56 backend rate propagation
+call,dsp,V92EchoCanceller::setEchoDelay,0xaf69,H,echo delay setup
+call,dsp,GenericIIR::reset,0xafab,H,post mode filter reset
+call,diag,dsplibs_debug_printf,0xb10f|0xb12e|0xb147|0xb168|0xb189|0xb1aa|0xb1cb|0xb233|0xb2b1|0xb2bf|0xb373,H,debug logging branches
+call,diag,edprintf,0xb33e,H,session 3/4 diagnostic

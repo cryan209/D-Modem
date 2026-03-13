@@ -1,0 +1,13 @@
+plane,node,edge_to,condition,action,details
+A,ENTRY,INIT_EMBEDDED,always,construct,"embedded V90MP + V90CP"
+C,INIT_EMBEDDED,DEBUG_ROLE_MSG,debug_level>1,call,"construction role message"
+C,INIT_EMBEDDED,PRINT_TITLE,debug_level<=1,branch,
+C,DEBUG_ROLE_MSG,PRINT_TITLE,always,flow,
+A,PRINT_TITLE,ALLOC_SHARED,always,call,"printTitle + allocate shared blocks"
+B,ALLOC_SHARED,BUILD_MODULATOR,side==0,branch,
+B,ALLOC_SHARED,BUILD_DEMODULATOR,side==1,branch,
+B,ALLOC_SHARED,SIDE_INVALID,else,branch,
+B,BUILD_MODULATOR,RETURN,always,construct,"attach V90Modulator"
+B,BUILD_DEMODULATOR,RETURN,always,construct,"attach V90Demodulator"
+C,SIDE_INVALID,RETURN,debug_level>1,call,"illegal-side warning"
+C,SIDE_INVALID,RETURN,debug_level<=1,return,

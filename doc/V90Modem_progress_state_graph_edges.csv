@@ -1,0 +1,10 @@
+from,to,condition,kind,target
+ENTRY,READ_SIDE,always,flow,
+READ_SIDE,SIDE_MODULATOR,side==0,branch,
+READ_SIDE,SIDE_DEMODULATOR,side==1,branch,
+READ_SIDE,SIDE_ILLEGAL,else,branch,
+SIDE_MODULATOR,RETURN,always,tailcall,_ZN12V90Modulator8progressEPiRjPfj
+SIDE_DEMODULATOR,RETURN,always,tailcall,_ZN14V90Demodulator8progressEPiRjPfj
+SIDE_ILLEGAL,DEBUG_PRINT,dsplibs_debug_level>1,branch,
+SIDE_ILLEGAL,RETURN,dsplibs_debug_level<=1,branch,
+DEBUG_PRINT,RETURN,always,tailcall,dsplibs_debug_printf

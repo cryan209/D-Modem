@@ -1,0 +1,7 @@
+kind,offset_or_symbol,width,access,description
+field,this+0x49b8,32,write,parent session flag cache
+field,this+0x49bc,32,read,modem side selector
+field,this+0x0000,32,read,modulator object pointer
+field,this+0x0004,32,read,demodulator object pointer
+call,_ZN12V90Modulator14setSessionFlagEj,func,invoke,modulator-side flag propagation
+call,_ZN14V90Demodulator14setSessionFlagEj,func,invoke,demodulator-side flag propagation

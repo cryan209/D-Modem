@@ -1,0 +1,17 @@
+caller,callee,arg_index,source,notes
+V90Modulator::V90Modulator,Scrambler<int8,int16>::C1,0,this+0x44,embedded
+V90Modulator::V90Modulator,Scrambler<int8,int16>::C1,1,0x12,constant
+V90Modulator::V90Modulator,Scrambler<int8,int16>::C1,2,0x17,constant
+V90Modulator::V90Modulator,Scrambler<int8,int16>::C1,3,0x63,constant
+V90Modulator::V90Modulator,V90BitsToSymbol::C1,1,3*N+0x1388,derived
+V90Modulator::V90Modulator,V90BitsToSymbol::C1,2,params,arg11
+V90Modulator::V90Modulator,V90Phase3Modulator::C1,1,params,arg11
+V90Modulator::V90Modulator,V90Phase3Modulator::C1,2,sess,arg12
+V90Modulator::V90Modulator,V90Phase4Modulator::C1,1,params,arg11
+V90Modulator::V90Modulator,V90Phase4Modulator::C1,2,0x0c,constant
+V90Modulator::V90Modulator,V90Phase4Modulator::C1,3,this->bitsToSymbol,this+0x40
+V90Modulator::V90Modulator,V90Phase4Modulator::C1,4,mp,arg10
+V90Modulator::V90Modulator,V90Phase4Modulator::C1,5,mapB,arg7
+V90Modulator::V90Modulator,V90Phase4Modulator::C1,6,mapA,arg6
+V90Modulator::V90Modulator,V90Phase4Modulator::C1,7,cp,arg9
+V90Modulator::V90Modulator,V90Phase4Modulator::C1,8,sess,arg12

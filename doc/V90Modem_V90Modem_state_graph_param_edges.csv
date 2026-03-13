@@ -1,0 +1,12 @@
+caller,callee,arg_index,source,notes
+V90Modem::V90Modem,dsplibs_debug_printf,0,.rodata.str1.4+0x42b0,construction format
+V90Modem::V90Modem,dsplibs_debug_printf,1,(side==0)?"Digital":"Analog",role label
+V90Modem::V90Modem,V90Modem::printTitle,0,this,always called
+V90Modem::V90Modem,V90Parameters::V90Parameters,1,modemParams,constructor arg
+V90Modem::V90Modem,V90Phase2Info::V90Phase2Info,1,this->params,shared state
+V90Modem::V90Modem,V90Jd::V90Jd,1,this->params,shared state
+V90Modem::V90Modem,V92Jd::V92Jd,1,this->params,shared state
+V90Modem::V90Modem,V90Modulator::V90Modulator,1,sideArg,runtime side arg
+V90Modem::V90Modem,V90Demodulator::V90Demodulator,1,sideArg,runtime side arg
+V90Modem::V90Modem,V90Demodulator::V90Demodulator,11,modemParams+0x54,hardware codec type
+V90Modem::V90Modem,dsplibs_debug_printf,0,.rodata.str1.4+0x42d8,illegal side warning

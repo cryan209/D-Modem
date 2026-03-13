@@ -1,0 +1,29 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,C0_ENTRY_DEBUG,0xaa70,H,function entry
+C0_ENTRY_DEBUG,ja_b137,C0_ENTRY_DEBUG,0xaac1,H,debug print chain branch
+C0_ENTRY_DEBUG,fallthrough,C1_ZERO_AND_RESTORE,0xaac7,H,normal start path
+C1_ZERO_AND_RESTORE,fallthrough,C2_BASE_INIT,0xab1b,H,after memset/restores
+C2_BASE_INIT,fallthrough,C3_SESSION_DISPATCH,0xac18,H,base fields done
+C3_SESSION_DISPATCH,je_afc6,C4_SESSION2_PATH,0xac45,H,arg5 == 2
+C3_SESSION_DISPATCH,jle_b0a0,C5_SESSION1_PATH,0xac4b,H,arg5 <= 0 (special case includes 1)
+C3_SESSION_DISPATCH,je_b320,C6_SESSION34_PATH,0xac56,H,arg5 == 3
+C3_SESSION_DISPATCH,je_b35a,C6_SESSION34_PATH,0xac61,H,arg5 == 4
+C3_SESSION_DISPATCH,default,C7_ROLE_SELECT,0xac67,H,other session types
+C4_SESSION2_PATH,jne_b382,C13_CHANNEL_VERIFY,0xb063,H,channel verification condition met
+C4_SESSION2_PATH,fallthrough,C7_ROLE_SELECT,0xb069,H,continue role selection
+C5_SESSION1_PATH,jmp_ac76,C7_ROLE_SELECT,0xb0d7,H,flo reset then role selection
+C6_SESSION34_PATH,jmp_ac76,C7_ROLE_SELECT,0xb355,H,k56 reset then role selection
+C13_CHANNEL_VERIFY,jmp_b069,C7_ROLE_SELECT,0xb3b3,H,post verification continue
+C7_ROLE_SELECT,jmp_ac87,C8_COMMON_ROLE_INIT,0xac87,H,role marker chosen
+C8_COMMON_ROLE_INIT,fallthrough,C9_PROFILE_SELECT,0xad8d,H,common role init finished
+C9_PROFILE_SELECT,je_b263,C9_PROFILE_SELECT,0xadb3,H,role 0x65 profile
+C9_PROFILE_SELECT,je_b280,C9_PROFILE_SELECT,0xadbd,H,role 0x66 profile
+C9_PROFILE_SELECT,fallthrough,C10_RATE_SETUP,0xae31,H,profile complete -> rate setup
+C10_RATE_SETUP,jne_b0e0,C10_RATE_SETUP,0xaed0,H,max-rate clamp branch
+C10_RATE_SETUP,fallthrough,C11_BACKEND_RATE_PROP,0xaee1,H,rate setup done
+C11_BACKEND_RATE_PROP,jne_b2c8,C11_BACKEND_RATE_PROP,0xae62,H,v90 designer rate propagation
+C11_BACKEND_RATE_PROP,jne_b300,C11_BACKEND_RATE_PROP,0xae76,H,k56 min/max propagation
+C11_BACKEND_RATE_PROP,fallthrough,C12_ECHO_AND_MODE,0xae7c,H,backend propagation done
+C12_ECHO_AND_MODE,je_b242,C12_ECHO_AND_MODE,0xaf79,H,runtime mode -1 path
+C12_ECHO_AND_MODE,je_b290,C12_ECHO_AND_MODE,0xaf80,H,runtime mode ==1 path
+C12_ECHO_AND_MODE,fallthrough,C14_RET0,0xafbc,H,normal finish

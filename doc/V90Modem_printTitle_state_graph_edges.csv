@@ -1,0 +1,16 @@
+from,to,condition,kind,target
+ENTRY,PRINT_HEADER_1,always,call,edprintf
+PRINT_HEADER_1,PRINT_HEADER_2,always,call,edprintf
+PRINT_HEADER_2,PRINT_HEADER_3,always,call,edprintf
+PRINT_HEADER_3,DEBUG_PROLOG,dsplibs_debug_level>1,branch,
+PRINT_HEADER_3,PRINT_DESC_TITLE,dsplibs_debug_level<=1,branch,
+DEBUG_PROLOG,DEBUG_VERSION,dsplibs_debug_level>1,branch,
+DEBUG_PROLOG,PRINT_DESC_TITLE,dsplibs_debug_level<=1,branch,
+DEBUG_VERSION,DEBUG_PROLOG2,dsplibs_debug_level>1,branch,
+DEBUG_VERSION,PRINT_DESC_TITLE,dsplibs_debug_level<=1,branch,
+DEBUG_PROLOG2,PRINT_DESC_TITLE,always,flow,
+PRINT_DESC_TITLE,PRINT_DESC_BODY,always,call,edprintf
+PRINT_DESC_BODY,PRINT_COMPONENTS,always,call,edprintf
+PRINT_COMPONENTS,DEBUG_EPILOG,dsplibs_debug_level>1,branch,
+PRINT_COMPONENTS,RETURN,dsplibs_debug_level<=1,branch,
+DEBUG_EPILOG,RETURN,always,call,dsplibs_debug_printf

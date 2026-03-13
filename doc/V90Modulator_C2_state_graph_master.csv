@@ -1,0 +1,9 @@
+plane,node,edge_to,condition,action,details
+A,ENTRY,INIT_SCRAMBLER,always,construct,"scrambler at this+0x44"
+A,INIT_SCRAMBLER,STORE_ARGUMENT_FIELDS,always,write,"this+0x00..0x28 and +0x64"
+B,STORE_ARGUMENT_FIELDS,ALLOC_WORKBUF_A,always,call,"malloc(2*field64) -> +0x68"
+B,ALLOC_WORKBUF_A,ALLOC_WORKBUF_B,always,call,"malloc(8*field64) -> +0x6c"
+C,ALLOC_WORKBUF_B,BUILD_BITS_TO_SYMBOL,always,construct,"V90BitsToSymbol"
+C,BUILD_BITS_TO_SYMBOL,BUILD_PHASE3,always,construct,"V90Phase3Modulator"
+C,BUILD_PHASE3,BUILD_PHASE4,always,construct,"V90Phase4Modulator"
+C,BUILD_PHASE4,RETURN,always,return,

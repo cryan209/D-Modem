@@ -1,0 +1,14 @@
+kind,offset_or_symbol,width,access,description
+global,dsplibs_debug_level,32,read,debug verbosity gate
+call,edprintf,func,invoke,standard title output
+call,dsplibs_debug_printf,func,invoke,debug-only output
+rodata,.rodata.str1.4+0x416c,string,read,stars banner
+rodata,.rodata.str1.4+0x41a8,string,read,private-version line
+rodata,.rodata.str1.4+0x41e4,string,read,SL DSP group-only line
+rodata,.rodata.str1.4+0x4220,string,read,description heading
+rodata,.rodata.str1.4+0x4240,string,read,description body
+rodata,.rodata.str1.4+0x4284,string,read,components line
+rodata,.rodata.str1.1+0x1058,string,read,format "%s\\r\\n"
+rodata,.rodata.str1.1+0x105d,string,read,format "V90Modem Version: %s  (%s)\\r\\n"
+rodata,.rodata.str1.1+0x107a,string,read,version date
+rodata,.rodata.str1.1+0x1084,string,read,version number

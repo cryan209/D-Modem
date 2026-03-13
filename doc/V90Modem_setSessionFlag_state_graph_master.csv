@@ -1,0 +1,8 @@
+plane,node,edge_to,condition,action,details
+A,ENTRY,CACHE_FLAG,always,write,"this+0x49b8 = flag"
+B,CACHE_FLAG,READ_SIDE,always,read,"side = this+0x49bc"
+B,READ_SIDE,TO_MODULATOR,side==0,branch,
+B,READ_SIDE,TO_DEMODULATOR,side==1,branch,
+B,READ_SIDE,RETURN,else,return,
+C,TO_MODULATOR,RETURN,always,tailcall,"V90Modulator::setSessionFlag(flag)"
+C,TO_DEMODULATOR,RETURN,always,call,"V90Demodulator::setSessionFlag(flag)"

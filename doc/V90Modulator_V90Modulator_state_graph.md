@@ -1,0 +1,15 @@
+# V90Modulator::V90Modulator State Graph
+
+## Nodes
+- `ENTRY`
+- `INIT_SCRAMBLER`
+- `STORE_INPUTS`
+- `ALLOC_A`
+- `ALLOC_B`
+- `BUILD_BITS`
+- `BUILD_P3`
+- `BUILD_P4`
+- `RETURN`
+
+## Edges
+- `ENTRY -> INIT_SCRAMBLER -> STORE_INPUTS -> ALLOC_A -> ALLOC_B -> BUILD_BITS -> BUILD_P3 -> BUILD_P4 -> RETURN`

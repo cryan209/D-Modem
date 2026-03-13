@@ -1,0 +1,13 @@
+plane,node,edge_to,condition,action,details
+A,ENTRY,INIT_EMBEDDED_MP_CP,always,construct,"V90MP + V90CP embedded fields"
+C,INIT_EMBEDDED_MP_CP,DEBUG_CONSTRUCTION_MSG,debug_level>1,call,"debug constructor side label"
+C,INIT_EMBEDDED_MP_CP,PRINT_TITLE,debug_level<=1,branch,
+C,DEBUG_CONSTRUCTION_MSG,PRINT_TITLE,always,flow,
+A,PRINT_TITLE,BUILD_SHARED_BLOCKS,always,call,"printTitle + create params/phase2/jd/v92jd"
+B,BUILD_SHARED_BLOCKS,BUILD_MODULATOR,side==0,branch,
+B,BUILD_SHARED_BLOCKS,BUILD_DEMODULATOR,side==1,branch,
+B,BUILD_SHARED_BLOCKS,SIDE_INVALID,else,branch,
+B,BUILD_MODULATOR,RETURN,always,construct,"new V90Modulator; this->demod=0"
+B,BUILD_DEMODULATOR,RETURN,always,construct,"this->mod=0; new V90Demodulator"
+C,SIDE_INVALID,RETURN,debug_level>1,call,"debug illegal side"
+C,SIDE_INVALID,RETURN,debug_level<=1,return,

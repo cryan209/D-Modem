@@ -1,0 +1,13 @@
+from,to,condition,kind,target
+ENTRY,INIT_EMBEDDED,always,construct,_ZN5V90MPC1Ev/_ZN5V90CPC1Ev
+INIT_EMBEDDED,DEBUG_ROLE_MSG,dsplibs_debug_level>1,branch,
+INIT_EMBEDDED,PRINT_TITLE,dsplibs_debug_level<=1,branch,
+DEBUG_ROLE_MSG,PRINT_TITLE,always,call,dsplibs_debug_printf
+PRINT_TITLE,ALLOC_SHARED,always,call,_ZN8V90Modem10printTitleEv
+ALLOC_SHARED,DISPATCH_SIDE,always,alloc_construct,V90Parameters/V90Phase2Info/V90Jd/V92Jd
+DISPATCH_SIDE,BUILD_MODULATOR,side==0,branch,
+DISPATCH_SIDE,BUILD_DEMODULATOR,side==1,branch,
+DISPATCH_SIDE,SIDE_INVALID,else,branch,
+BUILD_MODULATOR,RETURN,always,construct,_ZN12V90ModulatorC1...
+BUILD_DEMODULATOR,RETURN,always,construct,_ZN14V90DemodulatorC1...
+SIDE_INVALID,RETURN,always,debug_or_return,dsplibs_debug_printf(optional)

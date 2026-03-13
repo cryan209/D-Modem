@@ -24,9 +24,11 @@
 #define V8OPEN_V21_ORG_SPACE 1180U
 #define V8OPEN_ANSAM_REVERSAL_MS 450U
 #define V8OPEN_ANSAM_LEADIN_MS 200U
-#define V8OPEN_ANS_TONE_MS 1000U
-#define V8OPEN_ANSAM_TONE_MS 4000U
-#define V8OPEN_ANSAM_SEND_MS (V8OPEN_ANSAM_LEADIN_MS + V8OPEN_ANS_TONE_MS + V8OPEN_ANSAM_TONE_MS)
+#define V8OPEN_ANSAM_TONE_MS 5000U
+#define V8OPEN_ANSAM_SEND_MS (V8OPEN_ANSAM_LEADIN_MS + V8OPEN_ANSAM_TONE_MS)
+#define V8OPEN_CI_DETECT_THRESHOLD 600U
+#define V8OPEN_CI_DETECT_FRAMES 48U
+#define V8OPEN_CI_WAIT_TIMEOUT_MS 8000U
 #define V8OPEN_ANSAM_AM_DIVISOR 5U
 #define V8OPEN_CM_WAIT_TAIL_MS 800U
 #define V8OPEN_CJ_WAIT_MS 900U
@@ -202,6 +204,7 @@ static const unsigned short v8_open_cj_rx_template[] = {
 
 enum v8_open_phase {
 	V8_OPEN_PHASE_BOOT = 0,
+	V8_OPEN_PHASE_ANS_WAIT_FOR_CI,
 	V8_OPEN_PHASE_ANS_SEND_ANSAM,
 	V8_OPEN_PHASE_ANS_WAIT_FOR_CM,
 	V8_OPEN_PHASE_ANS_SEND_JM,
@@ -455,6 +458,8 @@ struct v8_open_engine {
 	unsigned ans_cj_timeout_fallback;
 	unsigned ans_cm_was_synthetic;
 	unsigned cm_framing_stalls;
+	unsigned ci_detected;
+	unsigned ci_energy_counter;
 	short rx_agc_fir_hist[V8OPEN_AGC_FIR_SAMPLES];
 	short rx_demod_history[V8OPEN_DEMOD_HISTORY_SAMPLES];
 	short rx_bit_window[V8OPEN_MAX_SAMPLES_PER_BIT];
@@ -468,6 +473,8 @@ static const char *v8_open_phase_name(enum v8_open_phase phase)
 	switch (phase) {
 	case V8_OPEN_PHASE_BOOT:
 		return "BOOT";
+	case V8_OPEN_PHASE_ANS_WAIT_FOR_CI:
+		return "ANS_WAIT_FOR_CI";
 	case V8_OPEN_PHASE_ANS_SEND_ANSAM:
 		return "ANS_SEND_ANSAM";
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CM:
@@ -843,13 +850,10 @@ static void v8_open_emit_ansam(struct v8_open_engine *engine,
 			       int cnt)
 {
 	unsigned leadin_samples;
-	unsigned ans_end_samples;
 	unsigned reversal_samples;
 	int i;
 
 	leadin_samples = v8_open_samples_from_ms(engine, V8OPEN_ANSAM_LEADIN_MS);
-	ans_end_samples = leadin_samples +
-		v8_open_samples_from_ms(engine, V8OPEN_ANS_TONE_MS);
 	reversal_samples = v8_open_samples_from_ms(engine, V8OPEN_ANSAM_REVERSAL_MS);
 	if (!reversal_samples)
 		reversal_samples = 1U;
@@ -864,17 +868,6 @@ static void v8_open_emit_ansam(struct v8_open_engine *engine,
 		elapsed = engine->samples_in_phase + (unsigned)i;
 		if (elapsed < leadin_samples) {
 			pcm[i] = 0;
-			continue;
-		}
-
-		if (elapsed < ans_end_samples) {
-			/*
-			 * V.8 §8.2.1: send plain ANS (2100 Hz, no phase
-			 * reversals, no AM) first so the calling modem can
-			 * settle its tone detector before ANSam begins.
-			 */
-			pcm[i] = v8_open_wave_sample(engine,
-						     V8OPEN_ANSAM_FREQ, 0);
 			continue;
 		}
 
@@ -984,6 +977,10 @@ static void v8_open_emit_phase(struct v8_open_engine *engine, void *out, int cnt
 		return;
 
 	switch (engine->phase) {
+	case V8_OPEN_PHASE_ANS_WAIT_FOR_CI:
+		/* Silence while listening for calling modem's CI/CNG tone. */
+		memset(out, 0, (size_t)cnt * 2U);
+		break;
 	case V8_OPEN_PHASE_ANS_SEND_ANSAM:
 		v8_open_emit_ansam(engine, pcm, cnt);
 		break;
@@ -1026,6 +1023,14 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 	case V8_OPEN_PHASE_BOOT:
 		/* V.8 8.2: at least 0.2 s no-signal after line connection. */
 		return v8_open_samples_from_ms(engine, 200U);
+	case V8_OPEN_PHASE_ANS_WAIT_FOR_CI:
+		/*
+		 * Wait for calling modem's CI/CNG tone before starting ANSam.
+		 * Blob v8handshak starts in silence (TX=0x05, RX=0x19) and
+		 * calls v8_tone_detect() each tick; ANSam only begins after
+		 * detection succeeds.  Budget is the sig_timeout fallback.
+		 */
+		return v8_open_samples_from_ms(engine, V8OPEN_CI_WAIT_TIMEOUT_MS);
 	case V8_OPEN_PHASE_ANS_SEND_ANSAM:
 		/*
 		 * V.8 8.2.2: if not terminated by CM/sigC, ANSam is 5 +- 1 s.
@@ -4262,6 +4267,7 @@ static unsigned v8_open_phase_status(const struct v8_open_engine *engine,
 
 	switch (phase) {
 	case V8_OPEN_PHASE_BOOT:
+	case V8_OPEN_PHASE_ANS_WAIT_FOR_CI:
 		return V8_OPEN_STATUS_INIT;
 	case V8_OPEN_PHASE_ANS_SEND_ANSAM:
 		return V8_OPEN_STATUS_ANS_SEND_ANSAM;
@@ -4610,8 +4616,10 @@ static enum v8_open_phase v8_open_next_phase(const struct v8_open_engine *engine
 	switch (phase) {
 	case V8_OPEN_PHASE_BOOT:
 		return engine->cfg.answer_mode ?
-			V8_OPEN_PHASE_ANS_SEND_ANSAM :
+			V8_OPEN_PHASE_ANS_WAIT_FOR_CI :
 			V8_OPEN_PHASE_ORG_SEND_CM;
+	case V8_OPEN_PHASE_ANS_WAIT_FOR_CI:
+		return V8_OPEN_PHASE_ANS_SEND_ANSAM;
 	case V8_OPEN_PHASE_ANS_SEND_ANSAM:
 		return V8_OPEN_PHASE_ANS_WAIT_FOR_CM;
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CM:
@@ -4638,6 +4646,12 @@ static void v8_open_transition(struct v8_open_engine *engine,
 			       enum v8_open_phase next_phase)
 {
 	enum v8_open_phase old_phase;
+
+	if (next_phase == V8_OPEN_PHASE_ANS_SEND_ANSAM &&
+	    engine->phase == V8_OPEN_PHASE_ANS_WAIT_FOR_CI &&
+	    !engine->ci_detected) {
+		V8OPEN_DBG("ci-detect: timeout, proceeding to ANSam without CI detection\n");
+	}
 
 	if (next_phase == V8_OPEN_PHASE_ANS_WAIT_FOR_CM && engine->cm_detected)
 		next_phase = V8_OPEN_PHASE_ANS_SEND_JM;
@@ -5075,6 +5089,8 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->ans_cj_timeout_fallback = 0U;
 	engine->ans_cm_was_synthetic = 0U;
 	engine->cm_framing_stalls = 0U;
+	engine->ci_detected = 0U;
+	engine->ci_energy_counter = 0U;
 	engine->preferred_dp = (enum DP_ID)cfg->target_dp_id;
 	v8_open_rx_reset_collect(engine);
 	if (cfg->answer_mode)
@@ -5166,6 +5182,45 @@ int v8_open_process(void *engine_ptr, void *in, void *out, int cnt)
 	engine->total_samples += (unsigned)cnt;
 	engine->samples_in_phase += (unsigned)cnt;
 	engine->last_status = v8_open_phase_status(engine, engine->phase);
+
+	/*
+	 * CI/CNG tone detection during ANS_WAIT_FOR_CI phase.
+	 * Blob answer mode starts in silence (TX=0x05) and calls
+	 * v8_tone_detect() each tick; ANSam only starts after the
+	 * calling modem's tone is detected.  We use a simple energy
+	 * detector: if average |sample| exceeds a threshold for
+	 * enough consecutive blocks, consider the tone present.
+	 */
+	if (engine->phase == V8_OPEN_PHASE_ANS_WAIT_FOR_CI &&
+	    !engine->ci_detected && in && cnt > 0) {
+		const short *rx_pcm = (const short *)in;
+		unsigned energy = 0U;
+		int k;
+
+		for (k = 0; k < cnt; ++k) {
+			int v = (int)rx_pcm[k];
+			energy += (unsigned)(v < 0 ? -v : v);
+		}
+		energy /= (unsigned)cnt;
+		if (energy >= V8OPEN_CI_DETECT_THRESHOLD) {
+			engine->ci_energy_counter++;
+			if (engine->ci_energy_counter >= V8OPEN_CI_DETECT_FRAMES) {
+				engine->ci_detected = 1U;
+				V8OPEN_DBG("ci-detect: tone detected at sample %u "
+					  "(energy=%u, elapsed=%u ms)\n",
+					  engine->total_samples, energy,
+					  engine->samples_in_phase *
+					  1000U /
+					  (engine->cfg.sample_rate ?
+					   engine->cfg.sample_rate : 9600U));
+				/* Force immediate transition to ANSam. */
+				v8_open_transition(engine,
+						   V8_OPEN_PHASE_ANS_SEND_ANSAM);
+			}
+		} else {
+			engine->ci_energy_counter = 0U;
+		}
+	}
 
 	budget = v8_open_phase_budget(engine, engine->phase);
 	while (budget && engine->samples_in_phase >= budget) {

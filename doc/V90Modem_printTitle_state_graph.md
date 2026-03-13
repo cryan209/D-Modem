@@ -1,0 +1,29 @@
+# V90Modem::printTitle State Graph
+
+## Nodes
+- `ENTRY`
+- `PRINT_HEADER_1`
+- `PRINT_HEADER_2`
+- `PRINT_HEADER_3`
+- `DEBUG_PROLOG`
+- `DEBUG_VERSION`
+- `DEBUG_PROLOG2`
+- `PRINT_DESC_TITLE`
+- `PRINT_DESC_BODY`
+- `PRINT_COMPONENTS`
+- `DEBUG_EPILOG`
+- `RETURN`
+
+## Edges
+- `ENTRY -> PRINT_HEADER_1 -> PRINT_HEADER_2 -> PRINT_HEADER_3`
+- `PRINT_HEADER_3 -> DEBUG_PROLOG` when `debug_level > 1`
+- `PRINT_HEADER_3 -> PRINT_DESC_TITLE` when `debug_level <= 1`
+- `DEBUG_PROLOG -> DEBUG_VERSION` when `debug_level > 1`
+- `DEBUG_PROLOG -> PRINT_DESC_TITLE` when `debug_level <= 1`
+- `DEBUG_VERSION -> DEBUG_PROLOG2` when `debug_level > 1`
+- `DEBUG_VERSION -> PRINT_DESC_TITLE` when `debug_level <= 1`
+- `DEBUG_PROLOG2 -> PRINT_DESC_TITLE`
+- `PRINT_DESC_TITLE -> PRINT_DESC_BODY -> PRINT_COMPONENTS`
+- `PRINT_COMPONENTS -> DEBUG_EPILOG` when `debug_level > 1`
+- `PRINT_COMPONENTS -> RETURN` when `debug_level <= 1`
+- `DEBUG_EPILOG -> RETURN`

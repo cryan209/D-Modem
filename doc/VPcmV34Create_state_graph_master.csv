@@ -1,0 +1,27 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,C0_ENTRY_DEBUG,0xaa70,H,function entry,VPcmV34Create_state_graph_edges.csv
+control,C0_ENTRY_DEBUG,fallthrough,C1_ZERO_AND_RESTORE,0xaac7,H,post optional debug banner,VPcmV34Create_state_graph_edges.csv
+control,C1_ZERO_AND_RESTORE,fallthrough,C2_BASE_INIT,0xab1b,H,state zeroed and pointers restored,VPcmV34Create_state_graph_edges.csv
+control,C2_BASE_INIT,fallthrough,C3_SESSION_DISPATCH,0xac18,H,base init complete,VPcmV34Create_state_graph_edges.csv
+control,C3_SESSION_DISPATCH,je_afc6,C4_SESSION2_PATH,0xac45,H,arg5==2,VPcmV34Create_state_graph_edges.csv
+control,C3_SESSION_DISPATCH,jle_b0a0,C5_SESSION1_PATH,0xac4b,H,arg5<=0 branch (session1 handling inside),VPcmV34Create_state_graph_edges.csv
+control,C3_SESSION_DISPATCH,je_b320_or_b35a,C6_SESSION34_PATH,0xac56|0xac61,H,arg5==3/4,VPcmV34Create_state_graph_edges.csv
+control,C3_SESSION_DISPATCH,default,C7_ROLE_SELECT,0xac67,H,default session path,VPcmV34Create_state_graph_edges.csv
+control,C4_SESSION2_PATH,jne_b382,C13_CHANNEL_VERIFY,0xb063,H,conditional channel verification path,VPcmV34Create_state_graph_edges.csv
+control,C13_CHANNEL_VERIFY,jmp_b069,C7_ROLE_SELECT,0xb3b3,H,rejoin role select,VPcmV34Create_state_graph_edges.csv
+control,C7_ROLE_SELECT,jmp_ac87,C8_COMMON_ROLE_INIT,0xac87,H,role chosen,VPcmV34Create_state_graph_edges.csv
+control,C8_COMMON_ROLE_INIT,fallthrough,C9_PROFILE_SELECT,0xad8d,H,common setup done,VPcmV34Create_state_graph_edges.csv
+control,C9_PROFILE_SELECT,fallthrough,C10_RATE_SETUP,0xae31,H,profile setup done,VPcmV34Create_state_graph_edges.csv
+control,C10_RATE_SETUP,fallthrough,C11_BACKEND_RATE_PROP,0xaee1,H,min/max and table setup done,VPcmV34Create_state_graph_edges.csv
+control,C11_BACKEND_RATE_PROP,fallthrough,C12_ECHO_AND_MODE,0xae7c,H,backend propagation done,VPcmV34Create_state_graph_edges.csv
+control,C12_ECHO_AND_MODE,fallthrough,C14_RET0,0xafbc,H,normal return,VPcmV34Create_state_graph_edges.csv
+param,ctx+0xac3c,write,runtime_ptr,0xab0f,H,stores runtime/config pointer,VPcmV34Create_state_graph_param_edges.csv
+param,ctx+0x3548/0xac18,write,backend_ptr_restore,0xaaf9|0xab15,H,preserve and restore backend pointers,VPcmV34Create_state_graph_param_edges.csv
+param,ctx+4+0x248/0x24c,write,phase_roots,0xac3f|0xac45|0xb347,H,phase roots for subsequent state machines,VPcmV34Create_state_graph_param_edges.csv
+param,ctx+0x359c,write,role_marker,0xac87|0xb090,H,role marker 0x65/0x66,VPcmV34Create_state_graph_param_edges.csv
+param,ctx+0x7f5c,write,post_mode_flag,0xaf97|0xb299|0xb257,H,mode-dependent post filter flag,VPcmV34Create_state_graph_param_edges.csv
+call,init,core_initializers,0xaada|0xaaf5|0xab1f|0xad37,H,memory zero + core initializers,VPcmV34Create_state_graph_param_edges.csv
+call,session,reset_and_verify,0xafe0|0xb0d3|0xb351|0xb3a8,H,session-dependent reset/verification calls,VPcmV34Create_state_graph_param_edges.csv
+call,rate,backend_rate_calls,0xb2ec|0xb318,H,rate propagation into backend objects,VPcmV34Create_state_graph_param_edges.csv
+call,dsp,echo_and_filter_calls,0xaf69|0xafab,H,echo delay and filter reset,VPcmV34Create_state_graph_param_edges.csv
+call,diag,debug_calls,0xb10f|0xb12e|0xb33e,H,debug diagnostics branches,VPcmV34Create_state_graph_param_edges.csv

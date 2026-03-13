@@ -1,0 +1,16 @@
+from,to,condition,kind,target
+ENTRY,DEBUG_LOG_RESET,dsplibs_debug_level>1,branch,
+ENTRY,PRINT_TITLE,dsplibs_debug_level<=1,branch,
+DEBUG_LOG_RESET,PRINT_TITLE,always,call,dsplibs_debug_printf
+PRINT_TITLE,READ_SIDE,always,call,_ZN8V90Modem10printTitleEv
+READ_SIDE,SIDE_MOD_RESET,side==0,branch,
+READ_SIDE,SIDE_DEM_GATE,side==1,branch,
+READ_SIDE,SIDE_ILLEGAL,else,branch,
+SIDE_MOD_RESET,RETURN,always,tailcall,_ZN12V90Modulator5resetEv
+SIDE_DEM_GATE,MASK_QC,(*(this+0x49b4)+0x4)!=0,branch,
+SIDE_DEM_GATE,SET_DIL,(*(this+0x49b4)+0x4)==0,branch,
+MASK_QC,SET_DIL,always,call,edprintf
+SET_DIL,SIDE_DEM_RESET,always,call,_Z16setDilDescriptorP19tagV90DILdescriptor7DilType
+SIDE_DEM_RESET,RETURN,always,tailcall,_ZN14V90Demodulator5resetEj
+SIDE_ILLEGAL,RETURN,dsplibs_debug_level<=1,return,
+SIDE_ILLEGAL,RETURN,dsplibs_debug_level>1,tailcall,dsplibs_debug_printf

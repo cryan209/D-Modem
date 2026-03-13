@@ -1,0 +1,19 @@
+caller,callee,arg_index,source,notes
+V90Modulator::C1,Scrambler<int8,int16>::C1,0,this+0x44,embedded scrambler object
+V90Modulator::C1,Scrambler<int8,int16>::C1,1,0x12,constant
+V90Modulator::C1,Scrambler<int8,int16>::C1,2,0x17,constant
+V90Modulator::C1,Scrambler<int8,int16>::C1,3,0x63,constant
+V90Modulator::C1,sysdep_malloc,0,2*arg1,stored to this+0x68
+V90Modulator::C1,sysdep_malloc,0,8*arg1,stored to this+0x6c
+V90Modulator::C1,V90BitsToSymbol::C1,1,3*arg1+0x1388,symbol block sizing
+V90Modulator::C1,V90BitsToSymbol::C1,2,arg11 (V90Parameters*),shared params
+V90Modulator::C1,V90Phase3Modulator::C1,1,arg11 (V90Parameters*),shared params
+V90Modulator::C1,V90Phase3Modulator::C1,2,arg12,session/mode word
+V90Modulator::C1,V90Phase4Modulator::C1,1,arg11 (V90Parameters*),shared params
+V90Modulator::C1,V90Phase4Modulator::C1,2,0x0c,constant mode/select
+V90Modulator::C1,V90Phase4Modulator::C1,3,this+0x40,BitsToSymbol*
+V90Modulator::C1,V90Phase4Modulator::C1,4,arg10 (V90MP*),MP pointer
+V90Modulator::C1,V90Phase4Modulator::C1,5,arg7 (V90MappingParams*),mapping A
+V90Modulator::C1,V90Phase4Modulator::C1,6,arg6 (V90MappingParams*),mapping B
+V90Modulator::C1,V90Phase4Modulator::C1,7,arg9 (V90CP*),CP pointer
+V90Modulator::C1,V90Phase4Modulator::C1,8,arg12,session/mode word

@@ -1,0 +1,9 @@
+plane,node,edge_to,condition,action,details
+A,ENTRY,READ_SIDE,always,load,"read this and side(this+0x49bc)"
+A,READ_SIDE,SIDE_MODULATOR,side==0,branch,
+A,READ_SIDE,SIDE_DEMODULATOR,side==1,branch,
+A,READ_SIDE,SIDE_ILLEGAL,else,branch,
+B,SIDE_MODULATOR,RETURN,always,tailcall,"V90Modulator::progress(this->modulator, ...)"
+B,SIDE_DEMODULATOR,RETURN,always,tailcall,"V90Demodulator::progress(this->demodulator, ...)"
+C,SIDE_ILLEGAL,DEBUG_PRINT,debug_level>1,tailcall,"dsplibs_debug_printf(Illegal modemSide)"
+C,SIDE_ILLEGAL,RETURN,debug_level<=1,return,

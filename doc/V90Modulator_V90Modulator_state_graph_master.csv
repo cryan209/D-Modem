@@ -1,0 +1,9 @@
+plane,node,edge_to,condition,action,details
+A,ENTRY,INIT_SCRAMBLER,always,construct,"scrambler at +0x44"
+A,INIT_SCRAMBLER,STORE_INPUTS,always,write,"args to +0x00..+0x28 and +0x64"
+B,STORE_INPUTS,ALLOC_A,always,call,"malloc(2*N)"
+B,ALLOC_A,ALLOC_B,always,call,"malloc(8*N)"
+C,ALLOC_B,BUILD_BITS,always,construct,"V90BitsToSymbol"
+C,BUILD_BITS,BUILD_P3,always,construct,"V90Phase3Modulator"
+C,BUILD_P3,BUILD_P4,always,construct,"V90Phase4Modulator"
+C,BUILD_P4,RETURN,always,return,

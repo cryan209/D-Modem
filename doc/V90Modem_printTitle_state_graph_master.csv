@@ -1,0 +1,16 @@
+plane,node,edge_to,condition,action,details
+A,ENTRY,PRINT_HEADER_1,always,call,"edprintf(stars)"
+A,PRINT_HEADER_1,PRINT_HEADER_2,always,call,"edprintf(private)"
+A,PRINT_HEADER_2,PRINT_HEADER_3,always,call,"edprintf(group-only)"
+C,PRINT_HEADER_3,DEBUG_PROLOG,debug_level>1,branch,
+C,PRINT_HEADER_3,PRINT_DESC_TITLE,debug_level<=1,branch,
+B,DEBUG_PROLOG,DEBUG_VERSION,debug_level>1,call,"debug_printf(stars)"
+C,DEBUG_PROLOG,PRINT_DESC_TITLE,debug_level<=1,branch,
+B,DEBUG_VERSION,DEBUG_PROLOG2,debug_level>1,call,"debug_printf(version,date,number)"
+C,DEBUG_VERSION,PRINT_DESC_TITLE,debug_level<=1,branch,
+B,DEBUG_PROLOG2,PRINT_DESC_TITLE,always,call,"debug_printf(stars)"
+A,PRINT_DESC_TITLE,PRINT_DESC_BODY,always,call,"edprintf(description title)"
+A,PRINT_DESC_BODY,PRINT_COMPONENTS,always,call,"edprintf(%s, modified QC...)"
+A,PRINT_COMPONENTS,RETURN,debug_level<=1,call,"edprintf(components)"
+B,PRINT_COMPONENTS,DEBUG_EPILOG,debug_level>1,branch,
+B,DEBUG_EPILOG,RETURN,always,call,"debug_printf(stars)"
