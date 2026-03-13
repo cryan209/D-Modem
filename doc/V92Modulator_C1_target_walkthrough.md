@@ -1,30 +1,39 @@
-# V92Modulator_C1 Target Walkthrough
+# V92Modulator::V92Modulator (C1) Target Walkthrough
 
-- Function: V92Modulator_C1
-- Symbol: _ZN12V92ModulatorC1EjP13V92Phase2InfoP5V92JaP19tagV90DILdescriptorP5V92CPP16V92MappingParamsP13V92Parameters
+- Function: `V92Modulator_C1`
+- Range: `0x00015120` .. `0x000153fe`
 - Disassembly: [V92Modulator_C1_disasm.asm](/root/D-Modem/doc/V92Modulator_C1_disasm.asm)
 - Pseudo-C: [V92Modulator_C1_pseudoc.c](/root/D-Modem/doc/V92Modulator_C1_pseudoc.c)
 
 ## Purpose
-- Provide a structural read of V92Modulator_C1 for bundle completeness.
+- Build the full V.92 transmit-side DSP object graph and startup buffers.
 
-## Control Skeleton
-1. Enter function and establish local state.
-2. Execute mostly linear body (no jump sites in current window).
-3. Invoke helper callees listed below.
-4. Return to caller.
+## Execution Phases
+1. Parameter normalization:
+- Constructor stores pointers (`phase2`, `ja`, `dil`, `cp`, mapping params) and computes timing/length-scaled sizes.
 
-## Callouts
-- _ZN15V92BitsToSymbolC1EjP13V92Parameters
-- _ZN18V92Phase3ModulatorC1EP13V92Parameters
-- _ZN18V92Phase4ModulatorC1EP13V92ParametersP15V92BitsToSymbolP5V92CPP16V92MappingParams
-- _ZN21ResamplerTimingOffsetC1Ejfjffj
-- _ZN5QueueIfE5resetEv
-- _ZN5QueueIfE5writeEf
-- _ZN5QueueIfEC1Ej
-- _ZN8FloatFIR5resetEv
-- _ZN8FloatFIRC1EjPfj
-- _ZN9ScramblerIihE5resetEi
-- _ZN9ScramblerIihEC1Ejjj
-- dsplibs_debug_printf
-- sysdep_malloc
+2. Memory provisioning:
+- Allocates symbol/fifo/filter helper buffers at fixed member offsets.
+
+3. Sub-object construction:
+- `V92BitsToSymbol`.
+- `ResamplerTimingOffset`.
+- `V92Phase3Modulator` and `V92Phase4Modulator`.
+- `QueueIf` and `FloatFIR`.
+
+4. Cold reset/prefill:
+- Resets scrambler/queue/FIR.
+- Clears control counters/flags.
+- Prefills queue with zeros up to configured startup depth.
+
+## Key Fields
+- `self+0x2c`: main TX phase state.
+- `self+0x30`: timing accumulator.
+- `self+0x34`: pending phase-transition/event code.
+- `self+0x44`: `V92Phase3Modulator*`.
+- `self+0x48`: `V92Phase4Modulator*`.
+- `self+0x4c`: `V92BitsToSymbol*`.
+- `self+0x50`: `ResamplerTimingOffset*`.
+- `self+0x74`: `QueueIf*`, `self+0x78`: `FloatFIR*`.
+- `self+0x7c`: output symbol short buffer.
+- `self+0x84/+0x88`: float/byte scratch pipelines.

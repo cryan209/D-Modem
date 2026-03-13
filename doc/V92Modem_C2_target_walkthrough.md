@@ -1,26 +1,23 @@
-# V92Modem_C2 Target Walkthrough
+# V92Modem::V92Modem (C2) Target Walkthrough
 
-- Function: V92Modem_C2
-- Symbol: _ZN8V92ModemC2E12V92ModemSideP19_tagModemParametersjP19tagV90DILdescriptor20V92ComputationalMode
+- Function: `V92Modem_C2`
+- Range: `0x00013ec0` .. `0x00014049`
 - Disassembly: [V92Modem_C2_disasm.asm](/root/D-Modem/doc/V92Modem_C2_disasm.asm)
 - Pseudo-C: [V92Modem_C2_pseudoc.c](/root/D-Modem/doc/V92Modem_C2_pseudoc.c)
 
 ## Purpose
-- Provide a structural read of V92Modem_C2 for bundle completeness.
+- Construct V.92 modem internals for C2 ABI entry, including side-specific modulator initialization.
 
-## Control Skeleton
-1. Enter function and establish local state.
-2. Execute mostly linear body (no jump sites in current window).
-3. Invoke helper callees listed below.
-4. Return to caller.
+## Walkthrough
+1. Optional debug banner then `printTitle`.
+2. Build shared objects:
+- `V92Parameters`, `V92Phase2Info`, `V92CP`.
+- Constellation/filter working memory + builders.
+3. Dispatch by side field:
+- `side == 0`: leave `self->mod` null.
+- `side == 1`: allocate/construct `V92Modulator`.
+- otherwise: debug-only diagnostic path.
+4. Return.
 
-## Callouts
-- V92createConstellations
-- V92createFilterCoefficients
-- _ZN12V92ModulatorC1EjP13V92Phase2InfoP5V92JaP19tagV90DILdescriptorP5V92CPP16V92MappingParamsP13V92Parameters
-- _ZN13V92ParametersC1EP19_tagModemParameters
-- _ZN13V92Phase2InfoC1EP13V92Parameters
-- _ZN5V92CPC1Ev
-- _ZN8V92Modem10printTitleEv
-- dsplibs_debug_printf
-- sysdep_malloc
+## Practical Read
+- If you already mapped C1, C2 can be treated as a duplicate semantic path with constructor ABI differences only.

@@ -1,18 +1,20 @@
 # setParamsInfoFromV92CPUnPck Branch And Flow Map
 
-- Symbol: setParamsInfoFromV92CPUnPck
-- Demangled: setParamsInfoFromV92CPUnPck
-- Start: 0x00033c60
-- End: 0x00033eb9
-- Size: 0x00000259 bytes (601)
+- Symbol: `setParamsInfoFromV92CPUnPck`
+- Start: `0x00033c60`
+- End: `0x00033eb9`
+- Size: `0x259` bytes (`601`)
 
 ## Summary
-- Auto-generated control-flow inventory for the remaining V.90/V.92 bundle function.
-- Branch instructions observed: 0.
-- External call relocations observed: 0.
+- Inverse of CP packing: rebuilds runtime V.92 params from packet format.
+- Copies scalar fields and profile index vector, then expands bitmaps back to nibble-byte streams.
 
-## Branch Sites
-- No jump instructions in the disassembly window.
+## Major Regions
+- `U0_SCALARS`: copy packet scalar/header fields back into params (`+0x61c..+0x638`).
+- `U1_MAIN_UNPACK`: decode `0x42` table bitmaps into profile byte-streams at params base region.
+- `U2_ALT_UNPACK`: decode `0xa2` table bitmaps when alt-mode flag is set.
+- `U3_RATE_RESTORE`: restore params base rate from packet byte2 with mode-based offset (`+0x14` vs `+0x08`).
 
-## Direct Calls
-- None observed (or fully inlined/local).
+## Notes
+- Symmetric with `setV92CPpckFromParamsInfo` encoding logic.
+- Maintains same per-profile indexing model via `+0x638[]` list.

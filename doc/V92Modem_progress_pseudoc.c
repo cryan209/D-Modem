@@ -1,10 +1,13 @@
-// Reconstructed skeleton from _ZN8V92Modem8progressEPiRjPfj
-// Address range: 0x00013b70..0x00013be9
-// Demangled: V92Modem::progress(int*, unsigned int&, float*, unsigned int)
+// Reconstructed from _ZN8V92Modem8progressEPiRjPfj
 
-void V92Modem_progress_pseudoc(void)
+int V92Modem_progress(V92Modem *self, int *bitsNeeded, unsigned int *outCount, float *in, unsigned int n)
 {
-    // Control-flow summary only. See disassembly for exact register/data semantics.
-    // Branch sites: 0
-    // External calls: 2
+    int side = self->side; // +0xaa8
+    if (side == 1) {
+        return V92Modulator_progress(self->mod, bitsNeeded, *outCount, in, n);
+    }
+    if (side != 0 && dsplibs_debug_level > 1) {
+        dsplibs_debug_printf("V92Modem::progress: illegal side selector\n");
+    }
+    return 0;
 }

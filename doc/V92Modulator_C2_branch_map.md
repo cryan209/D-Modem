@@ -1,30 +1,20 @@
-# V92Modulator_C2 Branch And Flow Map
+# V92Modulator::V92Modulator (C2) Branch And Flow Map
 
-- Symbol: _ZN12V92ModulatorC2EjP13V92Phase2InfoP5V92JaP19tagV90DILdescriptorP5V92CPP16V92MappingParamsP13V92Parameters
-- Demangled: V92Modulator::V92Modulator(unsigned int, V92Phase2Info*, V92Ja*, tagV90DILdescriptor*, V92CP*, V92MappingParams*, V92Parameters*)
-- Start: 0x00015400
-- End: 0x000156de
-- Size: 0x000002de bytes (734)
+- Symbol: `_ZN12V92ModulatorC2EjP13V92Phase2InfoP5V92JaP19tagV90DILdescriptorP5V92CPP16V92MappingParamsP13V92Parameters`
+- Start: `0x00015400`
+- End: `0x000156de`
+- Size: `0x2de` bytes (`734`)
 
 ## Summary
-- Auto-generated control-flow inventory for the remaining V.90/V.92 bundle function.
-- Branch instructions observed: 0.
-- External call relocations observed: 13.
+- C2/base-constructor twin of V92Modulator C1.
+- Builds the same object graph and startup state as C1.
 
-## Branch Sites
-- No jump instructions in the disassembly window.
+## Control Regions
+- `C0`: scrambler setup + constructor arg projection into members.
+- `C1`: workspace allocations.
+- `C2`: helper object construction (`BitsToSymbol`, `ResamplerTimingOffset`, phase modulators, queue, FIR).
+- `C3`: reset and queue prefill.
+- `C4`: debug banner branches.
 
-## Direct Calls
-- _ZN15V92BitsToSymbolC1EjP13V92Parameters
-- _ZN18V92Phase3ModulatorC1EP13V92Parameters
-- _ZN18V92Phase4ModulatorC1EP13V92ParametersP15V92BitsToSymbolP5V92CPP16V92MappingParams
-- _ZN21ResamplerTimingOffsetC1Ejfjffj
-- _ZN5QueueIfE5resetEv
-- _ZN5QueueIfE5writeEf
-- _ZN5QueueIfEC1Ej
-- _ZN8FloatFIR5resetEv
-- _ZN8FloatFIRC1EjPfj
-- _ZN9ScramblerIihE5resetEi
-- _ZN9ScramblerIihEC1Ejjj
-- dsplibs_debug_printf
-- sysdep_malloc
+## Calls
+- Same callset as C1 constructor (`sysdep_malloc`, `Scrambler`, `BitsToSymbol`, `ResamplerTimingOffset`, `V92Phase3/4Modulator`, `QueueIf`, `FloatFIR`, debug prints).

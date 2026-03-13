@@ -1,19 +1,15 @@
-# V92Modem_progress Target Walkthrough
+# V92Modem::progress Target Walkthrough
 
-- Function: V92Modem_progress
-- Symbol: _ZN8V92Modem8progressEPiRjPfj
+- Function: `V92Modem_progress`
+- Range: `0x00013b70` .. `0x00013be9`
 - Disassembly: [V92Modem_progress_disasm.asm](/root/D-Modem/doc/V92Modem_progress_disasm.asm)
 - Pseudo-C: [V92Modem_progress_pseudoc.c](/root/D-Modem/doc/V92Modem_progress_pseudoc.c)
 
 ## Purpose
-- Provide a structural read of V92Modem_progress for bundle completeness.
+- Route progress work to the side-appropriate implementation.
 
-## Control Skeleton
-1. Enter function and establish local state.
-2. Execute mostly linear body (no jump sites in current window).
-3. Invoke helper callees listed below.
-4. Return to caller.
-
-## Callouts
-- _ZN12V92Modulator8progressEPiRjPfj
-- dsplibs_debug_printf
+## Behavior
+1. Read side selector at `self+0xaa8`.
+2. If side is `1`, jump to `V92Modulator::progress` using `self->mod`.
+3. If side is `0`, return with no action.
+4. Any other side value triggers verbose diagnostic path when debug is enabled.

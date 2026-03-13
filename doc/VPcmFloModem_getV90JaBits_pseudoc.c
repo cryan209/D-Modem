@@ -1,10 +1,29 @@
-// Reconstructed skeleton from _ZN12VPcmFloModem12getV90JaBitsEPs
-// Address range: 0x0000d240..0x0000d2de
-// Demangled: VPcmFloModem::getV90JaBits(short*)
+// Reconstructed from _ZN12VPcmFloModem12getV90JaBitsEPs
 
-void VPcmFloModem_getV90JaBits_pseudoc(void)
+short VPcmFloModem_getV90JaBits(VPcmFloModem *self, short *outWord)
 {
-    // Control-flow summary only. See disassembly for exact register/data semantics.
-    // Branch sites: 0
-    // External calls: 0
+    short done = 0;
+
+    if (self->ja_len != 0) {
+        unsigned short idx = self->ja_idx;
+        unsigned short b0 = self->ja_bits[idx++];
+        self->ja_idx = idx;
+        *outWord = (short)b0;
+
+        idx = self->ja_idx;
+        short b1 = self->ja_bits[idx++];
+        self->ja_idx = idx;
+        *outWord = (short)(((short)(b1 << 1)) | (unsigned short)(*outWord));
+
+        if (self->ja_idx == self->ja_len) {
+            self->ja_idx = 0;
+        }
+    }
+
+    if (self->ja_end_latch != 0) {
+        self->ja_idx = 0;
+        done = 1;
+    }
+
+    return done;
 }
