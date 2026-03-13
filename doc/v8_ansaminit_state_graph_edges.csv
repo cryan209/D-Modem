@@ -1,0 +1,6 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_SETUP_BASE,0x76c90,H,Function entry and base address setup
+B0_SETUP_BASE,fallthrough,B1_WRITE_CONSTS,0x76c9a->0x76ca0,H,Base pointer ready for field writes
+B1_WRITE_CONSTS,fallthrough,B2_SCALE_GAIN,0x76cb2->0x76cb8,H,Constant field initialization complete
+B2_SCALE_GAIN,call_return,B3_FINALIZE,0x76cd1->0x76cd6,H,Scaled value returned from v8_mpyint
+B3_FINALIZE,fallthrough,B4_RETURN,0x76cda->0x76ce4,H,Final flag set then return

@@ -1,0 +1,20 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_STAGE4,0x78c80,H,Function entry initializes 4-sample staging copy loop
+B0_STAGE4,loop_done,B1_GATE12,0x78cc9->0x78ccf,H,After 4 samples copied, gate on staged-count==12
+B1_GATE12,count!=12,RETURN_EARLY,0x78cd4,H,Insufficient staged data returns immediately
+B1_GATE12,count==12,B2_SYM_LOOP_HEAD,0x78cd4,H,Resets staging count and enters 12-symbol processing
+B2_SYM_LOOP_HEAD,timing_due,B3_CORR_A,0x78d05 fallthrough,H,Per-symbol demod branch begins when timing condition passes
+B2_SYM_LOOP_HEAD,timing_not_due,B2_SYM_ADVANCE,0x78d05 jg 0x78e93,H,Skips demod for current symbol index
+B3_CORR_A,taps_done,B4_CORR_B,0x78dbe/0x78dce,H,Switches from immediate window taps to history window taps
+B4_CORR_B,taps_done,B5_DECIDE,0x78e1b fallthrough,H,Correlation accumulators converted to energies
+B5_DECIDE,low_energy,B6_RESET_LOW_ENERGY,0x78e69,H,Both energies below threshold -> reset counters
+B5_DECIDE,symbol_path_A,B7_PATH_A_C32,0x78e74,H,Decision branch to path using bit source c32
+B5_DECIDE,symbol_path_B,B8_PATH_B_C30,0x78e6e,H,Decision branch to path using bit source c30
+B6_RESET_LOW_ENERGY,join,B2_SYM_ADVANCE,0x78e8b->0x78e93,H,Counters reset then symbol index advances
+B7_PATH_A_C32,sym_idx<=11,B2_SYM_LOOP_HEAD,0x79035->0x78cf4,H,Path A emits/updates runs then continues symbol loop
+B7_PATH_A_C32,sym_idx>11,B9_FRAME_FLUSH,0x79042->0x78ea4,H,Path A at frame end jumps to residual flush
+B8_PATH_B_C30,join,B2_SYM_ADVANCE,0x790c7->0x78e8b,H,Path B updates runs then joins common advance block
+B2_SYM_ADVANCE,sym_idx<=11,B2_SYM_LOOP_HEAD,0x78e9e,H,Main symbol loop back-edge
+B2_SYM_ADVANCE,sym_idx>11,B9_FRAME_FLUSH,0x78e9e->0x78ea4,H,End of 12-symbol block triggers frame flush
+B9_FRAME_FLUSH,done,B10_SHIFT_WINDOWS,0x78f46->0x78f65,H,Residual run flush complete; phase/window maintenance begins
+B10_SHIFT_WINDOWS,done,B11_RETURN,0x78fa1,H,Window shift/tail copy complete; function returns

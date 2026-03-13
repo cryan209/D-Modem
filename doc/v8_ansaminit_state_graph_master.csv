@@ -1,0 +1,14 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_SETUP_BASE,0x76c90,H,Function entry and base pointer setup,v8_ansaminit_state_graph_edges.csv
+control,B0_SETUP_BASE,fallthrough,B1_WRITE_CONSTS,0x76c9a->0x76ca0,H,Begin constant writes,v8_ansaminit_state_graph_edges.csv
+control,B1_WRITE_CONSTS,fallthrough,B2_SCALE_GAIN,0x76cb2->0x76cb8,H,Constants initialized,v8_ansaminit_state_graph_edges.csv
+control,B2_SCALE_GAIN,call_return,B3_FINALIZE,0x76cd1->0x76cd6,H,Scale computation finished,v8_ansaminit_state_graph_edges.csv
+control,B3_FINALIZE,fallthrough,B4_RETURN,0x76cda->0x76ce4,H,Finalize and return,v8_ansaminit_state_graph_edges.csv
+param,ctx+0xda4,,zeroed,0x76cbf,H,field3491 set to 0,v8_ansaminit_state_graph_param_edges.csv
+param,ctx+0xda6,,zeroed,0x76ca0,H,field3492 set to 0,v8_ansaminit_state_graph_param_edges.csv
+param,ctx+0xda8,,const_0x1a,0x76ca6,H,field3493 set to 0x1a,v8_ansaminit_state_graph_param_edges.csv
+param,ctx+0xdaa,,const_0x0e00,0x76cac,H,field3494 set to 0x0e00,v8_ansaminit_state_graph_param_edges.csv
+param,ctx+0xdae,,zeroed,0x76cb2,H,field3496 set to 0,v8_ansaminit_state_graph_param_edges.csv
+param,ctx+0xdac,,scaled_from_a42,0x76cd6,H,field3495 set from v8_mpyint,v8_ansaminit_state_graph_param_edges.csv
+param,ctx+0xdb2,,enabled_1,0x76cda,H,field3499 set to 1,v8_ansaminit_state_graph_param_edges.csv
+call,ctx+0xa42,v8_mpyint,ctx+0xdac,0x76cb8|0x76cd1|0x76cd6,H,scale path: load input -> compute -> store,v8_ansaminit_state_graph_param_edges.csv

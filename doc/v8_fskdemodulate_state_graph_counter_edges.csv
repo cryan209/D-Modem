@@ -1,0 +1,12 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+counter,ANY,dec_reset,0x78e85|0x79025,H,dec counter cleared on low-energy and path-A completion branches
+counter,ANY,df0_reset,0x78e8d|0x78eb8|0x7905d,H,df0 counter cleared on low-energy and path-B completion branches
+counter,dec,dec_inc,0x790c1,H,Path-B increments dec run counter
+counter,df0,df0_inc,0x7902f,H,Path-A increments df0 run counter
+counter,df0,df0_flush_groups,0x78ec5..0x78ef0|0x7908a..0x790b9,H,df0>>2 groups emitted as c30 bits
+counter,dec,dec_flush_groups,0x78f15..0x78f42|0x78ff0..0x7901b,H,dec>>2 groups emitted as c32 bits
+bitout,emit_c30,shiftreg_append,0x78ed7|0x790a0,H,Shift register appended with source bit at +0xc30
+bitout,emit_c32,shiftreg_append,0x78f29|0x79002,H,Shift register appended with source bit at +0xc32
+timing,phase,phase_minus_12,0x78f50|0x78f59,H,Timing accumulator advances frame by subtracting 12
+window,stage_df4,shift_e0e_to_e0c,0x78f65..0x78f83,H,Primary sample windows shifted across 12 rows
+window,history_tail,copy_back_0x28,0x78f94..0x78f9f,H,Tail history copied back by 0x28 offset

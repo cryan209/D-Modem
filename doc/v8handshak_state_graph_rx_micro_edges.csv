@@ -1,0 +1,17 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+rx,ANY,0x04,0x77adc,H,Timeout waiting for CM falls back to RX state 0x04
+rx,ANY,0x05,0x77cda,M,Answer-side timeout path sets RX state 0x05
+rx,ANY,0x0b,0x77e34,H,ANSam wait timeout path
+rx,ANY,0x0c,0x77a79,H,Message wait timeout path
+rx,ANY,0x19,0x77ffa,H,QCA1a accepted path
+rx,ANY,0x28,0x778f4|0x77d68,H,Enter active FSK demod receive phase
+rx,ANY,0x63,0x77e12|0x77ee5|0x781cd,H,Terminal RX completion state (function returns 2)
+micro,ANY,0x19,0x77ff3,H,QCA1a branch substate
+micro,ANY,0x23,0x7837b,H,RX JM evaluation branch
+micro,ANY,0x24,0x77b59,H,ANSam tone detected follow-on substate
+micro,ANY,0x28,0x77e82,H,CM sync pattern detected
+micro,ANY,0x29,0x778fb|0x77d6f|0x781f7,H,Default/reset FSK receive substate
+micro,ANY,0x2a,0x782d5,H,Rebuild-JM branch
+micro,ANY,0x2c,0x77bee,H,QCA1 detector armed
+micro,ANY,0x32,0x7839a,H,JM evaluation branch to 0x32
+micro,ANY,0x33,0x78389,H,JM evaluation branch to 0x33

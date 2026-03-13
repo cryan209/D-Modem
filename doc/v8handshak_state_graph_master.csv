@@ -1,0 +1,23 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+tx,0x2b,0x773d0,0x17,0x77a4b,H,QC preamble completes then switches to normal FSK message TX,v8handshak_state_graph_edges.csv
+tx,0x2d,0x77363,0x05,0x77dfc->0x77e0b,H,ANSam/QCA completion path forces terminal TX state,v8handshak_state_graph_edges.csv
+tx,ANY,rx-path,0x2d,0x77c58,M,ANSam detection gate enters ANSam tone TX,v8handshak_state_graph_edges.csv
+tx,ANY,rx-path,0x2b,0x77d85,H,QC-capable branch enters QC preamble TX,v8handshak_state_graph_edges.csv
+tx,ANY,rx-path,0x17,0x77d46|0x7804a|0x782dc,M,Multiple negotiation branches enter/return to FSK message TX,v8handshak_state_graph_edges.csv
+tx,ANY,rx-path,0x05,0x777ef|0x77ed9|0x77fec|0x781c1,M,Failure/success terminalization paths force TX state 0x05,v8handshak_state_graph_edges.csv
+rx,ANY,,0x04,0x77adc,H,Timeout waiting for CM falls back to RX state 0x04,v8handshak_state_graph_rx_micro_edges.csv
+rx,ANY,,0x05,0x77cda,M,Answer-side timeout path sets RX state 0x05,v8handshak_state_graph_rx_micro_edges.csv
+rx,ANY,,0x0b,0x77e34,H,ANSam wait timeout path,v8handshak_state_graph_rx_micro_edges.csv
+rx,ANY,,0x0c,0x77a79,H,Message wait timeout path,v8handshak_state_graph_rx_micro_edges.csv
+rx,ANY,,0x19,0x77ffa,H,QCA1a accepted path,v8handshak_state_graph_rx_micro_edges.csv
+rx,ANY,,0x28,0x778f4|0x77d68,H,Enter active FSK demod receive phase,v8handshak_state_graph_rx_micro_edges.csv
+rx,ANY,,0x63,0x77e12|0x77ee5|0x781cd,H,Terminal RX completion state (function returns 2),v8handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x19,0x77ff3,H,QCA1a branch substate,v8handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x23,0x7837b,H,RX JM evaluation branch,v8handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x24,0x77b59,H,ANSam tone detected follow-on substate,v8handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x28,0x77e82,H,CM sync pattern detected,v8handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x29,0x778fb|0x77d6f|0x781f7,H,Default/reset FSK receive substate,v8handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x2a,0x782d5,H,Rebuild-JM branch,v8handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x2c,0x77bee,H,QCA1 detector armed,v8handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x32,0x7839a,H,JM evaluation branch to 0x32,v8handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x33,0x78389,H,JM evaluation branch to 0x33,v8handshak_state_graph_rx_micro_edges.csv

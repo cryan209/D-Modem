@@ -1,0 +1,9 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0xda4,zeroed,0x76cbf,H,field3491_0xda4 set to 0
+param,ctx+0xda6,zeroed,0x76ca0,H,field3492_0xda6 set to 0
+param,ctx+0xda8,const_0x1a,0x76ca6,H,field3493_0xda8 set to 0x1a
+param,ctx+0xdaa,const_0x0e00,0x76cac,H,field3494_0xdaa set to 0x0e00
+param,ctx+0xdae,zeroed,0x76cb2,H,field3496_0xdae set to 0
+param,ctx+0xdac,scaled_from_a42,0x76cd6,H,field3495_0xdac set from v8_mpyint(16000, ctx+0xa42)
+param,ctx+0xdb2,enabled_1,0x76cda,H,field3499_0xdb2 set to 1
+call,ctx+0xa42,input_to_scale,0x76cb8,H,Amplitude/frequency-related input used in scaling
