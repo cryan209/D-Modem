@@ -862,9 +862,7 @@ static int socket_ioctl(struct modem *m, unsigned int cmd, unsigned long arg)
 		ret = CODEC_AD1803; // CODEC_STLC7550; XXX this worked fine as 0 (CODEC_UNKNOWN)...
 		break;
 	case MDMCTL_IODELAY: // kernel module returns s->delay + ST7554_HW_IODELAY (48)
-		ret = dev->delay;//48 >> MFMT_SHIFT(m->format);
-		//ret += dev->delay;
-		//DBG("%d %d %d %d",m->format,MFMT_SHIFT(m->format),dev->delay,ret);
+		ret = dev->delay;
 		break;
 	case MDMCTL_SPEAKERVOL:
 		modem_volume = arg;

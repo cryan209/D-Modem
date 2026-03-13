@@ -753,9 +753,9 @@ int main(int argc, char *argv[]) {
 		   min_pre == max_pre == init forces fixed (non-adaptive) mode;
 		   0 means "use default" which enables adaptation. */
 		med_cfg.jb_max = 500;
-		med_cfg.jb_min_pre = 60;
-		med_cfg.jb_max_pre = 60;
-		med_cfg.jb_init = 60;
+		med_cfg.jb_min_pre = 40;
+		med_cfg.jb_max_pre = 40;
+		med_cfg.jb_init = 40;
 		med_cfg.audio_frame_ptime = 20;
 		med_cfg.has_ioqueue = true;
 		med_cfg.thread_cnt = 1;

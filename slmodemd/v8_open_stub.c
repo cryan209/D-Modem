@@ -29,6 +29,7 @@
 #define V8OPEN_ANSAM_AM_DIVISOR 5U
 #define V8OPEN_CM_WAIT_TAIL_MS 800U
 #define V8OPEN_CJ_WAIT_MS 900U
+#define V8OPEN_CJ_ECHO_GUARD_MS 120U
 #define V8OPEN_CJ_COLLECT_MIN_MS 420U
 #define V8OPEN_CM_TIMEOUT_JM_PROMOTE_MIN_CANDIDATES 200U
 #define V8OPEN_CM_COLLECT_WORDS_LONG ((V8OPEN_CM_WORDS * 2U) + 4U)
@@ -2197,10 +2198,14 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 			engine->rx_demod_hist_fill = 0U;
 			engine->rx_phase_offset = 0U;
 		}
-		if (force_v21_reinit)
-			v8_open_v21_workspace_init_fsk(engine);
-		else
-			v8_open_v21_workspace_init(engine);
+		/*
+		 * Always use normal bank (channel 1, 980/1180 Hz) for
+		 * answer-mode receive.  The originator sends CM and CJ
+		 * on channel 1 per V.8 spec.  The FSK (alt) bank at
+		 * 1650/1850 Hz is our own TX channel and would pick up
+		 * JM echo from the SIP path.
+		 */
+		v8_open_v21_workspace_init(engine);
 		if (preserve_demod_state) {
 			engine->rx_mark_ticks = preserved_mark_ticks;
 			engine->rx_space_ticks = preserved_space_ticks;
@@ -3951,19 +3956,52 @@ static void v8_open_observe_cj(struct v8_open_engine *engine,
 		 */
 		if (engine->rx_word_sync) {
 			unsigned short reg;
+			unsigned echo_guard;
 
+			echo_guard = v8_open_samples_from_ms(engine,
+					V8OPEN_CJ_ECHO_GUARD_MS);
 			reg = (unsigned short)(engine->rx_c23a & 0x03ffU);
 			if ((reg & 0x03feU) == 0x03feU ||
 			    (reg & 0x03feU) == 0x0000U) {
-				V8OPEN_DBG("cj-stub: fast-track accept on preamble lock c23a=%03x reg=%03x avg=%u peak=%u\n",
+				if (engine->samples_in_phase < echo_guard) {
+					if (engine->samples_in_phase <
+					    (engine->cfg.sample_rate / 100U))
+						V8OPEN_DBG("cj-stub: fast-track suppressed (echo guard) phase_ms=%u guard_ms=%u avg=%u peak=%u\n",
+							  (engine->samples_in_phase * 1000U) /
+								  engine->cfg.sample_rate,
+							  V8OPEN_CJ_ECHO_GUARD_MS,
+							  avg_abs,
+							  peak_abs);
+					return;
+				}
+				V8OPEN_DBG("cj-stub: fast-track accept on preamble lock c23a=%03x reg=%03x avg=%u peak=%u phase_ms=%u\n",
 					  (unsigned)engine->rx_c23a,
 					  (unsigned)reg,
 					  avg_abs,
-					  peak_abs);
+					  peak_abs,
+					  (engine->samples_in_phase * 1000U) /
+						  engine->cfg.sample_rate);
 				goto cj_accept;
 			}
 		}
 		return;
+	}
+
+	/* Echo guard: reject CJ accepted too soon after JM TX ended */
+	{
+		unsigned echo_guard;
+
+		echo_guard = v8_open_samples_from_ms(engine,
+				V8OPEN_CJ_ECHO_GUARD_MS);
+		if (engine->samples_in_phase < echo_guard) {
+			V8OPEN_DBG("cj-stub: normal accept suppressed (echo guard) phase_ms=%u guard_ms=%u avg=%u peak=%u\n",
+				  (engine->samples_in_phase * 1000U) /
+					  engine->cfg.sample_rate,
+				  V8OPEN_CJ_ECHO_GUARD_MS,
+				  avg_abs,
+				  peak_abs);
+			return;
+		}
 	}
 
 cj_accept:
@@ -4067,6 +4105,22 @@ cj_accept:
 			return;
 		}
 
+		/* Echo guard: reject if accepted too soon after JM TX */
+		{
+			unsigned echo_guard2;
+
+			echo_guard2 = v8_open_samples_from_ms(engine,
+					V8OPEN_CJ_ECHO_GUARD_MS);
+			if (engine->samples_in_phase < echo_guard2) {
+				V8OPEN_DBG("cj-stub: 2/2 accept suppressed (echo guard) phase_ms=%u guard_ms=%u avg=%u peak=%u\n",
+					  (engine->samples_in_phase * 1000U) /
+						  engine->cfg.sample_rate,
+					  V8OPEN_CJ_ECHO_GUARD_MS,
+					  avg_abs,
+					  peak_abs);
+				return;
+			}
+		}
 		engine->cj_predetecting = 0U;
 		engine->cj_predetect_deadline = 0U;
 		engine->cj_collecting = 0U;
