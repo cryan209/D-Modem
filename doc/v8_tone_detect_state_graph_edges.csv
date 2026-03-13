@@ -1,0 +1,16 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,T0_ENTRY_LOOP_GATE,0x78650,H,function entry
+T0_ENTRY_LOOP_GATE,jbe_7880c,T5_MODE_A,0x78666,H,no samples to process
+T0_ENTRY_LOOP_GATE,fallthrough,T1_STAGE_A,0x78670,H,enter per-sample processing
+T1_STAGE_A,fallthrough,T2_STAGE_B,0x78710,H,stage A complete
+T2_STAGE_B,fallthrough,T3_STAGE_C_ENV,0x7877a,H,stage B complete
+T3_STAGE_C_ENV,fallthrough,T4_LOOP_BACKCHECK,0x787fb,H,stage C/envelope complete
+T4_LOOP_BACKCHECK,ja_78670,T1_STAGE_A,0x78806,H,more samples remain
+T4_LOOP_BACKCHECK,fallthrough,T5_MODE_A,0x7880c,H,processing loop finished
+T5_MODE_A,je_7884d,T6_MODE_B,0x78811,H,mode A disabled
+T5_MODE_A,fallthrough,T8_RETURN,0x78813,H,mode A hysteresis path then return compare
+T6_MODE_B,je_78869,T7_BOOTSTRAP,0x78852,H,mode B disabled
+T6_MODE_B,fallthrough,T8_RETURN,0x78854,H,mode B threshold path then return compare
+T7_BOOTSTRAP,jle_788a1,T8_RETURN,0x7886e,H,amplitude not high enough: reset bootstrap counter
+T7_BOOTSTRAP,jne_78841,T8_RETURN,0x7887d,H,bootstrap accumulating, not yet latched
+T7_BOOTSTRAP,fallthrough_latch,T8_RETURN,0x7887f,H,bootstrap reached: enable modeB, clear ctx flag, reset counter

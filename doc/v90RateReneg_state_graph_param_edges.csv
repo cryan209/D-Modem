@@ -1,0 +1,13 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0x24c,phase_state_rw,0x99d6|0x9b3f|0x9ba2|0x9ac8,H,main renegotiation phase selector
+param,ctx+0x221c+0x3a4,symbol_counter_rw,0x9a34|0x9b04|0x9b64,H,per-state symbol counter
+param,ctx+0x221c+0x3ac,symbol_bits_rw,0x9a7f,H,CP output bits for tx primitives
+param,ctx+0x221c+0x3aa,last_symbol_shadow_reset,0x9baa,H,cleared on 0x0c->0x0d transition
+param,ctx+0x221c+0x3b0,symbol_aux_reset,0x9bb8,H,cleared on 0x0c->0x0d transition
+param,ctx+0x25c8,cp_out_word,0x9a5c,H,getV90CpBits output storage
+param,ctx+0x3596,tx_state_force_0x45,0x9aad|0x9abc,H,forced txstate marker on state0x0e completion
+call,flo_ptr(ctx+0x3548),getV90CpBits,0x9a66,H,CP-bit source function
+call,ctx,txmit,0x9aff|0x9b21|0x9b5f|0x9b82,H,symbol-word transmit primitive
+call,ctx,txmitdibit_or_quadbit,0x9a2f|0x9ae0|0x9a8d|0x9bd1,H,dibit/quadbit emit depending modulation
+call,ctx,getMPrecvdBits,0x9aa0,H,completion helper in state0x0e
+call,ctx,initdigital,0x9aa8,H,completion helper in state0x0e

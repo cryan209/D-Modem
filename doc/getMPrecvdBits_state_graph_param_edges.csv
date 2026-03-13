@@ -1,0 +1,11 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0xaa0c,assembled_mp_word,0x92c8|0x9319,H,primary received MP control word
+param,ctx+0xaa0e..0xaa1a,payload_copy,0x92cf|0x930e|0x9315,H,copied payload words from flo+0x174a..+
+param,ctx+0xaa0c,bit0_adjusted,0x9305|0x9311,H,post-assembly OR with shifted bits
+param,ctx+0xaa3c,reneg_word_seed_and_update,0x934d|0x93fe|0x946a,H,seed then bit-encoded then final set
+param,ctx+0xaa6c,pointer_to_aa3c,0x935a,H,control pointer setup
+param,ctx+0xaa3e..0xaa4c,final_fields_init,0x946a|0x94a5,H,final reneg field initialization
+call,ctx+0x2a68,txrxdmainit,0x94c2|0x95c6,H,init called on bit0-triggered paths
+call,rate,bitreverse,0x93ec,H,encode rate nibble
+call,args,edprintf,0x93b7|0x9451,H,rate diagnostic prints
+call,args,dsplibs_debug_printf,0x94db|0x95af,H,verbose decode diagnostics

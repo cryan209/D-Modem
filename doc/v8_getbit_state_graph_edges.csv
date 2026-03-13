@@ -1,0 +1,20 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_ENTRY_BITSLEFT,0x754b0,H,function entry
+B0_ENTRY_BITSLEFT,jne_75571,B5_EMIT_BIT,0x754ce,H,bits_left already loaded
+B0_ENTRY_BITSLEFT,fallthrough,B1_REMAIN_CALC,0x754d4,H,need refill/terminal handling
+B1_REMAIN_CALC,jle_755d6,B6_TERM_DISPATCH,0x754e9,H,no positive remaining bits
+B1_REMAIN_CALC,jle_755a0_false,B2_REFILL_PARTIAL,0x754f6,H,remaining smaller than chunk_bits
+B1_REMAIN_CALC,jle_755a0_true,B3_REFILL_FULL,0x754f6,H,chunk_bits fits in remaining
+B2_REFILL_PARTIAL,fallthrough,B4_CRC_UPDATE,0x75524,H,refill done
+B3_REFILL_FULL,jmp_75524,B4_CRC_UPDATE,0x755d1,H,refill done
+B4_CRC_UPDATE,je_75571,B5_EMIT_BIT,0x75529,H,CRC disabled
+B4_CRC_UPDATE,je_75571_bits0,B5_EMIT_BIT,0x7552d,H,no loaded bits for CRC loop
+B4_CRC_UPDATE,loop_then_emit,B5_EMIT_BIT,0x75540,H,CRC loop over loaded bits
+B6_TERM_DISPATCH,jne_75624,B7_TERM_MINUS16,0x755d8,H,remaining is negative non-zero
+B6_TERM_DISPATCH,jne_75651,B8_TERM_CRC_TRAILER,0x755df,H,remaining==0 with CRC enabled
+B6_TERM_DISPATCH,je_75585,B10_ERROR_RET,0x755eb,H,no reload mode returns -1
+B6_TERM_DISPATCH,fallthrough_reload,B9_RELOAD_RECURSE,0x755ed,H,reload mode active
+B7_TERM_MINUS16,jne_755e1,B10_ERROR_RET,0x75628,H,negative terminal other than -16
+B7_TERM_MINUS16,fallthrough,B5_EMIT_BIT,0x7562a,H,load 0xF nibble and emit
+B8_TERM_CRC_TRAILER,jmp_75574,B5_EMIT_BIT,0x75670,H,load CRC trailer and emit
+B9_RELOAD_RECURSE,call_v8_getbit,B5_EMIT_BIT,0x75619,H,recurse and return recursive bit

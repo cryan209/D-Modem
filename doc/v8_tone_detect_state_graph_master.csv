@@ -1,0 +1,21 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,T0_ENTRY_LOOP_GATE,0x78650,H,function entry,v8_tone_detect_state_graph_edges.csv
+control,T0_ENTRY_LOOP_GATE,jbe_7880c,T5_MODE_A,0x78666,H,no samples path,v8_tone_detect_state_graph_edges.csv
+control,T0_ENTRY_LOOP_GATE,fallthrough,T1_STAGE_A,0x78670,H,per-sample loop,v8_tone_detect_state_graph_edges.csv
+control,T1_STAGE_A,fallthrough,T2_STAGE_B,0x78710,H,stage transition,v8_tone_detect_state_graph_edges.csv
+control,T2_STAGE_B,fallthrough,T3_STAGE_C_ENV,0x7877a,H,stage transition,v8_tone_detect_state_graph_edges.csv
+control,T3_STAGE_C_ENV,fallthrough,T4_LOOP_BACKCHECK,0x787fb,H,stage transition,v8_tone_detect_state_graph_edges.csv
+control,T4_LOOP_BACKCHECK,ja_78670,T1_STAGE_A,0x78806,H,loop back for more samples,v8_tone_detect_state_graph_edges.csv
+control,T4_LOOP_BACKCHECK,fallthrough,T5_MODE_A,0x7880c,H,post-loop decision,v8_tone_detect_state_graph_edges.csv
+control,T5_MODE_A,je_7884d,T6_MODE_B,0x78811,H,mode A disabled,v8_tone_detect_state_graph_edges.csv
+control,T6_MODE_B,je_78869,T7_BOOTSTRAP,0x78852,H,mode B disabled,v8_tone_detect_state_graph_edges.csv
+control,T7_BOOTSTRAP,fallthrough_latch,T8_RETURN,0x7887f,H,promote bootstrap to modeB,v8_tone_detect_state_graph_edges.csv
+param,ctx+0x2c,read,loop_bound,0x78663|0x78803,H,sample bound check,v8_tone_detect_state_graph_param_edges.csv
+param,det+0x24..0x2e,read_write,stageA_history,0x7867b|0x786e1|0x786f2,H,first-stage history update,v8_tone_detect_state_graph_param_edges.csv
+param,det+0x14..0x22,read_write,stageBC_history,0x7871d|0x787c5,H,second/third-stage history,v8_tone_detect_state_graph_param_edges.csv
+param,det+0x12,read_write,envelope,0x787e8|0x787f7,H,smoothed absolute magnitude,v8_tone_detect_state_graph_param_edges.csv
+param,det+0x8,read_write,detect_counter,0x7881d|0x7882c|0x7885e,H,persistence counter,v8_tone_detect_state_graph_param_edges.csv
+param,det+0x30,read_write,bootstrap_counter,0x78870|0x788a1,H,startup persistence,v8_tone_detect_state_graph_param_edges.csv
+param,ctx+0x26,write,clear_bit0x200,0x78895,H,bootstrap promotion side-effect,v8_tone_detect_state_graph_param_edges.csv
+call,math,v8_mpyint,mac_and_decay,0x78695|0x78725|0x787f0,H,fixed-point multiply helper,v8_tone_detect_state_graph_param_edges.csv
+call,math,v8_absfn,abs_measure,0x787d8,H,envelope absolute helper,v8_tone_detect_state_graph_param_edges.csv

@@ -1,0 +1,13 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0x2c,sample_loop_bound,0x78663|0x78803,H,sample processing loop limit
+param,arg_sample_ptr,sample_stream_cursor,0x78676|0x78701|0x78706,H,reads input sample and advances local pointer
+param,det+0x24..0x2e,stageA_history_rw,0x7867b|0x786e1|0x786f2,H,front-end history and intermediate output
+param,det+0x14..0x22,stageBC_history_rw,0x7871d|0x7875e|0x78768|0x787c5,H,second/third stage history updates
+param,det+0x12,envelope_rw,0x787e8|0x787f7,H,smoothed abs envelope
+param,det+0x8,detect_counter_rw,0x7881d|0x7882c|0x7885e,H,detection persistence counter
+param,det+0xa,counter_limit_read,0x78832|0x7883b,H,return compare threshold
+param,det+0xe/0x10,hysteresis_thresholds,0x78817|0x78826,H,mode A low/high thresholds
+param,det+0x30,bootstrap_counter_rw,0x78870|0x788a1,H,bootstrap persistence count
+param,ctx+0x26,flag_bit_clear_0x200,0x7888b|0x78895,H,cleared when bootstrap mode transitions
+call,math,v8_mpyint,0x78695|0x786b9|0x78725|0x78740|0x7878b|0x787a6|0x787f0,H,fixed-point MAC/smoothing primitive
+call,math,v8_absfn,0x787d8,H,envelope absolute value

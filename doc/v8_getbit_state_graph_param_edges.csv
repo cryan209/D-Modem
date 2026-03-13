@@ -1,0 +1,11 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,s+0x34,bits_left_rw,0x754c7|0x7557a|0x7563a|0x7565a,H,loaded-bit counter and emit decrement seed
+param,s+0x30,shift_reg_rw,0x7550c|0x75521|0x755a4|0x7560f|0x7566d,H,bit reservoir register
+param,s+0x22/s+0x24,remaining_bits_calc,0x754d4|0x754e1|0x75519|0x755c6,H,total-consumed arithmetic
+param,s+0x26,chunk_bits_read,0x754ef|0x755a0,H,max refill width
+param,s+0x28,word_index_rw,0x75501|0x755b5|0x755be,H,payload word cursor
+param,s+0x1e/s+0x20,crc_state_and_enable,0x75524|0x75540|0x75567|0x75651,H,crc update and trailer emission
+param,s+0x2a,reload_enable,0x755e1,H,reload recursion gate
+param,s+0x2c,reload_counter,0x755ed|0x75605,H,packet/reload iteration counter
+param,s+0x38/s+0x3c,reload_seed,0x755f7|0x75612,H,reseed shift_reg/bits_left before recursion
+call,self,v8_getbit,0x75619,H,recursive reload consumption

@@ -1,0 +1,19 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,M0_ENTRY,0x9250,H,function entry,getMPrecvdBits_state_graph_edges.csv
+control,M0_ENTRY,fallthrough,M1_PHASE_GATE,0x926c,H,setup complete,getMPrecvdBits_state_graph_edges.csv
+control,M1_PHASE_GATE,jle_9333,M5_BIT0_INIT_B,0x9274,H,skip decode for phase<=0,getMPrecvdBits_state_graph_edges.csv
+control,M1_PHASE_GATE,fallthrough,M2_MP_ASSEMBLE,0x927a,H,decode path,getMPrecvdBits_state_graph_edges.csv
+control,M2_MP_ASSEMBLE,jne_95b8,M3_BIT0_INIT_A,0x9313,H,bit0-triggered init path,getMPrecvdBits_state_graph_edges.csv
+control,M2_MP_ASSEMBLE,ja_94cb,M4_DEBUG_CHAIN,0x932d,H,verbose diagnostics,getMPrecvdBits_state_graph_edges.csv
+control,M2_MP_ASSEMBLE,fallthrough,M5_BIT0_INIT_B,0x9333,H,continue normal flow,getMPrecvdBits_state_graph_edges.csv
+control,M5_BIT0_INIT_B,fallthrough,M6_RENEG_BASE,0x933c,H,bit0 clear path,getMPrecvdBits_state_graph_edges.csv
+control,M6_RENEG_BASE,fallthrough,M7_RATE_SELECT,0x9369,H,reneg base seeded,getMPrecvdBits_state_graph_edges.csv
+control,M7_RATE_SELECT,jle_93d0,M8_RATE_ENCODE,0x93c1,H,rate within cap,getMPrecvdBits_state_graph_edges.csv
+control,M7_RATE_SELECT,fallthrough,M9_FINALIZE,0x9461,H,rate above cap,getMPrecvdBits_state_graph_edges.csv
+control,M8_RATE_ENCODE,fallthrough,M9_FINALIZE,0x9461,H,encoded word finalized,getMPrecvdBits_state_graph_edges.csv
+param,ctx+0xaa0c,write,mp_control_word,0x92c8|0x9319,H,assembled MP bits,getMPrecvdBits_state_graph_param_edges.csv
+param,ctx+0xaa0e..0xaa1a,write,payload_words,0x92cf|0x9315,H,payload copy,getMPrecvdBits_state_graph_param_edges.csv
+param,ctx+0xaa3c,write,reneg_word,0x934d|0x93fe|0x946a,H,reneg word seed/encode/final,getMPrecvdBits_state_graph_param_edges.csv
+param,ctx+0xaa6c,write,pointer,0x935a,H,points to reneg word,getMPrecvdBits_state_graph_param_edges.csv
+call,ctx+0x2a68,txrxdmainit,init_paths,0x94c2|0x95c6,H,triggered by bit0 conditions,getMPrecvdBits_state_graph_param_edges.csv
+call,rate,bitreverse,encoded_nibble,0x93ec,H,rate bit encoding,getMPrecvdBits_state_graph_param_edges.csv

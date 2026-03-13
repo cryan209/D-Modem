@@ -1,0 +1,19 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0x24c,phase_state_rw,0x95f6|0x976f|0x9856|0x96e2|0x98f7,H,main renegotiation phase selector
+param,ctx+0x221c+0x3a4,symbol_counter_rw,0x9666|0x9734|0x9819|0x97d2,H,per-state symbol counter
+param,ctx+0x221c+0x3a6,tx_flag_bit2_rw,0x96e8|0x9877,H,bit 0x4 clear on state12-done, set in state14
+param,ctx+0x221c+0x3ac,symbol_bits_rw,0x96b1|0x97b5|0x992d,H,CP/scrambler output bits for tx primitives
+param,ctx+0x221c+0x3aa,last_symbol_shadow,0x97ea|0x985e,H,mirrored/reset symbol word
+param,ctx+0x221c+0x3b0,symbol_aux_reset,0x986c,H,cleared on state10->11 transition
+param,ctx+0x221c+0x3b4,tx_symbol_word,0x9726|0x97c4|0x995a,H,mapped waveform symbol written before txmit
+param,ctx+0x25c8,cp_out_word,0x968e|0x987e,H,getV90CpBits output storage
+param,ctx+0x25cc,scrambler_state,0x97ad|0x9925|0x994a,H,V34 scrambler context for state13
+param,ctx+0xac3c+3,tx_ctrl_byte_bit2_clear,0x96f9|0x96ff,H,clears transport/control bit on state12 completion
+param,ctx+0x3596,tx_state_force_0x45,0x98dc|0x98eb,H,forces txstate marker after state14 completion
+call,flo_ptr(ctx+0x3548),getV90CpBits,0x9698|0x9895,H,CP-bit source function
+call,ctx,txmit,0x972f|0x9751|0x97cd|0x9814|0x9836,H,symbol-word transmit primitive
+call,ctx,txmitdibit_or_quadbit,0x9661|0x9714|0x96bf|0x9974|0x98bc|0x998c,H,dibit/quadbit emit depending modulation
+call,scrambler,V34scrambler,0x97b0|0x9928|0x994a,H,state13 symbol generation
+call,ctx,getMPrecvdBits,0x98cf,H,completion helper in state14
+call,ctx,initdigital,0x98d7,H,completion helper in state14
+call,debug,dsplibs_debug_printf,0x999d,H,optional state12 completion debug print

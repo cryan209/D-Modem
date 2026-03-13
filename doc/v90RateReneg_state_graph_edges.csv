@@ -1,0 +1,18 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,G0_ENTRY_DISPATCH,0x99b0,H,function entry
+G0_ENTRY_DISPATCH,cmp_eq_0b,G4_STATE0B_PAIR,0x99e5,H,phase state 0x0b
+G0_ENTRY_DISPATCH,cmp_eq_0c,G5_STATE0C_PAIR,0x99ee,H,phase state 0x0c
+G0_ENTRY_DISPATCH,cmp_eq_0d,G1_STATE0D_MARKER,0x99f7,H,phase state 0x0d
+G0_ENTRY_DISPATCH,cmp_eq_0e,G2_STATE0E_CP_FINAL,0x99fc,H,phase state 0x0e
+G0_ENTRY_DISPATCH,default,G7_RET0,0x99fe,H,unhandled phase returns 0
+G1_STATE0D_MARKER,je_9ad3,G3_STATE0D_QUAD,0x9a1d,H,format 0x89b0 uses quad marker
+G1_STATE0D_MARKER,fallthrough,G7_RET0,0x9a34,H,dibit marker path then return
+G3_STATE0D_QUAD,jmp_9a34,G7_RET0,0x9ae4,H,quad marker rejoins counter/return tail
+G2_STATE0E_CP_FINAL,je_9bc3,G6_STATE0E_QUAD,0x9a79,H,format 0x89b0 uses quad send
+G6_STATE0E_QUAD,jmp_9a92,G2_STATE0E_CP_FINAL,0x9bd6,H,rejoin done-check tail
+G2_STATE0E_CP_FINAL,je_99fe,G7_RET0,0x9a98,H,CP bits not done
+G2_STATE0E_CP_FINAL,fallthrough_done,G7_RET0,0x9a9e,H,completion helpers then phase->2
+G4_STATE0B_PAIR,jle_9a3c,G7_RET0,0x9b32,H,continue state0x0b burst
+G4_STATE0B_PAIR,fallthrough,G7_RET0,0x9b38,H,phase->0x0c then return
+G5_STATE0C_PAIR,jne_9a3c,G7_RET0,0x9b93,H,continue state0x0c burst
+G5_STATE0C_PAIR,fallthrough,G7_RET0,0x9b99,H,phase->0x0d and clear fields

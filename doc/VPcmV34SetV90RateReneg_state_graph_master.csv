@@ -1,0 +1,15 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,R0_ENTRY,0xa130,H,function entry,VPcmV34SetV90RateReneg_state_graph_edges.csv
+control,R0_ENTRY,ja_a226,R1_DBG_LOG,0xa165,H,optional debug print path,VPcmV34SetV90RateReneg_state_graph_edges.csv
+control,R0_ENTRY,fallthrough,R2_BASE_INIT,0xa16b,H,main init path,VPcmV34SetV90RateReneg_state_graph_edges.csv
+control,R1_DBG_LOG,jmp_a16b,R2_BASE_INIT,0xa23d,H,rejoin after debug,VPcmV34SetV90RateReneg_state_graph_edges.csv
+control,R2_BASE_INIT,fallthrough,R3_PREINIT,0xa1b2,H,base fields ready,VPcmV34SetV90RateReneg_state_graph_edges.csv
+control,R3_PREINIT,je_a218,R5_FMT_8990,0xa1d8,H,use_quad_mode false,VPcmV34SetV90RateReneg_state_graph_edges.csv
+control,R3_PREINIT,fallthrough,R4_FMT_89B0,0xa1da,H,use_quad_mode true,VPcmV34SetV90RateReneg_state_graph_edges.csv
+control,R4_FMT_89B0,fallthrough,R6_TIMING_RET,0xa1e6,H,shared return tail,VPcmV34SetV90RateReneg_state_graph_edges.csv
+control,R5_FMT_8990,jmp_a1e6,R6_TIMING_RET,0xa224,H,shared return tail,VPcmV34SetV90RateReneg_state_graph_edges.csv
+param,ctx+0x24c,write,phase_state,0xa176,H,0x0b or 0x0f selected from reneg_mode,VPcmV34SetV90RateReneg_state_graph_param_edges.csv
+param,ctx+0x221c+0x3a6,mask_or,mode_control,0xa197|0xa19d|0xa1a9,H,clear then set mask bits,VPcmV34SetV90RateReneg_state_graph_param_edges.csv
+param,ctx+0x382,write,format_code,0xa1df|0xa21d,H,0x89b0 vs 0x8990,VPcmV34SetV90RateReneg_state_graph_param_edges.csv
+param,ctx+0x234_238_244,write,timing_constants,0xa1f2|0xa1f8|0xa1fe,H,timing/init constants,VPcmV34SetV90RateReneg_state_graph_param_edges.csv
+call,ctx,preinitdigital,digital_reset,0xa1b5,H,reinitialize digital path,VPcmV34SetV90RateReneg_state_graph_param_edges.csv

@@ -1,0 +1,15 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0x24c,phase_state_0x0b_or_0x0f,0xa176,H,derived from reneg_mode compare
+param,ctx+0x221c+0x3aa,zero,0xa189,H,clear symbol-bit tracker
+param,ctx+0x221c+0x3a4,zero,0xa190,H,clear symbol counter
+param,ctx+0x221c+0x3b0,zero,0xa1a3,H,clear mapped word
+param,ctx+0x221c+0x3a6,masked_or_0x2000,0xa197|0xa19d|0xa1a9,H,control-word rewrite
+param,ctx+0x2aa2,zero,0xa1c4,H,clear state word
+param,ctx+0x4,const_6,0xa1cb,H,set top-level state id
+param,ctx+0x2218,const_5,0xa1d2,H,set phase selector
+param,ctx+0x382,const_0x89b0_or_0x8990,0xa1df|0xa21d,H,format selector
+param,ctx+0x234,zero,0xa1f2,H,timing field clear
+param,ctx+0x238,const_0x69780,0xa1fe,H,timing base constant
+param,ctx+0x244,const_0xfff15a00,0xa1f8,H,timing slope constant
+call,ctx,preinitdigital,0xa1b5,H,digital reinit hook
+call,args,dsplibs_debug_printf,0xa238,H,debug only

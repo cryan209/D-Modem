@@ -1,0 +1,22 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,M0_ENTRY,0x9250,H,function entry
+M0_ENTRY,fallthrough,M1_PHASE_GATE,0x926c,H,setup complete
+M1_PHASE_GATE,jle_9333,M5_BIT0_INIT_B,0x9274,H,skip decode when phase<=0
+M1_PHASE_GATE,fallthrough,M2_MP_ASSEMBLE,0x927a,H,decode path
+M2_MP_ASSEMBLE,jne_9433,M2_MP_ASSEMBLE,0x92aa,H,byte3 sets bit0x2000 then rejoins
+M2_MP_ASSEMBLE,jne_95b8,M3_BIT0_INIT_A,0x9313,H,bit0 set path A
+M2_MP_ASSEMBLE,ja_94cb,M4_DEBUG_CHAIN,0x932d,H,optional debug dump
+M2_MP_ASSEMBLE,fallthrough,M5_BIT0_INIT_B,0x9333,H,normal continuation
+M3_BIT0_INIT_A,jmp_9326,M5_BIT0_INIT_B,0x95ca,H,after txrxdmainit(A)
+M4_DEBUG_CHAIN,jmp_9333,M5_BIT0_INIT_B,0x95b3,H,rejoin after debug prints
+M5_BIT0_INIT_B,jne_94b4,M5_BIT0_INIT_B,0x9336,H,bit0 set path B via txrxdmainit
+M5_BIT0_INIT_B,fallthrough,M6_RENEG_BASE,0x933c,H,bit0 clear
+M6_RENEG_BASE,je_9440,M7_RATE_SELECT,0x936b,H,runtime condition short path
+M6_RENEG_BASE,jle_9440,M7_RATE_SELECT,0x937c,H,phase<=1 short path
+M6_RENEG_BASE,je_9440,M7_RATE_SELECT,0x9390,H,profile null short path
+M6_RENEG_BASE,fallthrough,M7_RATE_SELECT,0x9396,H,full rate-cap path
+M7_RATE_SELECT,jle_93d0,M8_RATE_ENCODE,0x93c1,H,candidate <= cap
+M7_RATE_SELECT,fallthrough,M9_FINALIZE,0x9461,H,candidate > cap
+M8_RATE_ENCODE,jg_9461,M9_FINALIZE,0x9417,H,bit walk done
+M8_RATE_ENCODE,loop,M8_RATE_ENCODE,0x941c,H,iterate 4 bits
+M8_RATE_ENCODE,fallthrough,M9_FINALIZE,0x9461,H,encoded reneg bits

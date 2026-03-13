@@ -1,0 +1,10 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,R0_ENTRY,0xa130,H,function entry
+R0_ENTRY,ja_a226,R1_DBG_LOG,0xa165,H,debug-level branch
+R0_ENTRY,fallthrough,R2_BASE_INIT,0xa16b,H,main path
+R1_DBG_LOG,jmp_a16b,R2_BASE_INIT,0xa23d,H,rejoin after debug print
+R2_BASE_INIT,fallthrough,R3_PREINIT,0xa1b2,H,base fields prepared
+R3_PREINIT,je_a218,R5_FMT_8990,0xa1d8,H,use_quad_mode == 0
+R3_PREINIT,fallthrough,R4_FMT_89B0,0xa1da,H,use_quad_mode != 0
+R4_FMT_89B0,fallthrough,R6_TIMING_RET,0xa1e6,H,shared timing tail
+R5_FMT_8990,jmp_a1e6,R6_TIMING_RET,0xa224,H,shared timing tail

@@ -1,0 +1,29 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,R0_ENTRY_DISPATCH,0x95d0,H,function entry
+R0_ENTRY_DISPATCH,cmp_eq_0f,R4_STATE0F_PAIR,0x9605,H,phase state 0x0f
+R0_ENTRY_DISPATCH,cmp_eq_10,R6_STATE10_PAIR,0x960e,H,phase state 0x10
+R0_ENTRY_DISPATCH,cmp_eq_11,R1_STATE11_MARKER,0x9617,H,phase state 0x11
+R0_ENTRY_DISPATCH,cmp_eq_12,R2_STATE12_CP_TX,0x961c,H,phase state 0x12
+R0_ENTRY_DISPATCH,cmp_eq_13,R5_STATE13_NON89B0,0x9621,H,phase state 0x13
+R0_ENTRY_DISPATCH,cmp_eq_14,R7_STATE14_CP_FINAL,0x962a,H,phase state 0x14
+R0_ENTRY_DISPATCH,default,R12_RET0,0x9630,H,unhandled phase returns 0
+R1_STATE11_MARKER,je_9708,R3_STATE11_QUAD,0x964f,H,format 0x89b0 uses quad marker
+R1_STATE11_MARKER,fallthrough,R12_RET0,0x9666,H,dibit marker path then return
+R3_STATE11_QUAD,jmp_9666,R12_RET0,0x9719,H,quad marker rejoins counter/return tail
+R2_STATE12_CP_TX,je_9966,R9_STATE12_QUAD,0x96ab,H,format 0x89b0 uses quad send
+R9_STATE12_QUAD,jmp_96c4,R2_STATE12_CP_TX,0x9979,H,rejoin done-check tail
+R2_STATE12_CP_TX,je_9630,R12_RET0,0x96ca,H,CP bits not done
+R2_STATE12_CP_TX,ja_9996,R11_STATE12_DONE_DEBUG,0x96d7,H,done path with debug print
+R11_STATE12_DONE_DEBUG,jmp_96dd,R12_RET0,0x99a2,H,rejoin state-change tail
+R2_STATE12_CP_TX,fallthrough_done,R12_RET0,0x96dd,H,set phase=0x13 and clear flags
+R4_STATE0F_PAIR,jle_966e,R12_RET0,0x9762,H,continue state0x0f burst
+R4_STATE0F_PAIR,fallthrough,R12_RET0,0x9768,H,phase->0x10 then return
+R5_STATE13_NON89B0,je_9902,R8_STATE13_89B0,0x9789,H,format 0x89b0 dual-scrambler path
+R5_STATE13_NON89B0,fallthrough,R12_RET0,0x97c4,H,non-89b0 symbol generation and transmit
+R8_STATE13_89B0,jmp_97c4,R12_RET0,0x9961,H,rejoin common tx/counter tail
+R6_STATE10_PAIR,jne_966e,R12_RET0,0x9847,H,continue state0x10 burst
+R6_STATE10_PAIR,fallthrough,R12_RET0,0x984d,H,phase->0x11 and clear fields
+R7_STATE14_CP_FINAL,je_997e,R10_STATE14_QUAD,0x98a8,H,format 0x89b0 uses quad send
+R10_STATE14_QUAD,jmp_98c1,R7_STATE14_CP_FINAL,0x9991,H,rejoin done-check tail
+R7_STATE14_CP_FINAL,je_9630,R12_RET0,0x98c7,H,CP bits not done
+R7_STATE14_CP_FINAL,fallthrough_done,R12_RET0,0x98cd,H,completion helpers then phase->2

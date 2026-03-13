@@ -1,0 +1,17 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,G0_ENTRY_DISPATCH,0x99b0,H,function entry,v90RateReneg_state_graph_edges.csv
+control,G0_ENTRY_DISPATCH,cmp_eq_0b,G4_STATE0B_PAIR,0x99e5,H,state 0x0b,v90RateReneg_state_graph_edges.csv
+control,G0_ENTRY_DISPATCH,cmp_eq_0c,G5_STATE0C_PAIR,0x99ee,H,state 0x0c,v90RateReneg_state_graph_edges.csv
+control,G0_ENTRY_DISPATCH,cmp_eq_0d,G1_STATE0D_MARKER,0x99f7,H,state 0x0d,v90RateReneg_state_graph_edges.csv
+control,G0_ENTRY_DISPATCH,cmp_eq_0e,G2_STATE0E_CP_FINAL,0x99fc,H,state 0x0e,v90RateReneg_state_graph_edges.csv
+control,G0_ENTRY_DISPATCH,default,G7_RET0,0x99fe,H,default return,v90RateReneg_state_graph_edges.csv
+control,G2_STATE0E_CP_FINAL,fallthrough_done,G7_RET0,0x9a9e,H,state0x0e completion invokes helpers then phase2,v90RateReneg_state_graph_edges.csv
+param,ctx+0x24c,read_write,phase_state,0x99d6|0x9b3f|0x9ba2|0x9ac8,H,dispatch and phase transitions,v90RateReneg_state_graph_param_edges.csv
+param,ctx+0x221c+0x3a4,read_write,symbol_counter,0x9a34|0x9b04|0x9b64,H,counter increments per state,v90RateReneg_state_graph_param_edges.csv
+param,ctx+0x221c+0x3ac,write,symbol_bits,0x9a7f,H,CP symbol bits,v90RateReneg_state_graph_param_edges.csv
+param,ctx+0x221c+0x3aa,write,shadow_reset,0x9baa,H,reset on 0x0c->0x0d,v90RateReneg_state_graph_param_edges.csv
+param,ctx+0x221c+0x3b0,write,aux_reset,0x9bb8,H,reset on 0x0c->0x0d,v90RateReneg_state_graph_param_edges.csv
+param,ctx+0x3596,write,tx_state_0x45,0x9aad|0x9abc,H,forced on completion,v90RateReneg_state_graph_param_edges.csv
+call,flo,getV90CpBits,cp_bits_fetch,0x9a66,H,bit source call,v90RateReneg_state_graph_param_edges.csv
+call,ctx,tx_primitives,symbol_emit,0x9a2f|0x9ae0|0x9a8d|0x9bd1|0x9aff|0x9b21|0x9b5f|0x9b82,H,dibit/quad/symbol transmit calls,v90RateReneg_state_graph_param_edges.csv
+call,ctx,completion_helpers,phase_handoff,0x9aa0|0x9aa8,H,getMPrecvdBits + initdigital,v90RateReneg_state_graph_param_edges.csv

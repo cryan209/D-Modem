@@ -1,0 +1,14 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY_BITSLEFT,0x754b0,H,function entry,v8_getbit_state_graph_edges.csv
+control,B0_ENTRY_BITSLEFT,jne_75571,B5_EMIT_BIT,0x754ce,H,fast emit path,v8_getbit_state_graph_edges.csv
+control,B0_ENTRY_BITSLEFT,fallthrough,B1_REMAIN_CALC,0x754d4,H,refill/terminal path,v8_getbit_state_graph_edges.csv
+control,B1_REMAIN_CALC,jle_755d6,B6_TERM_DISPATCH,0x754e9,H,remaining<=0,v8_getbit_state_graph_edges.csv
+control,B1_REMAIN_CALC,jle_755a0_false,B2_REFILL_PARTIAL,0x754f6,H,partial refill,v8_getbit_state_graph_edges.csv
+control,B1_REMAIN_CALC,jle_755a0_true,B3_REFILL_FULL,0x754f6,H,full refill,v8_getbit_state_graph_edges.csv
+control,B6_TERM_DISPATCH,fallthrough_reload,B9_RELOAD_RECURSE,0x755ed,H,reload recursion path,v8_getbit_state_graph_edges.csv
+param,s+0x34,read_write,bits_left,0x754c7|0x7557a|0x7563a|0x7565a,H,loaded bits tracking,v8_getbit_state_graph_param_edges.csv
+param,s+0x30,read_write,shift_reg,0x75521|0x755ce|0x7560f|0x7566d,H,bit reservoir,v8_getbit_state_graph_param_edges.csv
+param,s+0x1e/s+0x20,read_write,crc_state,0x75524|0x75567|0x75651,H,crc loop and trailer,v8_getbit_state_graph_param_edges.csv
+param,s+0x2a/s+0x2c,read_write,reload_mode,0x755e1|0x75605,H,reload enable and count,v8_getbit_state_graph_param_edges.csv
+param,s+0x38/s+0x3c,read,reload_seed,0x755f7|0x75612,H,reseed before recursion,v8_getbit_state_graph_param_edges.csv
+call,self,v8_getbit,recursive_step,0x75619,H,reload recursion call,v8_getbit_state_graph_param_edges.csv

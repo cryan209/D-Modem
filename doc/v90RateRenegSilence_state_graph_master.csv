@@ -1,0 +1,22 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,R0_ENTRY_DISPATCH,0x95d0,H,function entry,v90RateRenegSilence_state_graph_edges.csv
+control,R0_ENTRY_DISPATCH,cmp_eq_0f,R4_STATE0F_PAIR,0x9605,H,state 0x0f,v90RateRenegSilence_state_graph_edges.csv
+control,R0_ENTRY_DISPATCH,cmp_eq_10,R6_STATE10_PAIR,0x960e,H,state 0x10,v90RateRenegSilence_state_graph_edges.csv
+control,R0_ENTRY_DISPATCH,cmp_eq_11,R1_STATE11_MARKER,0x9617,H,state 0x11,v90RateRenegSilence_state_graph_edges.csv
+control,R0_ENTRY_DISPATCH,cmp_eq_12,R2_STATE12_CP_TX,0x961c,H,state 0x12,v90RateRenegSilence_state_graph_edges.csv
+control,R0_ENTRY_DISPATCH,cmp_eq_13,R5_STATE13_NON89B0,0x9621,H,state 0x13,v90RateRenegSilence_state_graph_edges.csv
+control,R0_ENTRY_DISPATCH,cmp_eq_14,R7_STATE14_CP_FINAL,0x962a,H,state 0x14,v90RateRenegSilence_state_graph_edges.csv
+control,R0_ENTRY_DISPATCH,default,R12_RET0,0x9630,H,default return,v90RateRenegSilence_state_graph_edges.csv
+control,R2_STATE12_CP_TX,fallthrough_done,R12_RET0,0x96dd,H,state12 completion sets phase13 and clears flags,v90RateRenegSilence_state_graph_edges.csv
+control,R7_STATE14_CP_FINAL,fallthrough_done,R12_RET0,0x98cd,H,state14 completion performs init and phase2,v90RateRenegSilence_state_graph_edges.csv
+param,ctx+0x24c,read_write,phase_state,0x95f6|0x98f7,H,dispatch and phase transitions,v90RateRenegSilence_state_graph_param_edges.csv
+param,ctx+0x221c+0x3a4,read_write,symbol_counter,0x9666|0x9734|0x9819|0x97d2,H,counter increments per state,v90RateRenegSilence_state_graph_param_edges.csv
+param,ctx+0x221c+0x3a6,read_write,tx_flags,0x96e8|0x9877,H,bit2 clear/set across phases,v90RateRenegSilence_state_graph_param_edges.csv
+param,ctx+0x221c+0x3ac,write,symbol_bits,0x97b5|0x992d,H,scrambler/CP symbol bits,v90RateRenegSilence_state_graph_param_edges.csv
+param,ctx+0x221c+0x3b4,write,tx_symbol_word,0x9726|0x97c4|0x995a,H,mapped symbol word for txmit,v90RateRenegSilence_state_graph_param_edges.csv
+param,ctx+0xac3c+3,write,ctrl_bit_clear,0x96ff,H,clear control bit during state12 completion,v90RateRenegSilence_state_graph_param_edges.csv
+param,ctx+0x3596,write,tx_state_0x45,0x98dc|0x98eb,H,forced on state14 completion,v90RateRenegSilence_state_graph_param_edges.csv
+call,flo,getV90CpBits,cp_bits_fetch,0x9698|0x9895,H,bit source calls,v90RateRenegSilence_state_graph_param_edges.csv
+call,ctx,tx_primitives,symbol_emit,0x9661|0x9714|0x96bf|0x9974|0x98bc|0x998c|0x972f|0x9751,H,dibit/quad/symbol transmit calls,v90RateRenegSilence_state_graph_param_edges.csv
+call,ctx,completion_helpers,phase_handoff,0x98cf|0x98d7,H,getMPrecvdBits + initdigital,v90RateRenegSilence_state_graph_param_edges.csv
+call,debug,printf,diagnostic,0x999d,H,state12 completion debug branch,v90RateRenegSilence_state_graph_param_edges.csv
