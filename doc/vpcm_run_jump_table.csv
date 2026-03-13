@@ -1,0 +1,18 @@
+index,target_addr,label,observed_effect
+0,0x430b,CASE_DELAY_OFF,clear timeout counter; may remove applied IO adjustment
+1,0x418f,CASE_DELAY_ON,conditionally apply IO adjustment via modem_set_param
+2,0x4210,CASE_NOP,no direct case action
+3,0x4210,CASE_NOP,no direct case action
+4,0x42fd,CASE_STATUS_POS1,set local status marker to +1
+5,0x42fd,CASE_STATUS_POS1,set local status marker to +1
+6,0x42f2,CASE_STATUS_ZERO,set local status marker to 0
+7,0x42f2,CASE_STATUS_ZERO,set local status marker to 0
+8,0x428c,CASE_STATUS_NEG1,set local status marker to -1
+9,0x428c,CASE_STATUS_NEG1,set local status marker to -1
+10,0x42d4,CASE_LOG_ONLY,debug-only log path
+11,0x4210,CASE_NOP,no direct case action
+12,0x4210,CASE_NOP,no direct case action
+13,0x4210,CASE_NOP,no direct case action
+14,0x4210,CASE_NOP,no direct case action
+15,0x4210,CASE_NOP,no direct case action
+16,0x428c,CASE_STATUS_NEG1,set local status marker to -1

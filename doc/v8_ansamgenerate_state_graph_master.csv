@@ -1,0 +1,23 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_PROLOG_SETUP,0x77210,H,Function entry and local setup,v8_ansamgenerate_state_graph_edges.csv
+control,B0_PROLOG_SETUP,fallthrough,B1_GEN_1SAMPLE,0x7722f->0x77230,H,Begin synthesis loop,v8_ansamgenerate_state_graph_edges.csv
+control,B1_GEN_1SAMPLE,fallthrough,B2_LOOP_CTRL,0x772bd->0x772c0,H,Per-sample synthesis finished,v8_ansamgenerate_state_graph_edges.csv
+control,B2_LOOP_CTRL,jle_0x77230,B1_GEN_1SAMPLE,0x772cd,H,Emit remaining samples (total 4),v8_ansamgenerate_state_graph_edges.csv
+control,B2_LOOP_CTRL,fallthrough,B3_TOGGLE_ENABLE_CHECK,0x772d3,H,Loop exit,v8_ansamgenerate_state_graph_edges.csv
+control,B3_TOGGLE_ENABLE_CHECK,je_0x772e9,B5_RETURN_NORMAL,0x772d8,H,No polarity tracking,v8_ansamgenerate_state_graph_edges.csv
+control,B3_TOGGLE_ENABLE_CHECK,fallthrough,B4_COUNTER_ADVANCE,0x772da,H,Polarity tracking enabled,v8_ansamgenerate_state_graph_edges.csv
+control,B4_COUNTER_ADVANCE,je_0x772f1,B6_ROLLOVER_TOGGLE,0x772e3,H,Rollover boundary reached,v8_ansamgenerate_state_graph_edges.csv
+control,B4_COUNTER_ADVANCE,fallthrough,B5_RETURN_NORMAL,0x772e5->0x772e9,H,Counter advanced without rollover,v8_ansamgenerate_state_graph_edges.csv
+control,B6_ROLLOVER_TOGGLE,fallthrough,B7_RETURN_TOGGLED,0x77301,H,Counter reset and gain negated,v8_ansamgenerate_state_graph_edges.csv
+param,ctx+0xda4,phaseA_update,phaseA_updated,0x77246,H,14-bit accumulator update,v8_ansamgenerate_state_graph_param_edges.csv
+param,ctx+0xda6,phaseB_update,phaseB_updated,0x77251,H,14-bit accumulator update,v8_ansamgenerate_state_graph_param_edges.csv
+param,out_ptr[i],write,sample_written,0x772bd,H,Filtered output sample,v8_ansamgenerate_state_graph_param_edges.csv
+param,ctx+0xdae,increment,counter_inc,0x772de,H,Enabled counter path,v8_ansamgenerate_state_graph_param_edges.csv
+param,ctx+0xdae,reset,counter_reset,0x772f5,H,Rollover reset,v8_ansamgenerate_state_graph_param_edges.csv
+param,ctx+0xdac,negate,gain_negated,0x772fd,H,Phase reversal via sign flip,v8_ansamgenerate_state_graph_param_edges.csv
+call,phaseA,v8_cosread,cosA,0x7725e,H,First oscillator lookup,v8_ansamgenerate_state_graph_param_edges.csv
+call,cosA,v8_mpyint,scaledA,0x7726f,H,Apply fixed scale 0x0ccd,v8_ansamgenerate_state_graph_param_edges.csv
+call,scaledA_plus_bias_and_gain,v8_mpyint,amp,0x77285,H,Apply signed gain,v8_ansamgenerate_state_graph_param_edges.csv
+call,phaseB,v8_cosread,cosB,0x7729a,H,Second oscillator lookup,v8_ansamgenerate_state_graph_param_edges.csv
+call,cosB_and_amp,v8_mpyint,mixed,0x772a7,H,Mix component,v8_ansamgenerate_state_graph_param_edges.csv
+call,mixed,v8_fsktxfilter,filtered,0x772b8,H,TX filtering,v8_ansamgenerate_state_graph_param_edges.csv

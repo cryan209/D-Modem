@@ -1,0 +1,9 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,stats_ptr[0],dp+0x48,0x3df0|0x3df3,H,snapshot low counter
+param,stats_ptr[1],dp+0x4c,0x3dea|0x3ded,H,snapshot high counter
+param,ctx+0x3574,xf_handle_read,0x3df5|0x3e03,H,used for termination/delete
+param,ctx+0xac44,k56_handle_read,0x3e11,H,used for delete
+call,xf_handle,VPCMXF_SessionTermination,0x3dfe,H,session termination
+call,xf_handle,VPCMXF_Delete,0x3e0c,H,xf delete
+call,k56_handle,K56FLEX_Delete,0x3e1a,H,k56 delete
+call,state_ptr,sysdep_free,0x3e22,H,free state

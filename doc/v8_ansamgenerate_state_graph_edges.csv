@@ -1,0 +1,11 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_PROLOG_SETUP,0x77210,H,Function entry
+B0_PROLOG_SETUP,fallthrough,B1_GEN_1SAMPLE,0x7722f->0x77230,H,Setup complete
+B1_GEN_1SAMPLE,fallthrough,B2_LOOP_CTRL,0x772bd->0x772c0,H,Sample written
+B2_LOOP_CTRL,jle_0x77230,B1_GEN_1SAMPLE,0x772cd,H,Loop until 4 outputs
+B2_LOOP_CTRL,fallthrough,B3_TOGGLE_ENABLE_CHECK,0x772d3,H,Loop complete
+B3_TOGGLE_ENABLE_CHECK,je_0x772e9,B5_RETURN_NORMAL,0x772d8,H,Toggle logic disabled
+B3_TOGGLE_ENABLE_CHECK,fallthrough,B4_COUNTER_ADVANCE,0x772da,H,Toggle logic enabled
+B4_COUNTER_ADVANCE,je_0x772f1,B6_ROLLOVER_TOGGLE,0x772e3,H,Counter reached 0x438
+B4_COUNTER_ADVANCE,fallthrough,B5_RETURN_NORMAL,0x772e5->0x772e9,H,Counter updated and return
+B6_ROLLOVER_TOGGLE,fallthrough,B7_RETURN_TOGGLED,0x77301,H,Rollover fixup complete

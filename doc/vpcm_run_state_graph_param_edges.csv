@@ -1,0 +1,16 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0xd1e4,pending_in_count,0x3e68|0x3f63,H,input queue count update
+param,ctx+0xd178,pending_out_count,0x3f7c|0x3fac,H,output queue count update
+param,ctx+0xd250,presilence_counter,0x3ed5|0x3f13|0x4261,H,pre-silence tracking
+param,ctx+0x14,last_state,0x421b,H,last state write
+param,ctx+0x18,state_marker,0x4236,H,state marker write
+param,ctx+0x1c,bit_budget,0x4111,H,clamped tx bit budget
+param,ctx+0x20,idle_counter,0x4273|0x4318,H,idle timeout counter
+param,ctx+0xd254,io_adjust_saved,0x41a2|0x4333,H,delay adjustment magnitude
+call,input_samples,VPcmV34Progress,0x405b,H,core DSP progress
+call,ctx_state,VPcmV34GetCleanedSamples,0x4079,H,cleaned sample retrieval
+call,bit_channel,modem_get_bits,0x3fea,H,ingress bit fetch
+call,bit_channel,modem_put_bits,0x4153,H,egress bit push
+call,session_ctx,VPcmV34GetCurrentSessionDP,0x43e9,H,session query
+call,session_ctx,VPcmV34GetCurrentRxBitRate,0x43f7,H,rx rate query
+call,session_ctx,VPcmV34GetCurrentTxBitRate,0x4407,H,tx rate query

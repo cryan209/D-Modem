@@ -1,0 +1,23 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,R0_SETUP_ALIGN,0x3e40,H,function entry,vpcm_run_state_graph_edges.csv
+control,R0_SETUP_ALIGN,fallthrough,R1_APPEND_PENDING,0x3e84,H,aligned count ready,vpcm_run_state_graph_edges.csv
+control,R1_APPEND_PENDING,fallthrough,R2_WORK_GATE,0x3eb6,H,input queue append done,vpcm_run_state_graph_edges.csv
+control,R2_WORK_GATE,jle_3f19,R11_QUEUE_REPACK,0x3eb8,H,no processable samples,vpcm_run_state_graph_edges.csv
+control,R2_WORK_GATE,fallthrough,R3_PRESILENCE_CHECK,0x3eba,H,processable samples present,vpcm_run_state_graph_edges.csv
+control,R3_PRESILENCE_CHECK,jle_3fb7,R5_PROGRESS_PIPELINE,0x3ee4,H,presilence exhausted,vpcm_run_state_graph_edges.csv
+control,R3_PRESILENCE_CHECK,fallthrough,R4_PRESILENCE_FILL,0x3eea,H,presilence active,vpcm_run_state_graph_edges.csv
+control,R4_PRESILENCE_FILL,fallthrough,R11_QUEUE_REPACK,0x3f19,H,zero-filled output path,vpcm_run_state_graph_edges.csv
+control,R5_PROGRESS_PIPELINE,fallthrough,R6_STATE_GATE,0x4157,H,progress complete,vpcm_run_state_graph_edges.csv
+control,R6_STATE_GATE,je_4268,R10_IDLE_TIMEOUT,0x415e,H,state unchanged,vpcm_run_state_graph_edges.csv
+control,R6_STATE_GATE,fallthrough,R7_STATE_SWITCH,0x4164,H,state changed,vpcm_run_state_graph_edges.csv
+control,R7_STATE_SWITCH,jump_table,R9_TRANSITION_COMMIT,0x4180,H,multiple cases converge,vpcm_run_state_graph_edges.csv
+control,R7_STATE_SWITCH,case_connected,R8_CASE_CONNECTED,0x43e1,H,status +1 path,vpcm_run_state_graph_edges.csv
+control,R8_CASE_CONNECTED,fallthrough,R9_TRANSITION_COMMIT,0x4469,H,after rate publish,vpcm_run_state_graph_edges.csv
+control,R10_IDLE_TIMEOUT,fallthrough,R9_TRANSITION_COMMIT,0x4295,H,idle marker update,vpcm_run_state_graph_edges.csv
+control,R9_TRANSITION_COMMIT,fallthrough,R11_QUEUE_REPACK,0x424e,H,state commit complete,vpcm_run_state_graph_edges.csv
+control,R11_QUEUE_REPACK,fallthrough,R12_RETURN,0x3faf,H,return path,vpcm_run_state_graph_edges.csv
+param,ctx_queue,update,pending_counts,0x3e68|0x3f63|0x3fac,H,queue length bookkeeping,vpcm_run_state_graph_param_edges.csv
+param,ctx_state,update,state_tracking,0x421b|0x4236|0x4273,H,state marker/counter updates,vpcm_run_state_graph_param_edges.csv
+param,ctx_delay,update,delay_tracking,0x41dc|0x4369,H,delay compensation state,vpcm_run_state_graph_param_edges.csv
+call,modem_bits,flow,dsp_pipeline,0x3fea|0x4153,H,bit ingress/egress around VPcmV34Progress,vpcm_run_state_graph_param_edges.csv
+call,session_query,flow,rate_publish,0x43e9|0x4407,H,session/rate extraction for modem_set_param,vpcm_run_state_graph_param_edges.csv

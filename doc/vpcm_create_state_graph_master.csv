@@ -1,0 +1,31 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_VALIDATE,0x3a00,H,Function entry,vpcm_create_state_graph_edges.csv
+control,B0_VALIDATE,jne_3c7f,B19_RET_NULL,0x3a22,H,sample_rate gate,vpcm_create_state_graph_edges.csv
+control,B0_VALIDATE,ja_3c90,B1_DBG_CREATE,0x3a2f,H,debug banner branch,vpcm_create_state_graph_edges.csv
+control,B1_DBG_CREATE,jmp_3a35,B2_FRAG_ALLOC,0x3cb9,H,rejoin after debug,vpcm_create_state_graph_edges.csv
+control,B2_FRAG_ALLOC,jg_or_malloc_fail,B19_RET_NULL,0x3a3c|0x3a54,H,input/allocation failure,vpcm_create_state_graph_edges.csv
+control,B2_FRAG_ALLOC,fallthrough,B3_INIT_BASE,0x3a5a,H,allocation success,vpcm_create_state_graph_edges.csv
+control,B3_INIT_BASE,fallthrough,B4_CREATE_XF,0x3ae7,H,base init complete,vpcm_create_state_graph_edges.csv
+control,B4_CREATE_XF,je_3ccc,B18_FREE_RET_NULL,0x3b0a,H,VPCMXF create failed,vpcm_create_state_graph_edges.csv
+control,B4_CREATE_XF,fallthrough,B5_CREATE_K56,0x3b10,H,VPCMXF create succeeded,vpcm_create_state_graph_edges.csv
+control,B5_CREATE_K56,je_3cbe,B16_CLEANUP_XF,0x3b33,H,K56 create failed,vpcm_create_state_graph_edges.csv
+control,B5_CREATE_K56,fallthrough,B6_RATE_LIMITS,0x3b39,H,K56 create succeeded,vpcm_create_state_graph_edges.csv
+control,B6_RATE_LIMITS,ja_3d22,B7_DBG_RATE,0x3b7a,H,rate debug,vpcm_create_state_graph_edges.csv
+control,B6_RATE_LIMITS,fallthrough,B8_FLAGS_MODE,0x3b80,H,no rate debug,vpcm_create_state_graph_edges.csv
+control,B8_FLAGS_MODE,fallthrough,B9_DELAY_ADJUST,0x3be5,H,flags ready,vpcm_create_state_graph_edges.csv
+control,B9_DELAY_ADJUST,js_3d6f,B10_DELAY_NEG,0x3bfd,H,negative delay compensation,vpcm_create_state_graph_edges.csv
+control,B9_DELAY_ADJUST,ja_3d00,B11_DBG_DELAY,0x3c1e,H,optional delay debug,vpcm_create_state_graph_edges.csv
+control,B9_DELAY_ADJUST,fallthrough,B12_SESSION_TYPE,0x3c27,H,normal delay path,vpcm_create_state_graph_edges.csv
+control,B10_DELAY_NEG,jmp_3c03,B12_SESSION_TYPE,0x3da3,H,rejoin,vpcm_create_state_graph_edges.csv
+control,B11_DBG_DELAY,jmp_3c27,B12_SESSION_TYPE,0x3d1d,H,rejoin session setup,vpcm_create_state_graph_edges.csv
+control,B12_SESSION_TYPE,ja_3ce0,B13_DBG_SESSION,0x3c4c,H,session debug,vpcm_create_state_graph_edges.csv
+control,B12_SESSION_TYPE,fallthrough,B14_CREATE_V34,0x3c52,H,call constructor,vpcm_create_state_graph_edges.csv
+control,B14_CREATE_V34,jne_3da8,B17_CLEANUP_BOTH,0x3c79,H,V34 create failed,vpcm_create_state_graph_edges.csv
+control,B14_CREATE_V34,fallthrough,B15_RET_SUCCESS,0x3c77,H,V34 create succeeded,vpcm_create_state_graph_edges.csv
+control,B17_CLEANUP_BOTH,jmp_3ccc,B18_FREE_RET_NULL,0x3dc4,H,delete then free,vpcm_create_state_graph_edges.csv
+param,ctx,initialize_core,ctx_core_fields,0x3a76|0x3a93|0x3a99,H,identity/context fields,vpcm_create_state_graph_param_edges.csv
+param,ctx,store_handles,xf_k56_handles,0x3b02|0x3b2b,H,submodule handles,vpcm_create_state_graph_param_edges.csv
+param,dp_runtime,set_limits,rate_fields,0x3b8a|0x3b97,H,min/max and V34 bounds,vpcm_create_state_graph_param_edges.csv
+param,dp_runtime,flags2_policy,bit4_bit5_adjusted,0x3bb0|0x3bbf,H,flags normalization,vpcm_create_state_graph_param_edges.csv
+param,ctx,delay_comp,delay_fields,0x3d98|0x3c03|0x3c09,H,negative-delay fallback and io fields,vpcm_create_state_graph_param_edges.csv
+call,ctx,VPcmV34Create,constructor_result,0x3c71,H,zero indicates success,vpcm_create_state_graph_param_edges.csv

@@ -1,0 +1,13 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0xda4,phaseA_updated,0x77246,H,phaseA = (phaseA + stepA) & 0x3fff
+param,ctx+0xda6,phaseB_updated,0x77251,H,phaseB = (phaseB + stepB) & 0x3fff
+param,out_ptr[i],sample_written,0x772bd,H,write filtered sample (4 writes/call)
+param,ctx+0xdae,counter_inc,0x772de,H,half-cycle counter incremented when enabled
+param,ctx+0xdae,counter_reset,0x772f5,H,counter reset at 0x438
+param,ctx+0xdac,gain_negated,0x772fd,H,polarity flip at rollover
+call,phaseA,v8_cosread,0x7725e,H,carrier lookup from phase A
+call,cosA,v8_mpyint,0x7726f,H,scale by 0x0ccd
+call,scaledA_plus_0x4000_and_gain,v8_mpyint,0x77285,H,apply signed gain
+call,phaseB,v8_cosread,0x7729a,H,second carrier lookup
+call,cosB_and_amp,v8_mpyint,0x772a7,H,mix component
+call,sample,v8_fsktxfilter,0x772b8,H,shape sample before output

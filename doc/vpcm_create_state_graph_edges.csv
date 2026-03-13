@@ -1,0 +1,30 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_VALIDATE,0x3a00,H,Function entry
+B0_VALIDATE,jne_3c7f,B19_RET_NULL,0x3a22,H,sample_rate_hz must be 9600
+B0_VALIDATE,ja_3c90,B1_DBG_CREATE,0x3a2f,H,optional create debug print
+B0_VALIDATE,fallthrough,B2_FRAG_ALLOC,0x3a35->0x3a37,H,continue create path
+B1_DBG_CREATE,jmp_3a35,B2_FRAG_ALLOC,0x3cb9,H,rejoin main path
+B2_FRAG_ALLOC,jg_3c7f,B19_RET_NULL,0x3a3c,H,fragment_size limit
+B2_FRAG_ALLOC,je_3c7f,B19_RET_NULL,0x3a54,H,malloc failure
+B2_FRAG_ALLOC,fallthrough,B3_INIT_BASE,0x3a5a,H,allocation succeeded
+B3_INIT_BASE,fallthrough,B4_CREATE_XF,0x3ae7,H,state initialized
+B4_CREATE_XF,je_3ccc,B18_FREE_RET_NULL,0x3b0a,H,VPCMXF_Create failed
+B4_CREATE_XF,fallthrough,B5_CREATE_K56,0x3b10,H,VPCMXF created
+B5_CREATE_K56,je_3cbe,B16_CLEANUP_XF,0x3b33,H,K56FLEX_Create failed
+B5_CREATE_K56,fallthrough,B6_RATE_LIMITS,0x3b39,H,K56FLEX created
+B6_RATE_LIMITS,ja_3d22,B7_DBG_RATE,0x3b7a,H,optional rate debug print
+B6_RATE_LIMITS,fallthrough,B8_FLAGS_MODE,0x3b80,H,continue without debug
+B7_DBG_RATE,jmp_3ba4,B8_FLAGS_MODE,0x3d54,H,rejoin flags path
+B8_FLAGS_MODE,fallthrough,B9_DELAY_ADJUST,0x3be5,H,flags configured
+B9_DELAY_ADJUST,js_3d6f,B10_DELAY_NEG,0x3bfd,H,negative delay compensation
+B9_DELAY_ADJUST,ja_3d00,B11_DBG_DELAY,0x3c1e,H,optional delay debug
+B9_DELAY_ADJUST,fallthrough,B12_SESSION_TYPE,0x3c27,H,normal delay path
+B10_DELAY_NEG,jmp_3c03,B12_SESSION_TYPE,0x3da3,H,rejoin after compensation
+B11_DBG_DELAY,jmp_3c27,B12_SESSION_TYPE,0x3d1d,H,rejoin session setup
+B12_SESSION_TYPE,ja_3ce0,B13_DBG_SESSION,0x3c4c,H,optional session debug
+B12_SESSION_TYPE,fallthrough,B14_CREATE_V34,0x3c52,H,call VPcmV34Create
+B13_DBG_SESSION,jmp_3c52,B14_CREATE_V34,0x3cf8,H,rejoin call setup
+B14_CREATE_V34,jne_3da8,B17_CLEANUP_BOTH,0x3c79,H,create failed
+B14_CREATE_V34,fallthrough,B15_RET_SUCCESS,0x3c7f,H,create succeeded
+B16_CLEANUP_XF,fallthrough,B18_FREE_RET_NULL,0x3ccc,H,after deleting XF
+B17_CLEANUP_BOTH,jmp_3ccc,B18_FREE_RET_NULL,0x3dc4,H,after deleting XF+K56

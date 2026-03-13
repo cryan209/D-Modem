@@ -1,0 +1,22 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,P0_ENTRY_FLAGS,0x9be0,H,function entry,v90Phase34_state_graph_edges.csv
+control,P0_ENTRY_FLAGS,je_9ce0,P1_JA_PHASE,0x9c16,H,pre-JA path,v90Phase34_state_graph_edges.csv
+control,P0_ENTRY_FLAGS,fallthrough,P2_FLAG10_GATE,0x9c1c,H,phase machine path,v90Phase34_state_graph_edges.csv
+control,P2_FLAG10_GATE,je_9c86,P3_ZERO_WARMUP,0x9c1e,H,flag0x10 clear,v90Phase34_state_graph_edges.csv
+control,P2_FLAG10_GATE,fallthrough,P4_STATE_DISPATCH,0x9c20,H,state dispatch,v90Phase34_state_graph_edges.csv
+control,P4_STATE_DISPATCH,cmp_eq_3,P5_STATE3,0x9c29,H,state3 branch,v90Phase34_state_graph_edges.csv
+control,P4_STATE_DISPATCH,cmp_eq_4,P6_STATE4,0x9c32,H,state4 branch,v90Phase34_state_graph_edges.csv
+control,P4_STATE_DISPATCH,cmp_eq_5,P7_STATE5,0x9c3b,H,state5 branch,v90Phase34_state_graph_edges.csv
+control,P4_STATE_DISPATCH,cmp_eq_6,P8_STATE6,0x9c44,H,state6 branch,v90Phase34_state_graph_edges.csv
+control,P4_STATE_DISPATCH,cmp_eq_7,P9_STATE7,0x9c4d,H,state7 branch,v90Phase34_state_graph_edges.csv
+control,P4_STATE_DISPATCH,cmp_eq_8,P10_STATE8,0x9c56,H,state8 branch,v90Phase34_state_graph_edges.csv
+control,P4_STATE_DISPATCH,cmp_eq_9,P11_STATE9,0x9c5f,H,state9 branch,v90Phase34_state_graph_edges.csv
+control,P4_STATE_DISPATCH,cmp_eq_10,P12_STATE10,0x9c68,H,state10 branch,v90Phase34_state_graph_edges.csv
+control,P13_COUNTER_STORE,fallthrough,P14_RET0,0x9cc3,H,counter store then return,v90Phase34_state_graph_edges.csv
+param,ctx+0x386,flag_update,phase_gates,0x9c09|0x9d23|0x9cb3,H,0x400 and 0x10 control bits,v90Phase34_state_graph_param_edges.csv
+param,ctx+0x24c,state_update,phase_transitions,0x9dec|0x9e45|0x9f32|0x9f87|0xa012,H,phase-state transitions,v90Phase34_state_graph_param_edges.csv
+param,ctx+0x3a4,counter_update,symbol_counter,0x9cbc|0x9eae,H,per-state symbol count,v90Phase34_state_graph_param_edges.csv
+param,ctx+0x3ac,symbol_update,current_symbol,0xa048|0xa0c3,H,dibit/quadbit symbol staging,v90Phase34_state_graph_param_edges.csv
+call,flo,getV90JaBits_or_CpBits,bit_fetch,0x9cee|0x9f4b|0x9fb1,H,bit-source fetchers,v90Phase34_state_graph_param_edges.csv
+call,ctx,tx_emit,tx_primitives,0x9c9c|0x9d04|0x9edc|0xa094|0xa10d|0xa125,H,transmit primitives,v90Phase34_state_graph_param_edges.csv
+call,ctx,completion_helpers,init_handoff,0x9fea|0x9ff3,H,state10 completion,v90Phase34_state_graph_param_edges.csv

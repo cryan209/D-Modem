@@ -1,0 +1,34 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,P0_ENTRY_FLAGS,0x9be0,H,function entry
+P0_ENTRY_FLAGS,je_9ce0,P1_JA_PHASE,0x9c16,H,flags bit0x400 clear path
+P0_ENTRY_FLAGS,fallthrough,P2_FLAG10_GATE,0x9c1c,H,flags bit0x400 already set
+P1_JA_PHASE,je_9c70,P14_RET0,0x9d0a,H,JA bits not done or normal return
+P1_JA_PHASE,fallthrough,P14_RET0,0x9d48,H,JA done path returns after flag updates
+P2_FLAG10_GATE,je_9c86,P3_ZERO_WARMUP,0x9c1e,H,flag0x10 not set
+P2_FLAG10_GATE,fallthrough,P4_STATE_DISPATCH,0x9c20,H,state-machine path
+P3_ZERO_WARMUP,jle_9c70,P14_RET0,0x9ca7,H,warmup not complete
+P3_ZERO_WARMUP,fallthrough,P13_COUNTER_STORE,0x9cba,H,warmup complete updates counter
+P4_STATE_DISPATCH,cmp_eq_3,P5_STATE3,0x9c29,H,state 3
+P4_STATE_DISPATCH,cmp_eq_4,P6_STATE4,0x9c32,H,state 4
+P4_STATE_DISPATCH,cmp_eq_5,P7_STATE5,0x9c3b,H,state 5
+P4_STATE_DISPATCH,cmp_eq_6,P8_STATE6,0x9c44,H,state 6
+P4_STATE_DISPATCH,cmp_eq_7,P9_STATE7,0x9c4d,H,state 7
+P4_STATE_DISPATCH,cmp_eq_8,P10_STATE8,0x9c56,H,state 8
+P4_STATE_DISPATCH,cmp_eq_9,P11_STATE9,0x9c5f,H,state 9
+P4_STATE_DISPATCH,cmp_eq_10,P12_STATE10,0x9c68,H,state 10
+P4_STATE_DISPATCH,default,P14_RET0,0x9c70,H,unhandled state return
+P5_STATE3,jle_9cbc,P13_COUNTER_STORE,0x9dd4,H,continue state3 count
+P5_STATE3,fallthrough,P13_COUNTER_STORE,0x9dec,H,state3->4 transition then store
+P6_STATE4,jne_9cbc,P13_COUNTER_STORE,0x9e3a,H,continue state4 count
+P6_STATE4,fallthrough,P13_COUNTER_STORE,0x9ea1,H,state4->5 transition/reset
+P7_STATE5,fallthrough,P13_COUNTER_STORE,0x9d8d,H,state5 emits symbol and increments counter
+P8_STATE6,jle_9cbc,P13_COUNTER_STORE,0x9f27,H,continue state6 count
+P8_STATE6,fallthrough,P13_COUNTER_STORE,0x9f32,H,state6->7 transition
+P9_STATE7,jne_9cbc,P13_COUNTER_STORE,0x9e90,H,continue state7 count
+P9_STATE7,fallthrough,P13_COUNTER_STORE,0x9ea1,H,state7->8 transition/reset
+P10_STATE8,je_9c70,P14_RET0,0x9f7c,H,CP not done
+P10_STATE8,fallthrough,P14_RET0,0x9f8d,H,CP done; state->9 then return
+P11_STATE9,fallthrough,P13_COUNTER_STORE,0x9d85,H,emit fixed symbol then increment counter
+P12_STATE10,je_9c70,P14_RET0,0x9fe2,H,CP not done
+P12_STATE10,fallthrough,P14_RET0,0xa012,H,CP done; initdigital and state->2
+P13_COUNTER_STORE,fallthrough,P14_RET0,0x9cc3,H,common return after counter write

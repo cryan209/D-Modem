@@ -1,0 +1,12 @@
+layer,state_hex,evidence_addresses,count
+control,D0_ENTRY,0x3dd0|0x3de2,2
+control,D1_DBG,0x3e30|0x3e38,2
+control,D2_SNAPSHOT,0x3de4|0x3df3,2
+control,D3_TERM_XF,0x3df5|0x3dfe,2
+control,D4_DELETE_XF,0x3e03|0x3e0c,2
+control,D5_DELETE_K56,0x3e11|0x3e1a,2
+control,D6_FREE_RET0,0x3e1f|0x3e2d,2
+param,stats_snapshot,0x3dea|0x3df0,2
+param,xf_handle,0x3df5|0x3e03,2
+param,k56_handle,0x3e11,1
+call,teardown_chain,0x3dfe|0x3e0c|0x3e1a|0x3e22,4

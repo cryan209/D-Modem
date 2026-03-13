@@ -1,0 +1,25 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0x10,self_ptr,0x3a76,H,self back-pointer
+param,ctx+0x0,dp_version,0x3a93,H,store dp_version
+param,ctx+0x4,modem_id,0x3a90,H,store modem_id
+param,ctx+0x0c,caller_context,0x3a99,H,store caller context
+param,ctx+0x14,zero,0x3a9c,H,clear field
+param,ctx+0x18,zero,0x3aa3,H,clear field
+param,ctx+0x20,zero,0x3aaa,H,clear field
+param,ctx+0x24,modem_param_0xb,0x3abf,H,store modem_get_param(id,0xb)
+param,ctx+0x28,dp_runtime_ptr,0x3acf,H,store dp_param_get result
+param,dp+0x78,zero,0x3ad2,H,runtime init
+param,ctx+0x3574,VPCMXF_handle,0x3b02,H,store VPCMXF_Create result
+param,ctx+0xac44,K56_handle,0x3b2b,H,store K56FLEX_Create result
+param,dp+0x30,min_rate,0x3b8a,H,from modem_get_param(id,3)
+param,dp+0x34,max_rate_capped,0x3b8d,H,from modem_get_param(id,4), cap 56000
+param,dp+0x38,const_0x12c0,0x3b90,H,v34 min rate constant
+param,dp+0x3c,const_0x8340,0x3b97,H,v34 max rate constant
+param,dp.flags2.bit4,masked_or_preserved,0x3bb0|0x3bb4,H,bit4 policy depends on dp_version
+param,dp.flags2.bit5,cleared,0x3bbf,H,force clear
+param,ctx+0xd250,mode_mirror_0_or_0x210,0x3bdf,H,derived from flags2 bit4
+param,ctx+0xd254,delay_floor,0x3d98,H,set when negative delay path triggered
+param,dp+0x64,io_plus_4,0x3c0c,H,io_plus_4 assignment
+param,dp+0x68,io_adjusted,0x3c09|0x3c1e,H,io_adjusted plus extra component
+param,dp+0x6c,zero,0x3c2c,H,runtime field reset
+call,ctx,VPcmV34Create,0x3c70,H,constructor call; zero return means success

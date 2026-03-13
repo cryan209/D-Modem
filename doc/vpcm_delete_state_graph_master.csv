@@ -1,0 +1,13 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,D0_ENTRY,0x3dd0,H,function entry,vpcm_delete_state_graph_edges.csv
+control,D0_ENTRY,ja_3e30,D1_DBG,0x3de2,H,debug print branch,vpcm_delete_state_graph_edges.csv
+control,D0_ENTRY,fallthrough,D2_SNAPSHOT,0x3de4,H,normal branch,vpcm_delete_state_graph_edges.csv
+control,D1_DBG,jmp_3de4,D2_SNAPSHOT,0x3e3c,H,rejoin teardown,vpcm_delete_state_graph_edges.csv
+control,D2_SNAPSHOT,fallthrough,D3_TERM_XF,0x3df5,H,begin termination,vpcm_delete_state_graph_edges.csv
+control,D3_TERM_XF,fallthrough,D4_DELETE_XF,0x3e03,H,next teardown step,vpcm_delete_state_graph_edges.csv
+control,D4_DELETE_XF,fallthrough,D5_DELETE_K56,0x3e11,H,next teardown step,vpcm_delete_state_graph_edges.csv
+control,D5_DELETE_K56,fallthrough,D6_FREE_RET0,0x3e1f,H,free and return,vpcm_delete_state_graph_edges.csv
+param,stats_ptr,copy_from_dp,dp_snapshot,0x3dea|0x3df0,H,copy dp counters,vpcm_delete_state_graph_param_edges.csv
+call,xf_handle,teardown,xf_deleted,0x3dfe|0x3e0c,H,xf termination/delete,vpcm_delete_state_graph_param_edges.csv
+call,k56_handle,delete,k56_deleted,0x3e1a,H,k56 delete,vpcm_delete_state_graph_param_edges.csv
+call,state_ptr,free,state_freed,0x3e22,H,state free,vpcm_delete_state_graph_param_edges.csv
