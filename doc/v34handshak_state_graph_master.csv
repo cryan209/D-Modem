@@ -1,0 +1,48 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+micro,0x29,,0x2c,0x712f8,M,DET_SYNC baseline advances to INFO detect path,v34handshak_state_graph_rx_micro_edges.csv
+micro,0x33,,0x34,0x62c7f->0x62d2b,H,Probe microstate advances after count condition,v34handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x29,0x64db3,H,Default DET_SYNC baseline,v34handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x2e,0x694a1,M,Answer-side phase1 micro branch,v34handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x2f,0x66b35,M,Answer transition micro branch,v34handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x30,0x698e9,M,Answer phase2 micro branch,v34handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x31,0x6b58a,M,RX phase1-answer micro branch,v34handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x32,0x6c6c8,M,RX phase2-answer micro branch,v34handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x33,0x668ad,H,Probe transmit micro branch,v34handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x37,0x6c378,M,TX phase1-call micro branch,v34handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x38,0x65cc1,M,RX phase3-call micro branch,v34handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x3a,0x6de4c,M,RX phase1-call micro branch,v34handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x3b,0x65bf3,M,RX phase2-call micro branch,v34handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x3e,0x65282,H,Wait-phase3-call micro branch,v34handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x3f,0x6b372,H,INFO1 transmit micro branch,v34handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x4f,0x66bd9,M,MOH wait signal-drop micro branch,v34handshak_state_graph_rx_micro_edges.csv
+micro,ANY,,0x50,0x6d65f,M,MOH wait sequence micro branch,v34handshak_state_graph_rx_micro_edges.csv
+rx,ANY,,0x04,0x64bfd,H,Enter data-related demod path,v34handshak_state_graph_rx_micro_edges.csv
+rx,ANY,,0x23,0x64e41,H,Common wait/phase branch receive state,v34handshak_state_graph_rx_micro_edges.csv
+rx,ANY,,0x2b,0x651e2,H,Common control/DPSK receive state,v34handshak_state_graph_rx_micro_edges.csv
+rx,ANY,,0x35,0x6b813,H,DET_AB path activation,v34handshak_state_graph_rx_micro_edges.csv
+rx,ANY,,0x48,0x66456,H,RX L1 timing/delay branch,v34handshak_state_graph_rx_micro_edges.csv
+tx,0x12,0x64048,0x13,0x66d39,H,End of S/Sbar-A burst transitions to S/Sbar-B,v34handshak_state_graph_edges.csv
+tx,0x13,0x6296d,0x14,0x683a6,M,SSbar-B normal branch -> PP,v34handshak_state_graph_edges.csv
+tx,0x13,0x6296d,0x42,0x6722f,M,SSbar-B alternate branch -> MP,v34handshak_state_graph_edges.csv
+tx,0x13,0x6296d,0x56,0x6787e,M,SSbar-B MD branch,v34handshak_state_graph_edges.csv
+tx,0x14,0x642bf,0x15,0x68148,H,PP complete -> J,v34handshak_state_graph_edges.csv
+tx,0x15,0x64339,0x40,0x64b52,H,J interval reached -> J-bar,v34handshak_state_graph_edges.csv
+tx,0x15,0x64339,0x4e,0x64e08,H,V.90 JA branch,v34handshak_state_graph_edges.csv
+tx,0x15,0x64339,0x55,0x67fb9,H,K56 JA branch,v34handshak_state_graph_edges.csv
+tx,0x18,0x62b96,0x3c,0x6550e,H,INFO EOM non-MOH -> HOLD,v34handshak_state_graph_edges.csv
+tx,0x18,0x62b96,0x51,0x68a23,M,INFO MOH branch -> MOH silence,v34handshak_state_graph_edges.csv
+tx,0x33,0x62c69,0x18,0x6b9dc,M,Probe path recovery to INFO,v34handshak_state_graph_edges.csv
+tx,0x36,0x640b4,0x18,0x65850,H,INFO preamble -> INFO,v34handshak_state_graph_edges.csv
+tx,0x3c,0x62d3d,0x05,0x695bd,M,HOLD exit path phase1-call,v34handshak_state_graph_edges.csv
+tx,0x3c,0x62d3d,0x12,0x68f43,M,HOLD restart path,v34handshak_state_graph_edges.csv
+tx,0x40,0x635cc,0x41,0x66cfe,H,J/J1 -> drop-wait,v34handshak_state_graph_edges.csv
+tx,0x41,0x62d83,0x12,0x62dfe,H,Drop-wait -> S/Sbar-A,v34handshak_state_graph_edges.csv
+tx,0x42,0x62e28,0x43,0x634de,H,MP setup -> MP_BITS,v34handshak_state_graph_edges.csv
+tx,0x43,0x6399b,0x45,0x648ec,H,MP bits complete -> E,v34handshak_state_graph_edges.csv
+tx,0x44,0x635cc,0x42,0x6722f,M,J1 forced branch -> MP,v34handshak_state_graph_edges.csv
+tx,0x45,0x63858,0x46,0x66e38,H,E complete -> DATA,v34handshak_state_graph_edges.csv
+tx,0x4a,0x640b4,0x3c,0x66c2b,H,Silence retrain -> HOLD,v34handshak_state_graph_edges.csv
+tx,0x51,0x63d58,0x52,0x66de5,M,MOH wait branch,v34handshak_state_graph_edges.csv
+tx,0x51,0x63d58,0x53,0x68b06,M,MOH cleardown branch,v34handshak_state_graph_edges.csv
+tx,0x52/0x53/...,0x63d58,0x54,0x64f36|0x65073,H,MOH disconnect/timeout,v34handshak_state_graph_edges.csv
+tx,0x56,0x63dae,0x12,0x63f3b,H,MD complete -> S/Sbar-A,v34handshak_state_graph_edges.csv

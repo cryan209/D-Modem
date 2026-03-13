@@ -1,0 +1,23 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+rx,ANY,0x04,0x64bfd,H,Enter data-related demod path
+rx,ANY,0x23,0x64e41,H,Common wait/phase branch receive state
+rx,ANY,0x2b,0x651e2,H,Common control/DPSK receive state
+rx,ANY,0x35,0x6b813,H,DET_AB path activation
+rx,ANY,0x48,0x66456,H,RX L1 timing/delay branch
+micro,0x33,0x34,0x62c7f->0x62d2b,H,Probe microstate advances after count condition
+micro,0x29,0x2c,0x712f8,M,DET_SYNC baseline advances to INFO detect path
+micro,ANY,0x29,0x64db3,H,Default DET_SYNC baseline
+micro,ANY,0x2e,0x694a1,M,Answer-side phase1 micro branch
+micro,ANY,0x2f,0x66b35,M,Answer transition micro branch
+micro,ANY,0x30,0x698e9,M,Answer phase2 micro branch
+micro,ANY,0x31,0x6b58a,M,RX phase1-answer micro branch
+micro,ANY,0x32,0x6c6c8,M,RX phase2-answer micro branch
+micro,ANY,0x33,0x668ad,H,Probe transmit micro branch
+micro,ANY,0x37,0x6c378,M,TX phase1-call micro branch
+micro,ANY,0x38,0x65cc1,M,RX phase3-call micro branch
+micro,ANY,0x3a,0x6de4c,M,RX phase1-call micro branch
+micro,ANY,0x3b,0x65bf3,M,RX phase2-call micro branch
+micro,ANY,0x3e,0x65282,H,Wait-phase3-call micro branch
+micro,ANY,0x3f,0x6b372,H,INFO1 transmit micro branch
+micro,ANY,0x4f,0x66bd9,M,MOH wait signal-drop micro branch
+micro,ANY,0x50,0x6d65f,M,MOH wait sequence micro branch
