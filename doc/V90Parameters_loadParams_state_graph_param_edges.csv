@@ -1,0 +1,5 @@
+source,parameter,access,notes
+PARSE_TABLE,cfg_path,read,parser input source
+PARSE_TABLE,this+0x004..0x554,write,linear key-mapped destination fields
+PARSE_TABLE,key:PROBING_MODE,read,first key
+PARSE_TABLE,key:TEMP_FLOAT_PARAMETER4,read,last key

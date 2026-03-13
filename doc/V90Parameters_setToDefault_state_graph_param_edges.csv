@@ -1,0 +1,8 @@
+source,parameter,access,notes
+RATE_DERIVE,modem_params+0x38,read,upstream min-rate source
+RATE_DERIVE,modem_params+0x3c,read,upstream max-rate source
+RANGE_VALIDATE,this+0x4f8,read,forced-window enable
+RANGE_VALIDATE,this+0x4fc,read,forced-window high cap
+MASK_BUILD,this+0x48,write,upstream rate mask
+BULK_INIT,this+0x4cc,write,codec-law dependent RTD default
+BULK_INIT,this+0x500..0x554,write,tail default block

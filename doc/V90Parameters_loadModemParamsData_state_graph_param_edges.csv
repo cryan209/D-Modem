@@ -1,0 +1,9 @@
+source,parameter,access,notes
+TEMP_PR,modem_params+0x40,read,temp power-reduction source
+TEMP_PR,this+0x380,write,normalized power-reduction field
+TEMP_PROBE,modem_params+0x50.bit1,read,temp probe flag
+TEMP_PROBE,this+0x4,write,temp probe enable
+TEMP_CONN,modem_params+0x48,read,temp connection type
+TEMP_CONN,this+0x0c,write,one-shot initialization if unset
+TRN2D_FLAG,modem_params+0x50.bit0,read,trn2d std-eval enable source
+TRN2D_FLAG,this+0x420,write,trn2d std-eval enable

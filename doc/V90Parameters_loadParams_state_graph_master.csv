@@ -1,0 +1,5 @@
+plane,node,edge_to,condition,action,details
+A,ENTRY,PARSE_TABLE,always,enter,initialize parser call sequence
+B,PARSE_TABLE,PARSE_TABLE,for_each_key,pull,branchless key/value overlay
+C,PARSE_TABLE,PARSE_TABLE,per_call,call,Vparser_read_int or Vparser_read_float
+A,PARSE_TABLE,RETURN,always,return,epilogue

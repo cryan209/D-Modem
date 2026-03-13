@@ -1,0 +1,5 @@
+source,parameter,access,notes
+OPTIONAL_FILE_LOAD,modem_params+0x78,read,config file path gate
+DEFAULTS,this,write,default profile seed
+OPTIONAL_FILE_LOAD,this,write,config overlay writes
+RUNTIME_OVERLAY,this,write,runtime modem parameter overlay

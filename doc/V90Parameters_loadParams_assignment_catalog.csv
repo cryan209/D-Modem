@@ -1,0 +1,10 @@
+layer,state_hex,evidence_addresses,count
+control,P0_LINEAR_TABLE,0x27a00|0x298d5,2
+control,P1_INT_PULLS,0x27a29|0x29869,2
+control,P2_FLOAT_PULLS,0x27bab|0x298ca,2
+param,first_key_PROBING_MODE,0x27a28|0x27a29,2
+param,last_key_TEMP_FLOAT_PARAMETER4,0x298bd|0x298ca,2
+metric,int_call_count,0x27a29|0x29899,139
+metric,float_call_count,0x27bab|0x298ca,156
+call,Vparser_read_int,0x27a29|0x29899,139
+call,Vparser_read_float,0x27bab|0x298ca,156

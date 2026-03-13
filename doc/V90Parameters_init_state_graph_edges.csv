@@ -1,0 +1,7 @@
+from,to,condition,kind,target
+ENTRY,DEFAULTS,always,flow,
+DEFAULTS,OPTIONAL_FILE_LOAD,always,call,V90Parameters::setToDefault
+OPTIONAL_FILE_LOAD,OPTIONAL_FILE_LOAD,if(cfg_path!=NULL),call,V90Parameters::loadParams
+OPTIONAL_FILE_LOAD,RUNTIME_OVERLAY,always,flow,
+RUNTIME_OVERLAY,RUNTIME_OVERLAY,always,call,V90Parameters::loadModemParamsData
+RUNTIME_OVERLAY,RETURN,always,return,

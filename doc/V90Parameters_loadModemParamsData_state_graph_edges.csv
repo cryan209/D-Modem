@@ -1,0 +1,9 @@
+from,to,condition,kind,target
+ENTRY,TEMP_PR,always,flow,
+TEMP_PR,TEMP_PR,tempPR_nonzero,branch,
+TEMP_PR,TEMP_PROBE,always,flow,
+TEMP_PROBE,TEMP_CONN,always,flow,
+TEMP_CONN,TEMP_CONN,if(connection_type==-1),branch,
+TEMP_CONN,TRN2D_FLAG,always,flow,
+TRN2D_FLAG,TRN2D_FLAG,debug,call,edprintf
+TRN2D_FLAG,RETURN,always,return,

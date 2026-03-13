@@ -1,0 +1,9 @@
+from,to,condition,kind,target
+ENTRY,SEED_FIELDS,always,flow,
+SEED_FIELDS,DEFAULTS,always,flow,
+DEFAULTS,DEFAULTS,always,call,V90Parameters::setToDefault
+DEFAULTS,OPTIONAL_FILE_LOAD,always,flow,
+OPTIONAL_FILE_LOAD,OPTIONAL_FILE_LOAD,if(cfg_path!=NULL),call,V90Parameters::loadParams
+OPTIONAL_FILE_LOAD,RUNTIME_OVERLAY,always,flow,
+RUNTIME_OVERLAY,RUNTIME_OVERLAY,always,call,V90Parameters::loadModemParamsData
+RUNTIME_OVERLAY,RETURN,always,return,

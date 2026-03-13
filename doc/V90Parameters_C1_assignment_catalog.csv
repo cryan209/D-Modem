@@ -1,0 +1,8 @@
+layer,state_hex,evidence_addresses,count
+control,S0_SEED_SESSION_FIELDS,0x2a8a3|0x2a8ab,2
+control,S1_DEFAULTS,0x2a8b4,1
+control,S2_OPTIONAL_FILE_PARSE,0x2a8be|0x2a8d7,2
+control,S3_RUNTIME_OVERLAY,0x2a8ca|0x2a8e4,2
+param,modem_params_ptr_0,0x2a8a9,1
+param,forced_window_enable_4f8,0x2a8a3,1
+param,forced_window_hi_4fc,0x2a8ab,1

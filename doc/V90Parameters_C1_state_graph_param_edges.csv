@@ -1,0 +1,5 @@
+source,parameter,access,notes
+SEED_FIELDS,this+0x0,write,store modem params pointer
+SEED_FIELDS,this+0x4f8,write,forced window enable reset
+SEED_FIELDS,this+0x4fc,write,forced window high seed
+OPTIONAL_FILE_LOAD,modem_params+0x78,read,config path gate

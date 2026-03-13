@@ -1,0 +1,4 @@
+from,to,condition,kind,target
+ENTRY,PARSE_TABLE,always,flow,
+PARSE_TABLE,PARSE_TABLE,per_key_pull,call,Vparser_read_int|Vparser_read_float
+PARSE_TABLE,RETURN,always,return,

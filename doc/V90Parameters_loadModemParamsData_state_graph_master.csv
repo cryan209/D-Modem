@@ -1,0 +1,7 @@
+plane,node,edge_to,condition,action,details
+A,ENTRY,TEMP_PR,always,enter,begin runtime overlay
+B,TEMP_PR,TEMP_PROBE,always,compute,optional tempPR normalization and print
+B,TEMP_PROBE,TEMP_CONN,always,assign,bit1 probe override handling
+B,TEMP_CONN,TRN2D_FLAG,always,assign,connection-type one-shot initialization
+C,TRN2D_FLAG,TRN2D_FLAG,debug,call,edprintf status logs
+A,TRN2D_FLAG,RETURN,always,return,epilogue

@@ -1,0 +1,4 @@
+layer,state_hex,evidence_addresses,count
+control,S0_RESET_SESSION_WINDOW,0x279c4|0x279cb|0x279d1,3
+param,forced_window_enable_4f8,0x279cb,1
+param,forced_window_hi_4fc,0x279d1,1

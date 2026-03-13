@@ -1,0 +1,7 @@
+plane,node,edge_to,condition,action,details
+A,ENTRY,RATE_DERIVE,always,enter,head defaults and context capture
+B,RATE_DERIVE,RANGE_VALIDATE,always,derive,compute upstream index window from modem rates
+B,RANGE_VALIDATE,MASK_BUILD,post-clamp,normalize,clamp/repair index range
+B,MASK_BUILD,BULK_INIT,loop_done,build,construct upstream rate mask bits
+C,BULK_INIT,BULK_INIT,debug_enabled,call,optional dsplibs_debug_printf
+A,BULK_INIT,RETURN,always,return,epilogue after large constant stores

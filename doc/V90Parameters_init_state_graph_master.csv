@@ -1,0 +1,6 @@
+plane,node,edge_to,condition,action,details
+A,ENTRY,DEFAULTS,always,enter,init sequence starts
+C,DEFAULTS,OPTIONAL_FILE_LOAD,always,call,setToDefault
+B,OPTIONAL_FILE_LOAD,RUNTIME_OVERLAY,cfg_present_or_not,branch,optional config parse
+C,RUNTIME_OVERLAY,RUNTIME_OVERLAY,always,call,loadModemParamsData
+A,RUNTIME_OVERLAY,RETURN,always,return,epilogue

@@ -1,0 +1,16 @@
+# V90Parameters_loadModemParamsData State Graph
+
+## Nodes
+- ENTRY
+- TEMP_PR
+- TEMP_PROBE
+- TEMP_CONN
+- TRN2D_FLAG
+- RETURN
+
+## Edges
+- ENTRY -> TEMP_PR
+- TEMP_PR -> TEMP_PROBE
+- TEMP_PROBE -> TEMP_CONN
+- TEMP_CONN -> TRN2D_FLAG
+- TRN2D_FLAG -> RETURN
