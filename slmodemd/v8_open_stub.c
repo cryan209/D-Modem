@@ -40,6 +40,7 @@
 #define V8OPEN_DEMOD_STAGE_SAMPLES 12U
 #define V8OPEN_DEMOD_HISTORY_SAMPLES 40U
 #define V8OPEN_CM_STALL_WORDS 8U
+#define V8OPEN_CM_EARLY_PROMOTE_STALLS 3U
 #define V8OPEN_CM_INVALID_RELOCK_WORDS 12U
 #define V8OPEN_CJ_INVALID_RELOCK_WORDS 12U
 #define V8OPEN_CM_STAGE2_WAIT_MS 80U
@@ -452,6 +453,7 @@ struct v8_open_engine {
 	unsigned ans_cm_timeout_fallback;
 	unsigned ans_cj_timeout_fallback;
 	unsigned ans_cm_was_synthetic;
+	unsigned cm_framing_stalls;
 	short rx_agc_fir_hist[V8OPEN_AGC_FIR_SAMPLES];
 	short rx_demod_history[V8OPEN_DEMOD_HISTORY_SAMPLES];
 	short rx_bit_window[V8OPEN_MAX_SAMPLES_PER_BIT];
@@ -2683,8 +2685,10 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 		}
 		if (engine->cm_collect_index >= V8OPEN_CM_STALL_WORDS &&
 		    engine->cm_collect_pass <= 1U) {
+			engine->cm_framing_stalls++;
 			v8_open_cm_advance_phase_scan(engine);
-			V8OPEN_DBG("cm-stub: framing stall idx=%u pass=%u raw=%03x norm=%03x runs=%u/%u/%u, phase-scan skip=%u, re-locking preamble search\n",
+			V8OPEN_DBG("cm-stub: framing stall #%u idx=%u pass=%u raw=%03x norm=%03x runs=%u/%u/%u, phase-scan skip=%u, re-locking preamble search\n",
+				  engine->cm_framing_stalls,
 				  engine->cm_collect_index,
 				  engine->cm_collect_pass,
 				  (unsigned)raw_word,
@@ -2693,6 +2697,32 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 				  engine->rx_c240,
 				  engine->rx_c242,
 				  engine->rx_lock_skip_bits);
+			/*
+			 * After repeated preamble-only stalls, the remote is
+			 * likely sending CNG/CI (non-V.8) rather than CM.
+			 * Promote to synthetic CM early so V.34 training gets
+			 * more time within its 15 s budget.
+			 */
+			if (engine->cm_framing_stalls >= V8OPEN_CM_EARLY_PROMOTE_STALLS &&
+			    engine->cfg.answer_mode &&
+			    engine->cfg.advertise.data &&
+			    engine->cfg.advertise.v34) {
+				V8OPEN_DBG("cm-stub: early promote after %u preamble-only stalls, assuming non-V.8 caller\n",
+					  engine->cm_framing_stalls);
+				engine->remote_call_data = 1U;
+				engine->remote_v34 = 1U;
+				engine->remote_v32 = 0U;
+				engine->remote_lapm = 0U;
+				engine->remote_pcm_present = 0U;
+				engine->remote_access_present = 0U;
+				engine->have_call_match = 0U;
+				engine->have_proto_match = 0U;
+				engine->matched_call_word = 0U;
+				engine->matched_proto_word = 0U;
+				engine->cm_detected = 1U;
+				engine->ans_cm_was_synthetic = 1U;
+				return 1;
+			}
 			engine->rx_word_sync = 0U;
 			engine->rx_align_locked = 0U;
 			engine->rx_skip_samples = 0U;
@@ -3820,13 +3850,15 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 		engine->cm_predetect_deadline = 0U;
 		engine->cm_collecting = 0U;
 		engine->cm_collect_deadline = 0U;
-		engine->cm_detected = 1U;
+		if (!engine->cm_detected) {
+			engine->cm_detected = 1U;
+			v8_open_parse_rx_sequence(engine);
+		}
 		engine->cm_guard_budget = v8_open_samples_from_ms(engine, 40U);
 		engine->samples_in_phase = 0U;
 		v8_open_rx_reset_collect(engine);
-		v8_open_parse_rx_sequence(engine);
 		(void)signature;
-		V8OPEN_DBG("cm-stub: detected 2/2 avg=%u peak=%u remote=data:%u v34:%u v32:%u pcm:%u access:%u rxwords=%u\n",
+		V8OPEN_DBG("cm-stub: detected 2/2 avg=%u peak=%u remote=data:%u v34:%u v32:%u pcm:%u access:%u rxwords=%u synthetic=%u\n",
 			  avg_abs,
 			  peak_abs,
 			  engine->remote_call_data,
@@ -3834,7 +3866,8 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 			  engine->remote_v32,
 			  engine->remote_pcm_present,
 			  engine->remote_access_present,
-			  engine->rx_seq_b_count);
+			  engine->rx_seq_b_count,
+			  engine->ans_cm_was_synthetic);
 		return;
 	}
 	v8_open_answer_predetector_arm(engine);
@@ -5026,6 +5059,7 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->ans_cm_timeout_fallback = 0U;
 	engine->ans_cj_timeout_fallback = 0U;
 	engine->ans_cm_was_synthetic = 0U;
+	engine->cm_framing_stalls = 0U;
 	engine->preferred_dp = (enum DP_ID)cfg->target_dp_id;
 	v8_open_rx_reset_collect(engine);
 	if (cfg->answer_mode)
