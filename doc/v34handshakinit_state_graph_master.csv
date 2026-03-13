@@ -1,0 +1,16 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_PROLOGUE_NORMALIZE,0x5fab0,H,function entry,v34handshakinit_state_graph_edges.csv
+control,B0_PROLOGUE_NORMALIZE,fallthrough,B1_MODE_DISPATCH,0x5fb61,H,post-normalization dispatch,v34handshakinit_state_graph_edges.csv
+control,B1_MODE_DISPATCH,jt_case4,B2_CASE4_MOH_INIT,0x5fb71,H,jump-table case 4,v34handshakinit_state_graph_edges.csv
+control,B1_MODE_DISPATCH,jt_case23,B3_CASE23_RETRAIN_INIT,0x5fb71,H,jump-table cases 2/3,v34handshakinit_state_graph_edges.csv
+control,B1_MODE_DISPATCH,jt_case1,B4_CASE1_GUARDED_REINIT,0x5fb71,H,jump-table case 1,v34handshakinit_state_graph_edges.csv
+control,B1_MODE_DISPATCH,jt_case0,B5_CASE0_TIMING_REINIT,0x5fb71,H,jump-table case 0,v34handshakinit_state_graph_edges.csv
+control,B6_COMMON_EPILOGUE,ret,RET,0x5fd3a,H,common return,v34handshakinit_state_graph_edges.csv
+param,ctx+0x234/0x248,normalize,timing_base,0x5faec|0x5fb08,H,timing normalization,v34handshakinit_state_graph_param_edges.csv
+param,ctx+0x3592/0x3594/0x3596,write,state_triplet,0x5fbb9|0x5fd5a|0x5ffba,H,mode forced states,v34handshakinit_state_graph_param_edges.csv
+param,ctx+0xaa6c/0xaa70,write,message_ptrs,0x5fc1d|0x5fc29|0x6001f,H,message pointer setup,v34handshakinit_state_graph_param_edges.csv
+param,ctx+0x122,mask_or,mode_flags,0x5fe37|0x5ff63|0x60025,H,mode bit choreography,v34handshakinit_state_graph_param_edges.csv
+call,B2/B4/B5,v34modeminit,core_modem_reset,0x5fb8c|0x5feff|0x5ff93,H,primary init call,v34handshakinit_state_graph_param_edges.csv
+call,B3,preinitdigital,retrain_digital_reset,0x5fe7e,H,retrain prep,v34handshakinit_state_graph_param_edges.csv
+call,B2,detectorinit,moh_detector_config,0x5fcef,H,detector profile,v34handshakinit_state_graph_param_edges.csv
+call,debug_branches,dsplibs_debug_printf,diagnostics,0x60074|0x60489,H,state logs,v34handshakinit_state_graph_param_edges.csv

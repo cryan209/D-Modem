@@ -1,0 +1,11 @@
+from_node,to_node,branch_addr,condition_or_trigger
+ENTRY,RESET_BLOCKS,0x0005f590,enter function
+RESET_BLOCKS,CORE_DEFAULTS,0x0005f5da,loop complete (3 blocks)
+CORE_DEFAULTS,COMMON_SETUP,0x0005f6ac,scalar/array clears done
+COMMON_SETUP,MODE_SPLIT,0x0005f748,after tx/rx preinit
+MODE_SPLIT,MODE_NE_0x65,0x0005f75c,ctx+0x359c != 0x65
+MODE_SPLIT,MODE_EQ_0x65,0x0005f93f,ctx+0x359c == 0x65
+MODE_NE_0x65,POST_MODE_SHARED,0x0005f892,branch-specific setup done
+MODE_EQ_0x65,POST_MODE_SHARED,0x0005fa72,branch-specific setup done
+POST_MODE_SHARED,DETECTOR_CFG,0x0005f8b4,after preinitdigital + txinit
+DETECTOR_CFG,RETURN,0x0005f914,detectorinit complete and rx flag set

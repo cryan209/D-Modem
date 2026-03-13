@@ -1,0 +1,9 @@
+layer,state_hex,evidence_addresses,count
+control,B0_ENTRY,0x62720|0x6273c,2
+control,B1_MODE_BOOL,0x6274a|0x62765,2
+control,B2_SETUP_MOD,0x62769|0x62793,2
+control,B3_FORCE_RX23,0x627ab|0x627c6,2
+control,B4_FORCE_TX12,0x627cd|0x627ec,2
+control,B5_FINALIZE_TXINIT,0x627f3|0x62819,2
+param,state_fields,0x62798|0x627ab|0x627cd|0x62803,4
+call,primary_calls,0x6273c|0x62793|0x62819,3

@@ -1,0 +1,13 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0xa81c..,write,training_blocks_seeded,0x5f590|0x5f6aa,H,three 0x2c-byte blocks reset and seeded
+param,ctx+0xe84/0x2a68 arrays,clear,history_arrays_zero,0x5f5da|0x5f688,H,coefficient/history clear loops
+param,ctx+0x359c,read,mode_selector,0x5f748|0x5f8b4,H,0x65 split controls branch profiles
+param,ctx+0x308,write,bpv22low_or_high,0x5f75c|0x5f93f,H,mode-dependent vector pointer
+param,ctx+0x122,or_0x0200,rx_flags_arm_detector,0x5f8f2|0x5f914,H,final detector-ready bit
+call,B3_COMMON_SETUP,VPcmV34SetTxScale,tx_scale_call,0x5f6ac,H,common tx scaling
+call,B3_COMMON_SETUP,V34SetupModulator,mod_setup_calls,0x5f6b8|0x5f7xx,H,common + mode-dependent setup
+call,B3_COMMON_SETUP,rxinit,rxinit_call,0x5f6c8,H,receiver base init
+call,B3_COMMON_SETUP,preinitdigital,preinitdigital_call,0x5f8xx,H,digital init before txinit
+call,B3_COMMON_SETUP,txinit,txinit_call,0x5f8xx,H,transmitter init
+call,B8_DETECTOR_CFG,detectorinit,detector_call,0x5f8f2,H,mode-dependent detector profile
+call,debug_gate,dsplibs_debug_printf,debug_call,0x5f6ee,H,debug transition print

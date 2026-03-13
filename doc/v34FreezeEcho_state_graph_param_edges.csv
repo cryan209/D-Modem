@@ -1,0 +1,9 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0x221c+0x3a6,or_0x0004,rx_flags_freeze,0x5e221|0x5e279,H,freeze echo adaptation bit
+param,ctx+0x80b8,arg,V34EchoReportCoeff_near,0x5e230|0x5e239,H,near EC report object
+param,ctx+0x9138,arg,V34EchoReportCoeff_far,0x5e247|0x5e254,H,far EC report object
+call,B4_DBG_PRE,dsplibs_debug_printf,debug_pre,0x5e267,H,pre-freeze debug
+call,B5_DBG_NEAR_TITLE,dsplibs_debug_printf,debug_near,0x5e297,H,near-report heading
+call,B6_DBG_FAR_TITLE,dsplibs_debug_printf,debug_far,0x5e2c7,H,far-report heading
+call,B2_NEAR_REPORT,V34EchoReportCoeff,near_report,0x5e239,H,near coefficients dump
+call,B3_FAR_REPORT,V34EchoReportCoeff,far_report,0x5e254|0x5e2d9,H,far coefficients dump

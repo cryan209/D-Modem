@@ -1,0 +1,14 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY_GATE,0x0000b3c0,H,function entry,VPcmV34Progress_state_graph_edges.csv
+control,B1_TIMING_ACCOUNT,fallthrough,B2_MAIN_STATE_DISPATCH_JT0,0x0000b4f4,H,main dispatch gate,VPcmV34Progress_state_graph_edges.csv
+control,B2_MAIN_STATE_DISPATCH_JT0,jt0_idx1,B4_RUNPCM_DISPATCH_JT1,0x0000b4f4,H,runPcm branch,VPcmV34Progress_state_graph_edges.csv
+control,B2_MAIN_STATE_DISPATCH_JT0,jt0_idx3,B3_HANDSHAKE_MOD_LOOP,0x0000b4f4,H,handshake branch,VPcmV34Progress_state_graph_edges.csv
+control,B6_POST_STATE_DISPATCH_JT3,delay_select,B7_DELAY_SELECT_JT4,0x0000c49c,H,retrain selector,VPcmV34Progress_state_graph_edges.csv
+control,B9_RETRAIN_REASON_ARMS,finalize,B10_FINAL_GUARDS_RETURN,0x0000ce40,H,late guards,VPcmV34Progress_state_graph_edges.csv
+param,ctx+0x262,read,early_disable_gate,0x0000b3c0|0x0000b4a0,H,enable gate,VPcmV34Progress_state_graph_param_edges.csv
+param,ctx+0x0,read_write,main_state,0x0000b4f4|0x0000c24b,H,state dispatch field,VPcmV34Progress_state_graph_param_edges.csv
+param,ctx+0x4,read_write,aux_state,0x0000b4a0|0x0000ce8a,H,secondary state field,VPcmV34Progress_state_graph_param_edges.csv
+param,ctx+0xabe0,read,delay_selector,0x0000c49c,H,retrain timing code,VPcmV34Progress_state_graph_param_edges.csv
+call,B4_RUNPCM_DISPATCH_JT1,VPcmFloModem::runPcmModem,runpcm_call,0x0000bc2c,H,v90 pcm entry,VPcmV34Progress_state_graph_param_edges.csv
+call,B8_V90_DISPATCH_JT5,VPcmFloModem::v90RunDemodulator,v90_call,0x0000c7f8,H,v90 demod entry,VPcmV34Progress_state_graph_param_edges.csv
+call,B9_RETRAIN_REASON_ARMS,VPcmV34InitiateRetrain,retrain_call,0x0000ca07|0x0000ce2b,H,retrain trigger set,VPcmV34Progress_state_graph_param_edges.csv

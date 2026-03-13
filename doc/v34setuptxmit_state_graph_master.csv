@@ -1,0 +1,13 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x62720,H,function entry,v34setuptxmit_state_graph_edges.csv
+control,B2_SETUP_MOD,fallthrough,B3_FORCE_RX23,0x627ab,H,post-setup state checks,v34setuptxmit_state_graph_edges.csv
+control,B3_FORCE_RX23,ja_62820,B6_DBG_RX_LOG,0x627bf,H,debug branch,v34setuptxmit_state_graph_edges.csv
+control,B4_FORCE_TX12,ja_62882,B7_DBG_TX_LOG,0x627e1,H,debug branch,v34setuptxmit_state_graph_edges.csv
+control,B5_FINALIZE_TXINIT,tailcall_txinit,RET,0x62819,H,function exit,v34setuptxmit_state_graph_edges.csv
+param,ctx+0xaa84/0xaa94/0xaa8a,arg,V34SetupModulator,0x62769|0x62793,H,mod setup parameters,v34setuptxmit_state_graph_param_edges.csv
+param,ctx+0x3594,write,rx_state_0x23,0x627ab|0x627c6,H,forced rx state,v34setuptxmit_state_graph_param_edges.csv
+param,ctx+0x3596,write,tx_state_0x12,0x627cd|0x627ec,H,forced tx state,v34setuptxmit_state_graph_param_edges.csv
+param,ctx+0x25c2,or_0x0200,tx_runtime_flags,0x62803|0x62809,H,phase flag set,v34setuptxmit_state_graph_param_edges.csv
+call,B0_ENTRY,settxlevel,settxlevel_call,0x6273c,H,tx level call,v34setuptxmit_state_graph_param_edges.csv
+call,B2_SETUP_MOD,V34SetupModulator,setup_mod_call,0x62793,H,mod setup call,v34setuptxmit_state_graph_param_edges.csv
+call,B5_FINALIZE_TXINIT,txinit,txinit_call,0x62819,H,tail tx init,v34setuptxmit_state_graph_param_edges.csv

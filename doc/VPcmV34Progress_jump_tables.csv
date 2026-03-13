@@ -1,0 +1,57 @@
+table_id,dispatch_site,text_addr,selector,table_rodata_off,index,target_addr,notes
+JT0_MAIN_STATE,b4f4,0x0000b4f4,*(ctx+0x0) if <=10,0x02d4,0,0x0000bce2,primary data-path loop
+JT0_MAIN_STATE,b4f4,0x0000b4f4,*(ctx+0x0) if <=10,0x02d4,1,0x0000bc40,runPcm result handling path
+JT0_MAIN_STATE,b4f4,0x0000b4f4,*(ctx+0x0) if <=10,0x02d4,2,0x0000bbe1,v90 flo modem entry path
+JT0_MAIN_STATE,b4f4,0x0000b4f4,*(ctx+0x0) if <=10,0x02d4,3,0x0000bb7c,v34 handshake/modulate loop
+JT0_MAIN_STATE,b4f4,0x0000b4f4,*(ctx+0x0) if <=10,0x02d4,4,0x0000b9f7,qc verification path
+JT0_MAIN_STATE,b4f4,0x0000b4f4,*(ctx+0x0) if <=10,0x02d4,5,0x0000b90d,state->0x0c setup path
+JT0_MAIN_STATE,b4f4,0x0000b4f4,*(ctx+0x0) if <=10,0x02d4,6,0x0000b769,state->0x0e watchdog path
+JT0_MAIN_STATE,b4f4,0x0000b4f4,*(ctx+0x0) if <=10,0x02d4,7,0x0000b7a5,state->0x0d/tone path
+JT0_MAIN_STATE,b4f4,0x0000b4f4,*(ctx+0x0) if <=10,0x02d4,8,0x0000be47,state->0x0f buffering path
+JT0_MAIN_STATE,b4f4,0x0000b4f4,*(ctx+0x0) if <=10,0x02d4,9,0x0000be00,state->0x0f alt path
+JT0_MAIN_STATE,b4f4,0x0000b4f4,*(ctx+0x0) if <=10,0x02d4,10,0x0000bdb8,state->0x10 path
+JT1_RUNPCM_RET,bc39,0x0000bc39,runPcmModem() return <=8,0x0300,0,0x0000c55a,force state 0x2 and emit fallback samples
+JT1_RUNPCM_RET,bc39,0x0000bc39,runPcmModem() return <=8,0x0300,1,0x0000cc44,state->3
+JT1_RUNPCM_RET,bc39,0x0000bc39,runPcmModem() return <=8,0x0300,2,0x0000cc7e,state->4 or ->5 depending flags
+JT1_RUNPCM_RET,bc39,0x0000bc39,runPcmModem() return <=8,0x0300,3,0x0000cc53,state->5 with phase bits primed
+JT1_RUNPCM_RET,bc39,0x0000bc39,runPcmModem() return <=8,0x0300,4,0x0000ce40,state->0xb + reset counter
+JT1_RUNPCM_RET,bc39,0x0000bc39,runPcmModem() return <=8,0x0300,5,0x0000ce2b,retrain reason 0x5c
+JT1_RUNPCM_RET,bc39,0x0000bc39,runPcmModem() return <=8,0x0300,6,0x0000ce16,retrain reason 0x5a
+JT1_RUNPCM_RET,bc39,0x0000bc39,runPcmModem() return <=8,0x0300,7,0x0000cdf9,retrain reason 0x22
+JT1_RUNPCM_RET,bc39,0x0000bc39,runPcmModem() return <=8,0x0300,8,0x0000ce8a,state->0xa, aux->0x10
+JT2_K56_RET,c0f3,0x0000c0f3,k56FlexRunDemodulator() return <=6,0x0324,0,0x0000c4b2,state->2
+JT2_K56_RET,c0f3,0x0000c0f3,k56FlexRunDemodulator() return <=6,0x0324,1,0x0000ce64,state->3
+JT2_K56_RET,c0f3,0x0000c0f3,k56FlexRunDemodulator() return <=6,0x0324,2,0x0000c8cc,state->5 with setup
+JT2_K56_RET,c0f3,0x0000c0f3,k56FlexRunDemodulator() return <=6,0x0324,3,0x0000c8c1,state->5 alt setup
+JT2_K56_RET,c0f3,0x0000c0f3,k56FlexRunDemodulator() return <=6,0x0324,4,0x0000cde4,retrain reason 0x38
+JT2_K56_RET,c0f3,0x0000c0f3,k56FlexRunDemodulator() return <=6,0x0324,5,0x0000cdc7,retrain reason 0x22
+JT2_K56_RET,c0f3,0x0000c0f3,k56FlexRunDemodulator() return <=6,0x0324,6,0x0000cae2,state->0xa, aux->0x10
+JT3_STATE_POST,c24b,0x0000c24b,current state <=0x10,0x0340,0,0x0000b53f,return path
+JT3_STATE_POST,c24b,0x0000c24b,current state <=0x10,0x0340,1,0x0000c360,phase3/phase4 watchdog path
+JT3_STATE_POST,c24b,0x0000c24b,current state <=0x10,0x0340,2,0x0000c2d2,state ramp path
+JT3_STATE_POST,c24b,0x0000c24b,current state <=0x10,0x0340,13,0x0000c481,retrain-delay selector dispatch
+JT3_STATE_POST,c24b,0x0000c24b,current state <=0x10,0x0340,15,0x0000c272,state->8 and reneg window init
+JT3_STATE_POST,c24b,0x0000c24b,current state <=0x10,0x0340,16,0x0000c252,state->0xa
+JT4_DELAY_SELECT,c49c,0x0000c49c,*(ctx+0xabe0) <=0x0d,0x0384,0,0x0000c252,direct state->0xa
+JT4_DELAY_SELECT,c49c,0x0000c49c,*(ctx+0xabe0) <=0x0d,0x0384,1,0x0000cadb,delay=0
+JT4_DELAY_SELECT,c49c,0x0000c49c,*(ctx+0xabe0) <=0x0d,0x0384,2,0x0000cad1,delay=0x0a
+JT4_DELAY_SELECT,c49c,0x0000c49c,*(ctx+0xabe0) <=0x0d,0x0384,3,0x0000cac7,delay=0x14
+JT4_DELAY_SELECT,c49c,0x0000c49c,*(ctx+0xabe0) <=0x0d,0x0384,4,0x0000cabd,delay=0x1e
+JT4_DELAY_SELECT,c49c,0x0000c49c,*(ctx+0xabe0) <=0x0d,0x0384,5,0x0000cab3,delay=0x28
+JT4_DELAY_SELECT,c49c,0x0000c49c,*(ctx+0xabe0) <=0x0d,0x0384,6,0x0000caa9,delay=0x3c
+JT4_DELAY_SELECT,c49c,0x0000c49c,*(ctx+0xabe0) <=0x0d,0x0384,7,0x0000ca9f,delay=0x78
+JT4_DELAY_SELECT,c49c,0x0000c49c,*(ctx+0xabe0) <=0x0d,0x0384,8,0x0000ca95,delay=0xb4
+JT4_DELAY_SELECT,c49c,0x0000c49c,*(ctx+0xabe0) <=0x0d,0x0384,9,0x0000ca8e,delay=0xf0
+JT4_DELAY_SELECT,c49c,0x0000c49c,*(ctx+0xabe0) <=0x0d,0x0384,10,0x0000ca87,delay=0x168
+JT4_DELAY_SELECT,c49c,0x0000c49c,*(ctx+0xabe0) <=0x0d,0x0384,11,0x0000ca80,delay=0x1e0
+JT4_DELAY_SELECT,c49c,0x0000c49c,*(ctx+0xabe0) <=0x0d,0x0384,12,0x0000ca16,delay=0x2d0
+JT4_DELAY_SELECT,c49c,0x0000c49c,*(ctx+0xabe0) <=0x0d,0x0384,13,0x0000cdbd,delay=0x3c0
+JT5_V90_RET,c805,0x0000c805,v90RunDemodulator() return <=8,0x03bc,0,0x0000c911,state->2 and cleanup path
+JT5_V90_RET,c805,0x0000c805,v90RunDemodulator() return <=8,0x03bc,1,0x0000ca07,state->3
+JT5_V90_RET,c805,0x0000c805,v90RunDemodulator() return <=8,0x03bc,2,0x0000cb29,state->5 and bitrate snapshot
+JT5_V90_RET,c805,0x0000c805,v90RunDemodulator() return <=8,0x03bc,3,0x0000cafe,state->5 with CP flags
+JT5_V90_RET,c805,0x0000c805,v90RunDemodulator() return <=8,0x03bc,4,0x0000cc01,state->0xb and reset timer
+JT5_V90_RET,c805,0x0000c805,v90RunDemodulator() return <=8,0x03bc,5,0x0000cbcf,retrain reason 0x22
+JT5_V90_RET,c805,0x0000c805,v90RunDemodulator() return <=8,0x03bc,6,0x0000cbec,retrain reason 0x5a
+JT5_V90_RET,c805,0x0000c805,v90RunDemodulator() return <=8,0x03bc,7,0x0000ca07,state->3
+JT5_V90_RET,c805,0x0000c805,v90RunDemodulator() return <=8,0x03bc,8,0x0000cbb3,state->0xa, aux->0x10

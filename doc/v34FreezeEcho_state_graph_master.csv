@@ -1,0 +1,11 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x5e200,H,function entry,v34FreezeEcho_state_graph_edges.csv
+control,B0_ENTRY,ja_5e260,B4_DBG_PRE,0x5e218,H,debug pre-log path,v34FreezeEcho_state_graph_edges.csv
+control,B0_ENTRY,jbe_5e21a,B1_SET_FREEZE_BIT,0x5e218,H,direct freeze path,v34FreezeEcho_state_graph_edges.csv
+control,B1_SET_FREEZE_BIT,ja_5e290,B5_DBG_NEAR_TITLE,0x5e286,H,debug near heading,v34FreezeEcho_state_graph_edges.csv
+control,B2_NEAR_REPORT,ja_5e2c0,B6_DBG_FAR_TITLE,0x5e245,H,debug far heading,v34FreezeEcho_state_graph_edges.csv
+param,ctx+0x221c+0x3a6,or_0x0004,rx_flags_freeze,0x5e221|0x5e279,H,freeze bit set,v34FreezeEcho_state_graph_param_edges.csv
+param,ctx+0x80b8,arg,V34EchoReportCoeff_near,0x5e230|0x5e239,H,near EC object,v34FreezeEcho_state_graph_param_edges.csv
+param,ctx+0x9138,arg,V34EchoReportCoeff_far,0x5e247|0x5e254,H,far EC object,v34FreezeEcho_state_graph_param_edges.csv
+call,B2_NEAR_REPORT,V34EchoReportCoeff,near_report,0x5e239,H,near coeff report,v34FreezeEcho_state_graph_param_edges.csv
+call,B3_FAR_REPORT,V34EchoReportCoeff,far_report,0x5e254|0x5e2d9,H,far coeff report,v34FreezeEcho_state_graph_param_edges.csv

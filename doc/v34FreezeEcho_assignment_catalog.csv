@@ -1,0 +1,11 @@
+layer,state_hex,evidence_addresses,count
+control,B0_ENTRY,0x5e200|0x5e218,2
+control,B1_SET_FREEZE_BIT,0x5e21a|0x5e227,2
+control,B2_NEAR_REPORT,0x5e230|0x5e239,2
+control,B3_FAR_REPORT,0x5e247|0x5e254,2
+control,B4_DBG_PRE,0x5e260|0x5e267,2
+control,B5_DBG_NEAR_TITLE,0x5e290|0x5e297,2
+control,B6_DBG_FAR_TITLE,0x5e2c0|0x5e2c7,2
+param,rx_flags,0x5e221|0x5e279,2
+param,echo_reports,0x5e230|0x5e247|0x5e2cc,3
+call,debug_and_report_calls,0x5e267|0x5e297|0x5e2c7|0x5e239|0x5e254,5

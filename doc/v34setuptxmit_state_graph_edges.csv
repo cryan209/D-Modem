@@ -1,0 +1,14 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_ENTRY,0x62720,H,function entry
+B0_ENTRY,fallthrough,B1_MODE_BOOL,0x6274a,H,after settxlevel
+B1_MODE_BOOL,fallthrough,B2_SETUP_MOD,0x62769,H,boolean ready
+B2_SETUP_MOD,fallthrough,B3_FORCE_RX23,0x627ab,H,setup complete
+B3_FORCE_RX23,je_627cd,B4_FORCE_TX12,0x627b6,H,rx already 0x23
+B3_FORCE_RX23,ja_62820,B6_DBG_RX_LOG,0x627bf,H,debug print rx transition
+B3_FORCE_RX23,set_then_fallthrough,B4_FORCE_TX12,0x627c1,H,set rx=0x23
+B6_DBG_RX_LOG,jmp_627c1,B3_FORCE_RX23,0x6287d,H,return to state update
+B4_FORCE_TX12,je_627f3,B5_FINALIZE_TXINIT,0x627d8,H,tx already 0x12
+B4_FORCE_TX12,ja_62882,B7_DBG_TX_LOG,0x627e1,H,debug print tx transition
+B4_FORCE_TX12,set_then_fallthrough,B5_FINALIZE_TXINIT,0x627e7,H,set tx=0x12
+B7_DBG_TX_LOG,jmp_627e7,B4_FORCE_TX12,0x628df,H,return to state update
+B5_FINALIZE_TXINIT,tailcall_txinit,RET,0x62819,H,finalize and jump txinit

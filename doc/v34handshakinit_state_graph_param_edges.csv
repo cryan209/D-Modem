@@ -1,0 +1,19 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0x234/0x248,normalize,timing_base,0x5faec|0x5fb08|0x5fb14,H,window and underflow normalization
+param,ctx+0x240/0x238,write,derived_timing,0x5fb1d|0x5fb29,H,shadow and horizon values
+param,ctx+0xabe4/0xabe6/0xabe8/0xabf8/0xabfe/0xabff,clear,handshake_runtime_flags,0x5fb16|0x5fb31|0x5fb4d,H,global handshake reset
+param,ctx+0x221c+0x3a6,and_0x7fff,rx_flags_clear_sign,0x5fb54|0x5fb61,H,clear high bit before init mode work
+param,ctx+0x3592/0x3594/0x3596,write,state_triplet,0x5fbb9|0x5fd5a|0x5ffba,H,mode-specific tx/rx/micro forcing
+param,ctx+0xaa6c/0xaa70,write,message_ptrs,0x5fc1d|0x5fc29|0x6001f,H,message descriptors for MOH/INFO paths
+param,ctx+0xaa0c..0xaa38,clear,control_descriptor,0x5fdb2|0x5fe01,H,case-2/3 descriptor zeroing
+param,ctx+0x122,mask_or,mode_flags,0x5fe37|0x5ff63|0x60025,H,set/clear mode and phase bits
+param,ctx+0xaa3c/0x2aa0,write,common_exit_fields,0x5fd17|0x5fd20,H,epilogue reset and mode value
+call,B2_CASE4_MOH_INIT,v34modeminit,call_modeminit,0x5fb8c,H,case-4 startup
+call,B4_CASE1_GUARDED_REINIT,v34modeminit,call_modeminit,0x5feff,H,case-1 startup
+call,B5_CASE0_TIMING_REINIT,v34modeminit,call_modeminit,0x5ff93,H,case-0 startup
+call,B5_CASE0_TIMING_REINIT,rxtiminginit,call_rxtiming,0x5ff9b,H,timing reinit in case-0
+call,B3_CASE23_RETRAIN_INIT,preinitdigital,call_preinitdigital,0x5fe7e,H,digital reset for retrain path
+call,B2_CASE4_MOH_INIT,VPcmV34SetMohMessageBits,call_set_moh_bits,0x5fc36,H,build MOH sequence
+call,B2_CASE4_MOH_INIT,detectorinit,call_detectorinit,0x5fcef,H,tone detector profile selection
+call,B5_CASE0_TIMING_REINIT,V34SetINFO0dBits,call_info0d,0x60056,H,mode-dependent INFO0d composition
+call,debug_branches,dsplibs_debug_printf,debug_logs,0x60074|0x60489,H,state transition diagnostics

@@ -1,0 +1,12 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_ENTRY,0x5e200,H,function entry
+B0_ENTRY,jbe_5e21a,B1_SET_FREEZE_BIT,0x5e218,H,skip pre-log
+B0_ENTRY,ja_5e260,B4_DBG_PRE,0x5e218,H,debug pre-log
+B4_DBG_PRE,fallthrough,B1_SET_FREEZE_BIT,0x5e26c,H,continue after print
+B1_SET_FREEZE_BIT,jbe_5e230,B2_NEAR_REPORT,0x5e286,H,no near-title log
+B1_SET_FREEZE_BIT,ja_5e290,B5_DBG_NEAR_TITLE,0x5e286,H,print near-title
+B5_DBG_NEAR_TITLE,fallthrough,B2_NEAR_REPORT,0x5e29c,H,continue to near report
+B2_NEAR_REPORT,jbe_5e247,B3_FAR_REPORT,0x5e2b1,H,no far-title log
+B2_NEAR_REPORT,ja_5e2c0,B6_DBG_FAR_TITLE,0x5e245,H,print far-title
+B6_DBG_FAR_TITLE,fallthrough,B3_FAR_REPORT,0x5e2cc,H,continue to far report
+B3_FAR_REPORT,ret,RET,0x5e2d9,H,tail call then return

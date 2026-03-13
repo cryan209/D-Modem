@@ -1,0 +1,13 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_PROLOGUE_NORMALIZE,0x5fab0,H,function entry
+B0_PROLOGUE_NORMALIZE,fallthrough,B1_MODE_DISPATCH,0x5fb61,H,after timer/flag normalization
+B1_MODE_DISPATCH,ja_5fd10,B6_COMMON_EPILOGUE,0x5fb6b,H,mode out of range (>4)
+B1_MODE_DISPATCH,jt_case4,B2_CASE4_MOH_INIT,0x5fb71,H,jump table slot 4 -> 0x5fb82
+B1_MODE_DISPATCH,jt_case23,B3_CASE23_RETRAIN_INIT,0x5fb71,H,jump table slots 2/3 -> 0x5fd40
+B1_MODE_DISPATCH,jt_case1,B4_CASE1_GUARDED_REINIT,0x5fb71,H,jump table slot 1 -> 0x5fed0
+B1_MODE_DISPATCH,jt_case0,B5_CASE0_TIMING_REINIT,0x5fb71,H,jump table slot 0 -> 0x5ff90
+B2_CASE4_MOH_INIT,jmp_5fd10,B6_COMMON_EPILOGUE,0x5fd02,H,case-4 completion
+B3_CASE23_RETRAIN_INIT,jmp_5fd10,B6_COMMON_EPILOGUE,0x5fea4,H,case-2/3 completion
+B4_CASE1_GUARDED_REINIT,jmp_5fd10,B6_COMMON_EPILOGUE,0x5ff8a,H,case-1 completion
+B5_CASE0_TIMING_REINIT,jne_or_call_then_5fd10,B6_COMMON_EPILOGUE,0x60049|0x6005b,H,case-0 completion
+B6_COMMON_EPILOGUE,ret,RET,0x5fd3a,H,common return path

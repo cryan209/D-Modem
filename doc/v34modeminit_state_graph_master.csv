@@ -1,0 +1,11 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,ENTRY,RESET_BLOCKS,CORE_DEFAULTS,0x5f590|0x5f5da,H,initial reset sequence,v34modeminit_state_graph_edges.csv
+control,CORE_DEFAULTS,COMMON_SETUP,MODE_SPLIT,0x5f6ac|0x5f748,H,common init then mode split,v34modeminit_state_graph_edges.csv
+control,MODE_SPLIT,MODE_NE_0x65,POST_MODE_SHARED,0x5f75c|0x5f892,H,non-0x65 branch,v34modeminit_state_graph_edges.csv
+control,MODE_SPLIT,MODE_EQ_0x65,POST_MODE_SHARED,0x5f93f|0x5fa72,H,0x65 branch,v34modeminit_state_graph_edges.csv
+control,POST_MODE_SHARED,DETECTOR_CFG,RETURN,0x5f8b4|0x5f914,H,final detector arm,v34modeminit_state_graph_edges.csv
+param,ctx+0xa81c..,write,training_blocks_seeded,0x5f590|0x5f6aa,H,training structs reset,v34modeminit_state_graph_param_edges.csv
+param,ctx+0x359c,read,mode_selector,0x5f748|0x5f8b4,H,branch selector,v34modeminit_state_graph_param_edges.csv
+param,ctx+0x122,or_0x0200,rx_flags_arm_detector,0x5f8f2|0x5f914,H,detector active bit,v34modeminit_state_graph_param_edges.csv
+call,COMMON_SETUP,VPcmV34SetTxScale,tx_scale_call,0x5f6ac,H,tx scale setup,v34modeminit_state_graph_param_edges.csv
+call,DETECTOR_CFG,detectorinit,detector_call,0x5f8f2,H,detector profile setup,v34modeminit_state_graph_param_edges.csv

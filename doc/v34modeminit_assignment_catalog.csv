@@ -1,0 +1,9 @@
+layer,state_hex,evidence_addresses,count
+control,B1_RESET_BLOCKS,0x5f590|0x5f6aa,2
+control,B2_CORE_DEFAULTS,0x5f5da|0x5f688,2
+control,B3_COMMON_SETUP,0x5f6ac|0x5f8b0,2
+control,B4_MODE_SPLIT,0x5f748|0x5f93f,2
+control,B7_POST_MODE_SHARED,0x5f8b4|0x5f8f2,2
+control,B8_DETECTOR_CFG,0x5f8f2|0x5f914,2
+param,mode_and_flags,0x5f748|0x5f8b4|0x5f914,3
+call,init_calls,0x5f6ac|0x5f8f2,2

@@ -1,0 +1,16 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_ENTRY_GATE,0x0000b3c0,H,function entry
+B0_ENTRY_GATE,disabled_return,RET,0x0000b4a0,H,ctx+0x262 == 0 early return
+B0_ENTRY_GATE,enabled,B1_TIMING_ACCOUNT,0x0000b420,H,normal runtime path
+B1_TIMING_ACCOUNT,fallthrough,B2_MAIN_STATE_DISPATCH_JT0,0x0000b4f4,H,main state table gate
+B2_MAIN_STATE_DISPATCH_JT0,jt0_idx3,B3_HANDSHAKE_MOD_LOOP,0x0000b4f4,H,v34 handshake/modulate path
+B2_MAIN_STATE_DISPATCH_JT0,jt0_idx1,B4_RUNPCM_DISPATCH_JT1,0x0000b4f4,H,runPcm dispatch path
+B2_MAIN_STATE_DISPATCH_JT0,jt0_idx2,B8_V90_DISPATCH_JT5,0x0000b4f4,H,v90 entry path
+B2_MAIN_STATE_DISPATCH_JT0,jt0_post,B6_POST_STATE_DISPATCH_JT3,0x0000c24b,H,post-state action dispatch
+B4_RUNPCM_DISPATCH_JT1,post_dispatch,B6_POST_STATE_DISPATCH_JT3,0x0000bc39,H,runPcm return mapped
+B5_K56_DISPATCH_JT2,post_dispatch,B6_POST_STATE_DISPATCH_JT3,0x0000c0f3,H,k56 return mapped
+B6_POST_STATE_DISPATCH_JT3,delay_select,B7_DELAY_SELECT_JT4,0x0000c49c,H,retrain-delay selector
+B7_DELAY_SELECT_JT4,retrain_arm,B9_RETRAIN_REASON_ARMS,0x0000ca07,H,delay value resolved
+B8_V90_DISPATCH_JT5,retrain_or_state,B9_RETRAIN_REASON_ARMS,0x0000c805,H,v90 return mapped
+B9_RETRAIN_REASON_ARMS,finalize,B10_FINAL_GUARDS_RETURN,0x0000ce40,H,late guards and state writes
+B10_FINAL_GUARDS_RETURN,ret,RET2,0x0000d02f,H,function return

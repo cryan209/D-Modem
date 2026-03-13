@@ -1,0 +1,17 @@
+source_context,source_value,target_context,target_value,site_addr,condition_summary
+main_state,any,aux_state,0x0b,0x0000cc0e,runPcmDemod return case
+main_state,any,aux_state,0x0c,0x0000b949,state-table path
+main_state,any,aux_state,0x0d,0x0000b7a5 / 0x0000c4a7,tone/watchdog paths
+main_state,any,aux_state,0x0e,0x0000b79f,counter threshold path
+main_state,any,aux_state,0x0f,0x0000be3c / 0x0000becd,phase hold paths
+main_state,any,aux_state,0x10,0x0000b823 / 0x0000bdf5,transition and retrain window setup
+main_state,any,main_state,0x0,0x0000baf3,qc verification accept/reset path
+main_state,any,main_state,0x1,0x0000cd18,control branch with debug gate
+main_state,any,main_state,0x2,0x0000c30d / 0x0000c4b6 / 0x0000c55e,demod result and fallback paths
+main_state,any,main_state,0x3,0x0000c346 / 0x0000cc48 / 0x0000ce68,phase-entry transition paths
+main_state,any,main_state,0x5,0x0000cb17 / 0x0000ccb2 / 0x0000ce53,multiple v90/k56 return arms
+main_state,any,main_state,0x7,0x0000ca57,retrain-delay selector arm
+main_state,any,main_state,0x8,0x0000c280,post-state dispatch setup
+main_state,any,main_state,0x9,0x0000b899 / 0x0000bea6,tone detect and reneg windows
+main_state,any,main_state,0x0a,0x0000c266 / 0x0000caf3 / 0x0000ce95,v90/k56 return and selector paths
+main_state,any,main_state,0x0b,0x0000ce4d,state finalization arm

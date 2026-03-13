@@ -1,0 +1,14 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0xa9dc,arg,settxlevel,0x6272c|0x6273c,H,tx level profile pointer
+param,ctx+0xaa84/0xaa94/0xaa8a,arg,V34SetupModulator,0x62769|0x62793,H,baud/carrier/phase params
+param,ctx+0x24c/0x250,read,dual_mode_bool,0x6274a|0x6275e,H,multimode capability flag
+param,ctx+0x122,and_not_0x0800,rx_flags,0x62798|0x627a4,H,clear mode bit before setup
+param,ctx+0x3594,write,rx_state_0x23,0x627ab|0x627c6,H,force rx state
+param,ctx+0x3596,write,tx_state_0x12,0x627cd|0x627ec,H,force tx state
+param,ctx+0x25c0,write_zero,tx_runtime,0x627fc,H,clear runtime counter
+param,ctx+0x25c2,or_0x0200,tx_runtime_flags,0x62803|0x62809,H,set phase flag
+call,B0_ENTRY,settxlevel,settxlevel_call,0x6273c,H,set transmit gain
+call,B2_SETUP_MOD,V34SetupModulator,setup_mod_call,0x62793,H,modulator config
+call,B6_DBG_RX_LOG,dsplibs_debug_printf,debug_rx,0x62878,H,rx transition diagnostics
+call,B7_DBG_TX_LOG,dsplibs_debug_printf,debug_tx,0x628da,H,tx transition diagnostics
+call,B5_FINALIZE_TXINIT,txinit,txinit_call,0x62819,H,tail init transmit path

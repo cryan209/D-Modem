@@ -1,0 +1,12 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0x262,read,early_disable_gate,0x0000b3c0|0x0000b4a0,H,controls immediate return path
+param,ctx+0x238,read_write,timing_accumulator,0x0000b420|0x0000b52c,H,fragment-aligned runtime accounting
+param,ctx+0x0,read_write,main_state,0x0000b4f4|0x0000c24b,H,primary and post-state dispatch selector
+param,ctx+0x4,read_write,aux_state,0x0000b4a0|0x0000ce8a,H,phase/aux return state field
+param,ctx+0xabe0,read,delay_selector,0x0000c49c,H,JT4 retrain timing selector
+param,ctx+0x3596/0x3594,write,tx_rx_state_updates,0x0000cc44|0x0000ce40,H,state transition side effects
+call,B3_HANDSHAKE_MOD_LOOP,v34handshak_modulatevector,handshake_tx,0x0000bb7c,H,v34 handshake processing path
+call,B4_RUNPCM_DISPATCH_JT1,VPcmFloModem::runPcmModem,runpcm_call,0x0000bc2c,H,v90 pcm modem core call
+call,B5_K56_DISPATCH_JT2,K56FlexFloModem::k56FlexRunDemodulator,k56_call,0x0000c0e6,H,k56 demod core call
+call,B8_V90_DISPATCH_JT5,VPcmFloModem::v90RunDemodulator,v90_call,0x0000c7f8,H,v90 demod core call
+call,B9_RETRAIN_REASON_ARMS,VPcmV34InitiateRetrain,retrain_call,0x0000ca07|0x0000ce2b,H,retrain reason dispatches
