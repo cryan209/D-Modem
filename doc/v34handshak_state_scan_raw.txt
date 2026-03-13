@@ -1,0 +1,5 @@
+TX state (offset 0x3596): immediate compares
+     636ff:	66 83 be 96 35 00 00 	cmp    WORD PTR [esi+0x3596],0x44
+     6600a:	66 83 bf 96 35 00 00 	cmp    WORD PTR [edi+0x3596],0x18
+
+TX state (offset 0x3596): immediate assignments

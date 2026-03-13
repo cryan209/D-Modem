@@ -24,8 +24,9 @@
 #define V8OPEN_V21_ORG_SPACE 1180U
 #define V8OPEN_ANSAM_REVERSAL_MS 450U
 #define V8OPEN_ANSAM_LEADIN_MS 200U
-#define V8OPEN_ANSAM_TONE_MS 5000U
-#define V8OPEN_ANSAM_SEND_MS (V8OPEN_ANSAM_LEADIN_MS + V8OPEN_ANSAM_TONE_MS)
+#define V8OPEN_ANS_TONE_MS 1000U
+#define V8OPEN_ANSAM_TONE_MS 4000U
+#define V8OPEN_ANSAM_SEND_MS (V8OPEN_ANSAM_LEADIN_MS + V8OPEN_ANS_TONE_MS + V8OPEN_ANSAM_TONE_MS)
 #define V8OPEN_ANSAM_AM_DIVISOR 5U
 #define V8OPEN_CM_WAIT_TAIL_MS 800U
 #define V8OPEN_CJ_WAIT_MS 900U
@@ -842,10 +843,13 @@ static void v8_open_emit_ansam(struct v8_open_engine *engine,
 			       int cnt)
 {
 	unsigned leadin_samples;
+	unsigned ans_end_samples;
 	unsigned reversal_samples;
 	int i;
 
 	leadin_samples = v8_open_samples_from_ms(engine, V8OPEN_ANSAM_LEADIN_MS);
+	ans_end_samples = leadin_samples +
+		v8_open_samples_from_ms(engine, V8OPEN_ANS_TONE_MS);
 	reversal_samples = v8_open_samples_from_ms(engine, V8OPEN_ANSAM_REVERSAL_MS);
 	if (!reversal_samples)
 		reversal_samples = 1U;
@@ -860,6 +864,17 @@ static void v8_open_emit_ansam(struct v8_open_engine *engine,
 		elapsed = engine->samples_in_phase + (unsigned)i;
 		if (elapsed < leadin_samples) {
 			pcm[i] = 0;
+			continue;
+		}
+
+		if (elapsed < ans_end_samples) {
+			/*
+			 * V.8 §8.2.1: send plain ANS (2100 Hz, no phase
+			 * reversals, no AM) first so the calling modem can
+			 * settle its tone detector before ANSam begins.
+			 */
+			pcm[i] = v8_open_wave_sample(engine,
+						     V8OPEN_ANSAM_FREQ, 0);
 			continue;
 		}
 
