@@ -1,0 +1,10 @@
+kind,offset_or_symbol,width,access,description
+field,ctx+0xa5c,coeff[0x3d],write,active TX/RX FIR coefficient bank
+field,ctx+0xc22/0xc24,16,write,FSK phase increments for symbol set
+field,ctx+0xc2a,16,write,amplitude scaling from mpyint(0x3224,a42)
+field,ctx+0xc2c/0xc2e,16,write,profile-dependent control constants
+field,ctx+0xc30..0xc46,mixed,write,FSK demod/run-length counters reset
+field,ctx+0x26,16,read/write,set bit 0x0800 (V21 active)
+call,V8_setFilters,func,invoke,load selected filter bank pointers
+call,V8_V21_reset,func,invoke,reset V.21 internal state machine
+

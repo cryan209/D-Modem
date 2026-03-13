@@ -1,0 +1,4 @@
+kind,offset_or_symbol,width,access,description
+arg,arg0,8,read,table index (wrapped)
+rodata,.rodata+0x5740,table,read,cosine lookup table
+

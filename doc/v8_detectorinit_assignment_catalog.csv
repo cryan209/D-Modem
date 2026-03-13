@@ -1,0 +1,8 @@
+kind,offset_or_symbol,width,access,description
+arg,arg0,ptr,read,parent modem/context pointer
+arg,arg1,ptr,read/write,detector object base
+field,det+0x14/0x1c,arrays,write,cleared pair-state matrices
+field,det+0x24/0x2a,arrays,write,cleared auxiliary state arrays
+field,det+0x00..0x12,mixed,write,detector config + counters
+field,parent+0x26,16,read/write,enable detector bit 0x200
+

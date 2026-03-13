@@ -1,0 +1,5 @@
+kind,offset_or_symbol,width,access,description
+arg,arg0,16,read,operand A
+arg,arg1,16,read,operand B
+const,14,imm,read,right-shift scale factor
+

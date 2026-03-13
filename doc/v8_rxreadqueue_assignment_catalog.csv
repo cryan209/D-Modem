@@ -1,0 +1,6 @@
+kind,offset_or_symbol,width,access,description
+field,ctx+0x110,16,write,available RX count decrement
+field,ctx+0x114,ptr,read/write,RX circular read pointer
+field,ctx+0x11c..0x21b,ring,read,RX queue storage
+field,ctx+0x5c8,4x16,write,working RX sample block
+

@@ -1,0 +1,8 @@
+from,to,condition,kind,target
+ENTRY,MAIN,always,flow,
+MAIN,MAIN,call,call,_ZN5QueueIfE5resetEv
+MAIN,MAIN,call,call,_ZN5QueueIfE5writeEf
+MAIN,MAIN,call,call,_ZN8FloatFIR5resetEv
+MAIN,MAIN,call,call,_ZN9ScramblerIihE5resetEi
+MAIN,MAIN,call,call,dsplibs_debug_printf
+MAIN,RETURN,always,return,

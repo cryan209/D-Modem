@@ -1,0 +1,5 @@
+kind,offset_or_symbol,width,access,description
+arg,arg0,ptr,write,destination coefficient array
+arg,arg1,ptr,read,source coefficient array
+arg,arg2,16,read,number of taps to copy
+

@@ -1,0 +1,5 @@
+kind,offset_or_symbol,width,access,description
+field,state+0x1e,16,read/write,CRC shift register
+const,0x1021,poly,read,CRC polynomial
+arg,arg1,1,read,input bit
+

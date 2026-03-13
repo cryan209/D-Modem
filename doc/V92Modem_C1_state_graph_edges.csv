@@ -1,0 +1,12 @@
+from,to,condition,kind,target
+ENTRY,MAIN,always,flow,
+MAIN,MAIN,call,call,V92createConstellations
+MAIN,MAIN,call,call,V92createFilterCoefficients
+MAIN,MAIN,call,call,_ZN12V92ModulatorC1EjP13V92Phase2InfoP5V92JaP19tagV90DILdescriptorP5V92CPP16V92MappingParamsP13V92Parameters
+MAIN,MAIN,call,call,_ZN13V92ParametersC1EP19_tagModemParameters
+MAIN,MAIN,call,call,_ZN13V92Phase2InfoC1EP13V92Parameters
+MAIN,MAIN,call,call,_ZN5V92CPC1Ev
+MAIN,MAIN,call,call,_ZN8V92Modem10printTitleEv
+MAIN,MAIN,call,call,dsplibs_debug_printf
+MAIN,MAIN,call,call,sysdep_malloc
+MAIN,RETURN,always,return,

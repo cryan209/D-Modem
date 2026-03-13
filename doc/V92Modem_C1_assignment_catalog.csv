@@ -1,0 +1,6 @@
+kind,offset_or_symbol,width,access,description
+function,_ZN8V92ModemC1E12V92ModemSideP19_tagModemParametersjP19tagV90DILdescriptor20V92ComputationalMode,n/a,entry,symbol entry
+global,dsplibs_debug_level,32,read,debug-level gate
+global,.rodata.str1.1,32,read,absolute relocation reference
+global,.rodata.str1.4,32,read,absolute relocation reference
+global,dsplibs_debug_level,32,read,absolute relocation reference

@@ -1,0 +1,3 @@
+source,parameter,access,notes
+MAIN,symbol:_ZN8V92ModemC2E12V92ModemSideP19_tagModemParametersjP19tagV90DILdescriptor20V92ComputationalMode,read,entry context
+MAIN,global:dsplibs_debug_level,read,debug gating

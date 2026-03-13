@@ -1,0 +1,8 @@
+from,to,condition,address,notes
+ENTRY,ALLOC_84,always,0x12d18,first 0x200 allocation
+ALLOC_84,ALLOC_88,always,0x12d2a,second allocation
+ALLOC_88,ALLOC_8C,always,0x12d3c,third allocation
+ALLOC_8C,ALLOC_90,always,0x12d4e,fourth allocation
+ALLOC_90,ALLOC_94,always,0x12d60,fifth allocation
+ALLOC_94,ALLOC_98,always,0x12d72,sixth allocation
+ALLOC_98,RETURN,always,0x12d84,epilog

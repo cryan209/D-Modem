@@ -1,38 +1,48 @@
 # v8_getbit Target Walkthrough
 
 - Function: `v8_getbit`
-- Range: `0x754b0` .. `0x75674`
-- Chunk: `chunk_00.asm` (`0x754b0` .. `0x75679`)
+- Range: `0x000754b0` .. `0x00075674`
+- Disassembly: [v8_getbit_disasm.asm](/root/D-Modem/doc/v8_getbit_disasm.asm)
+- Pseudo-C: [v8_getbit_pseudoc.c](/root/D-Modem/doc/v8_getbit_pseudoc.c)
 
-## Block-Level Walkthrough
+## Purpose
+- Emit one bit from a packed message stream with CRC and terminal/reload semantics.
 
-| Block | Entry | Behavior summary |
-|---|---:|---|
-| `B0_ENTRY_BITSLEFT` | `0x754b0` | Setup and check `bits_left (s+0x34)`. |
-| `B1_REMAIN_CALC` | `0x754d4` | Compute `remaining = total-consumed`. |
-| `B2_REFILL_PARTIAL` | `0x754fc` | Refill using `remaining` bits (no word-index increment). |
-| `B3_REFILL_FULL` | `0x755a0` | Refill using `chunk_bits`, increment word index. |
-| `B4_CRC_UPDATE` | `0x75524` | Optional per-bit CRC-CCITT update over newly loaded bits. |
-| `B5_EMIT_BIT` | `0x75571` | Decrement `bits_left`; return next bit from shift register. |
-| `B6_TERM_DISPATCH` | `0x755d6` | Terminal handling when `remaining<=0`. |
-| `B7_TERM_MINUS16` | `0x75624` | Special `remaining==-16` case emits 4 bits of `0xF`. |
-| `B8_TERM_CRC_TRAILER` | `0x75651` | Emit 16-bit CRC trailer when CRC enabled at exact end. |
-| `B9_RELOAD_RECURSE` | `0x755ed` | Reload state from preload fields, recurse, and return recursive bit. |
-| `B10_ERROR_RET` | `0x755e1` | Return `-1` when no reload mode and no bits available. |
+## Signature (lifted)
+```c
+int v8_getbit_pseudoc(V8Bitstream *s)
+```
 
-## Key Edges
+## Execution Phases
+1. Fast path:
+- If `bits_left` (`+0x34`) is nonzero, emit next bit from `shift_reg` (`+0x30`).
 
-- `B0_ENTRY_BITSLEFT -> B5_EMIT_BIT` when `bits_left != 0`.
-- `B0_ENTRY_BITSLEFT -> B1_REMAIN_CALC` when `bits_left == 0`.
-- `B1_REMAIN_CALC -> B2_REFILL_PARTIAL` when `0 < remaining < chunk_bits`.
-- `B1_REMAIN_CALC -> B3_REFILL_FULL` when `remaining >= chunk_bits`.
-- `B2/B3 -> B4_CRC_UPDATE -> B5_EMIT_BIT` normal refill flow.
-- `B1_REMAIN_CALC -> B6_TERM_DISPATCH` when `remaining <= 0`.
-- `B6_TERM_DISPATCH -> B8_TERM_CRC_TRAILER` for exact-end + CRC mode.
-- `B6_TERM_DISPATCH -> B7_TERM_MINUS16` for sentinel `-16`.
-- `B6_TERM_DISPATCH -> B9_RELOAD_RECURSE` when reload enabled.
-- `B6_TERM_DISPATCH -> B10_ERROR_RET` when no reload.
+2. Refill arbitration:
+- Compute `remaining = total_bits(+0x22) - consumed(+0x24)`.
+- If positive, load either partial or full chunk depending on `chunk_bits(+0x26)`.
+
+3. Optional CRC update:
+- If `crc_enable(+0x20) != 0`, update `crc(+0x1e)` across newly loaded bits using polynomial `0x1021`.
+
+4. Terminal handling:
+- `remaining == 0`: optionally emit 16-bit CRC trailer.
+- `remaining == -16`: emit 4-bit terminator value `0xF`.
+- other non-positive: either reload recursively (repeat mode) or return `-1`.
+
+5. Bit emit:
+- Decrement `bits_left`, extract one bit from `shift_reg`, return `0/1`.
+
+## Key State Touched
+- `+0x30` (field, 32): shift register cache.
+- `+0x34` (field, 16): cached bits remaining.
+- `+0x22/+0x24` (field, 16): total and consumed payload bits.
+- `+0x28` (field, 16): payload word cursor.
+- `+0x1e/+0x20` (field, 16): CRC register/mode.
+- `+0x2a/+0x2c` (field, 16): repeat enable and packet counter.
+- `+0x38/+0x3c` (field, 32/16): reload seeds.
+
+## Direct Calls
+- `v8_getbit` (self-recursive reload path)
 
 ## Practical Interpretation
-
-`v8_getbit` is a bitstream extractor with CRC support and packetized reload behavior. It maintains a small shift-register cache over a 16-bit word stream and supports end-of-payload trailers/sentinels through explicit terminal rules.
+- This function is the handshake bit-serializer core. It combines compact bit extraction with protocol framing edge cases (CRC trailer, terminator nibble, repeat packet sequencing).

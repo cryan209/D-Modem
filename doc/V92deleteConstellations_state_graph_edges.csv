@@ -1,0 +1,20 @@
+from,to,condition,address,notes
+ENTRY,CHECK_84,always,0x12de8,load first pointer
+CHECK_84,FREE_84,ptr!=0,0x12df0,free then continue
+CHECK_84,CHECK_88,ptr==0,0x12df6,skip free
+FREE_84,CHECK_88,always,0x12e88,rejoin chain
+CHECK_88,FREE_88,ptr!=0,0x12dfe,free then continue
+CHECK_88,CHECK_8C,ptr==0,0x12e00,skip free
+FREE_88,CHECK_8C,always,0x12e78,rejoin chain
+CHECK_8C,FREE_8C,ptr!=0,0x12e08,free then continue
+CHECK_8C,CHECK_90,ptr==0,0x12e0a,skip free
+FREE_8C,CHECK_90,always,0x12e68,rejoin chain
+CHECK_90,FREE_90,ptr!=0,0x12e12,free then continue
+CHECK_90,CHECK_94,ptr==0,0x12e14,skip free
+FREE_90,CHECK_94,always,0x12e58,rejoin chain
+CHECK_94,FREE_94,ptr!=0,0x12e1c,free then continue
+CHECK_94,CHECK_98,ptr==0,0x12e1e,skip free
+FREE_94,CHECK_98,always,0x12e48,rejoin chain
+CHECK_98,FREE_98,ptr!=0,0x12e26,free and return
+CHECK_98,RETURN,ptr==0,0x12e28,all done
+FREE_98,RETURN,always,0x12e38,epilog

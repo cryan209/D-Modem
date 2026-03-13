@@ -1,0 +1,14 @@
+from,to,condition,address,notes
+ENTRY,CHECK_5C,always,0x12e98,first pointer check
+CHECK_5C,FREE_5C,ptr!=0,0x12e9d,free then continue
+CHECK_5C,CHECK_60,ptr==0,0x12e9f,skip
+FREE_5C,CHECK_60,always,0x12ef8,rejoin
+CHECK_60,FREE_60,ptr!=0,0x12ea4,free then continue
+CHECK_60,CHECK_64,ptr==0,0x12ea6,skip
+FREE_60,CHECK_64,always,0x12ee8,rejoin
+CHECK_64,FREE_64,ptr!=0,0x12eab,free then continue
+CHECK_64,CHECK_68,ptr==0,0x12ead,skip
+FREE_64,CHECK_68,always,0x12ed8,rejoin
+CHECK_68,FREE_68,ptr!=0,0x12eb2,free and return
+CHECK_68,RETURN,ptr==0,0x12eb4,all done
+FREE_68,RETURN,always,0x12ec8,epilog

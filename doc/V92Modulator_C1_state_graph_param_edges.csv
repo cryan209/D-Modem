@@ -1,0 +1,3 @@
+source,parameter,access,notes
+MAIN,symbol:_ZN12V92ModulatorC1EjP13V92Phase2InfoP5V92JaP19tagV90DILdescriptorP5V92CPP16V92MappingParamsP13V92Parameters,read,entry context
+MAIN,global:dsplibs_debug_level,read,debug gating

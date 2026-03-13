@@ -1,0 +1,8 @@
+from,to,condition,kind,target
+ENTRY,MAIN,always,flow,
+MAIN,MAIN,call,call,_Z22V92DILdescriptorPackerP19tagV90DILdescriptorPhPi
+MAIN,MAIN,call,call,_ZN12V92Modulator11enterPhase3Ev
+MAIN,MAIN,call,call,_ZN12V92Modulator5resetEv
+MAIN,MAIN,call,call,_ZN8V92Modem10printTitleEv
+MAIN,MAIN,call,call,dsplibs_debug_printf
+MAIN,RETURN,always,return,

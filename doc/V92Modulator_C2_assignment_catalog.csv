@@ -1,0 +1,7 @@
+kind,offset_or_symbol,width,access,description
+function,_ZN12V92ModulatorC2EjP13V92Phase2InfoP5V92JaP19tagV90DILdescriptorP5V92CPP16V92MappingParamsP13V92Parameters,n/a,entry,symbol entry
+global,dsplibs_debug_level,32,read,debug-level gate
+global,.data,32,read,absolute relocation reference
+global,.rodata.cst4,32,read,absolute relocation reference
+global,.rodata.str1.1,32,read,absolute relocation reference
+global,dsplibs_debug_level,32,read,absolute relocation reference

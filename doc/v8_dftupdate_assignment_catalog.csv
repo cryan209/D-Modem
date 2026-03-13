@@ -1,0 +1,10 @@
+kind,offset_or_symbol,width,access,description
+arg,arg0,ptr,read/write,array of 0x10-byte DFT bin states
+arg,arg1,16,read,number of bins
+arg,arg2,ptr,read,input sample pointer
+arg,arg3,16,read,number of input samples
+field,bin+0x0,16,read/write,phase accumulator
+field,bin+0x2,16,read,phase increment
+field,bin+0x4,32,read/write,in-phase accumulator
+field,bin+0x8,32,read/write,quadrature accumulator
+

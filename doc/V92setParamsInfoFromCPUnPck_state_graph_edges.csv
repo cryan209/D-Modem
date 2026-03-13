@@ -1,0 +1,16 @@
+from,to,condition,address,notes
+ENTRY,DBG_ENTRY,debug_level>1,0x12f16,verbose diagnostics preamble
+ENTRY,BASE_COPY,debug_level<=1,0x12f1c,main path
+DBG_ENTRY,BASE_COPY,always,0x1377a,rejoin main path
+BASE_COPY,GAIN_SCALE,always,0x12f1c,copy base fields and derive mode scalar
+GAIN_SCALE,FILTER_ENABLE_GATE,always,0x13115,gain normalization complete
+FILTER_ENABLE_GATE,FILTER_PROCESS,dst+0x08!=0,0x1311a,process filter lengths/tables
+FILTER_ENABLE_GATE,CONST_ENABLE_GATE,dst+0x08==0,0x13270,skip filter section
+FILTER_PROCESS,CONST_ENABLE_GATE,always,0x13270,filter section done
+CONST_ENABLE_GATE,CONST_PROCESS,dst+0x0c!=0,0x13275,process constellation counts/tables
+CONST_ENABLE_GATE,RETURN,dst+0x0c==0,0x13630,no constellation section
+CONST_PROCESS,FALLBACK_ZERO_CHECK,always,0x134b2,test all constellation counts
+FALLBACK_ZERO_CHECK,FALLBACK_COPY,all_counts_zero,0x134f1,load fallback defaults
+FALLBACK_ZERO_CHECK,TABLE_COPY,any_count_nonzero,0x13514,copy tables directly
+FALLBACK_COPY,TABLE_COPY,always,0x13514,rejoin table copy
+TABLE_COPY,RETURN,always,0x13630,done

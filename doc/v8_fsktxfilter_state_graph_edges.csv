@@ -1,0 +1,7 @@
+from,to,condition,kind,target
+ENTRY,INIT,always,flow,
+INIT,LOOP_BODY,always,flow,
+LOOP_BODY,LOOP_CHECK,always,flow,
+LOOP_CHECK,LOOP_BODY,i<=0x3c,branch,
+LOOP_CHECK,FINAL_SHIFT,i>0x3c,branch,
+FINAL_SHIFT,RETURN,always,return,

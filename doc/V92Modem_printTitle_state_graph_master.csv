@@ -1,0 +1,4 @@
+plane,node,edge_to,condition,action,details
+A,ENTRY,MAIN,always,enter,function prologue
+C,MAIN,MAIN,when-needed,call,external helper invocations
+A,MAIN,RETURN,always,return,epilogue

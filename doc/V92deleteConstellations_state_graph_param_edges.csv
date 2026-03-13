@@ -1,0 +1,8 @@
+entity,operation,target,address,details
+ctx+0x84,read/check,ptr0,0x12de8,first constellation pointer
+ctx+0x88,read/check,ptr1,0x12df6,second constellation pointer
+ctx+0x8c,read/check,ptr2,0x12e00,third constellation pointer
+ctx+0x90,read/check,ptr3,0x12e0a,fourth constellation pointer
+ctx+0x94,read/check,ptr4,0x12e14,fifth constellation pointer
+ctx+0x98,read/check,ptr5,0x12e1e,sixth constellation pointer
+sysdep_free,call,free,0x12e34|0x12e44|0x12e54|0x12e64|0x12e74|0x12e84,free on non-null pointers

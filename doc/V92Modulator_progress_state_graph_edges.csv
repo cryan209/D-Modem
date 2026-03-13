@@ -1,0 +1,17 @@
+from,to,condition,kind,target
+ENTRY,MAIN,always,flow,
+MAIN,MAIN,call,call,_ZN12V92Modulator17mkResampledSignalERj
+MAIN,MAIN,call,call,_ZN15V92BitsToSymbol18nofBitsForNextTimeEv
+MAIN,MAIN,call,call,_ZN15V92BitsToSymbol19setSymbolsBlockSizeEj
+MAIN,MAIN,call,call,_ZN15V92BitsToSymbol7processEPhRjPs
+MAIN,MAIN,call,call,_ZN18V92Phase3Modulator14generateSymbolEv
+MAIN,MAIN,call,call,_ZN18V92Phase4Modulator14generateSymbolEv
+MAIN,MAIN,call,call,_ZN18V92Phase4Modulator5resetEsh23V92Phase4ModulatorStatejj
+MAIN,MAIN,call,call,_ZN21ResamplerTimingOffset15setTimingOffsetEf
+MAIN,MAIN,call,call,_ZN5QueueIfE4readEPfj
+MAIN,MAIN,call,call,_ZN5QueueIfE5writeEPfj
+MAIN,MAIN,call,call,_ZN8FloatFIR7processEPKfPfj
+MAIN,MAIN,call,call,_ZN9ScramblerIihE7processEPKiPhj
+MAIN,MAIN,call,call,dsplibs_debug_printf
+MAIN,MAIN,call,call,edprintf
+MAIN,RETURN,always,return,

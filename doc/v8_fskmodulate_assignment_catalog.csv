@@ -1,0 +1,9 @@
+kind,offset_or_symbol,width,access,description
+field,ctx+0xc20+0x0,16,read/write,FSK phase accumulator
+field,ctx+0xc20+0x2,16,read,mark/0-bit phase step
+field,ctx+0xc20+0x4,16,read,space/1-bit phase step
+field,ctx+0xc20+0xa,16,read,TX amplitude scale
+field,ctx+0x5c0,4x16,write,staged generated samples
+call,v8_fsktxfilter,func,invoke,TX pulse shaping FIR
+call,v8_txwritequeue,func,invoke,queue output samples
+

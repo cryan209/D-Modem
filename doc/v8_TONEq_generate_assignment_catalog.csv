@@ -1,0 +1,5 @@
+kind,offset_or_symbol,width,access,description
+field,state+0xdd2,16,read/write,NCO phase accumulator
+field,state+0xdd4,16,read,NCO phase increment
+call,v8_cosread,func,invoke,cosine LUT fetch
+

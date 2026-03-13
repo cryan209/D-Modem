@@ -1,0 +1,10 @@
+kind,offset_or_symbol,width,access,description
+arg,arg0(dst),32,read/write,destination runtime parameter block
+arg,arg1(src),32,read,source CP unpacked payload block
+field,dst+0x00..0x18,mixed,write,base scalar/mode/gain fields
+field,dst+0x1c..0x58,mixed,write,copied CP scalar section and filter lengths
+field,dst+0x5c..0x68,ptr/read-write,write,float coefficient banks filled from int16 source arrays
+field,dst+0x6c..0x80,mixed,write,clamped constellation counts (<=0x80)
+field,dst+0x84..0x98,ptr/read-write,write,constellation destination banks populated from source pointers
+field,dst+0x9c..,mixed,write,fallback count block when all constellation counts are zero
+call,dsplibs_debug_printf,func,call,debug-only trace branches gated by debug level

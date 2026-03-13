@@ -1,0 +1,4 @@
+kind,offset_or_symbol,width,access,description
+arg,arg0,16,read,signed sample
+local,s,16,read/write,absolute value result
+

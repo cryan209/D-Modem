@@ -1,0 +1,10 @@
+kind,offset_or_symbol,width,access,description
+arg,arg0,32,read,filter state/context pointer
+arg,arg1,16,read,new input sample (signed)
+field,state+0x894,16,write,newest sample slot
+field,state+0x90c..0x894,16x61,read,history samples used for MAC
+field,state+0x90e..0x896,16x61,write,shifted history samples
+field,state+0xa5c..,16x61,read,FIR coefficients
+local,acc,32,read/write,accumulator with rounding bias
+const,0x8000,32,read,rounding constant before >>16
+const,0x3c,16,read,loop terminal index (61 taps)

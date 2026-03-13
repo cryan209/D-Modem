@@ -1,34 +1,48 @@
 # v8_tone_detect Target Walkthrough
 
 - Function: `v8_tone_detect`
-- Range: `0x78650` .. `0x788aa`
-- Chunk: `chunk_00.asm` (`0x78650` .. `0x788ac`)
+- Range: `0x00078650` .. `0x000788aa`
+- Disassembly: [v8_tone_detect_disasm.asm](/root/D-Modem/doc/v8_tone_detect_disasm.asm)
+- Pseudo-C: [v8_tone_detect_pseudoc.c](/root/D-Modem/doc/v8_tone_detect_pseudoc.c)
 
-## Block-Level Walkthrough
+## Purpose
+- Detect tone presence from a streaming sample window and update detector-mode counters.
 
-| Block | Entry | Behavior summary |
-|---|---:|---|
-| `T0_ENTRY_LOOP_GATE` | `0x78650` | Setup args and gate processing loop by `ctx+0x2c` vs current sample pointer. |
-| `T1_STAGE_A` | `0x78670` | Consume one input sample, update stage-A history (`+0x24/+0x2a`) and write intermediate sample. |
-| `T2_STAGE_B` | `0x78710` | Compute stage-B mixed response using coeff table at `det+0x0`, shift/update state (`+0x14/+0x1c`). |
-| `T3_STAGE_C_ENV` | `0x7877a` | Compute stage-C response, shift/update state (`+0x18/+0x20`), compute abs+smoothing into `det+0x12`. |
-| `T4_LOOP_BACKCHECK` | `0x787fb` | Advance sample pointer and loop while more data available. |
-| `T5_MODE_A` | `0x7880c` | Mode A (flag `+0x4`): apply low/high hysteresis on envelope and update detection counter. |
-| `T6_MODE_B` | `0x7884d` | Mode B (flag `+0x6`): one-sided threshold counter update. |
-| `T7_BOOTSTRAP` | `0x78869` | Bootstrap mode: require sustained amplitude > 0x30 for 0x33 hits before enabling mode B. |
-| `T8_RETURN` | `0x78843` | Return `(counter > limit)` for active modes, else 0. |
+## Signature (lifted)
+```c
+int v8_tone_detect_pseudoc(V8Ctx *ctx, V8ToneDet *det, int16_t *samples)
+```
 
-## Key Edges
+## Execution Phases
+1. Loop over available input samples:
+- Uses `ctx+0x2c` bound versus `samples` pointer.
 
-- `T0_ENTRY_LOOP_GATE -> T1_STAGE_A` when samples remain; else `-> T5_MODE_A`.
-- `T1_STAGE_A -> T2_STAGE_B -> T3_STAGE_C_ENV -> T4_LOOP_BACKCHECK` per sample.
-- `T4_LOOP_BACKCHECK -> T1_STAGE_A` while loop condition true.
-- `T5_MODE_A -> T8_RETURN` directly after hysteresis update and compare.
-- `T5_MODE_A -> T6_MODE_B` when mode A disabled.
-- `T6_MODE_B -> T8_RETURN` after threshold test.
-- `T6_MODE_B -> T7_BOOTSTRAP` when mode B disabled.
-- `T7_BOOTSTRAP -> T8_RETURN` in all cases (with optional mode latch side effects).
+2. Stage A update:
+- Writes latest input to stage-A history and computes first mixed output via fixed tap sets.
+
+3. Stage B/C update:
+- Uses coefficient table at `det+0x0`, updates rolling state slots and computes stage-C response.
+
+4. Envelope smoothing:
+- `env <- abs(stageC>>4) + mpy(env, 0x3ccd)`.
+
+5. Decision policy:
+- Mode A: hysteresis-based counter updates.
+- Mode B: one-threshold counter updates.
+- Bootstrap: persistence gate (`env > 0x30`) before mode-B latch.
+
+## Key State Touched
+- `det+0x24..0x2e` (field window): stage-A histories/intermediate.
+- `det+0x14..0x22` (field window): stage-B/C histories.
+- `det+0x12` (field, 16): envelope.
+- `det+0x8/+0xa` (field, 16): detect counter and threshold.
+- `det+0xe/+0x10` (field, 16): hysteresis thresholds.
+- `det+0x4/+0x6` (field, 16): mode flags.
+- `det+0x30` (field, 16): bootstrap persistence counter.
+
+## Direct Calls
+- `v8_absfn`
+- `v8_mpyint`
 
 ## Practical Interpretation
-
-`v8_tone_detect` is a streaming envelope/tone detector. It continuously filters incoming samples through compact fixed-point stages, then applies one of three policy modes (hysteresis, one-sided, bootstrap) to decide whether tone presence is currently asserted.
+- This is the central tone gate used by handshake state transitions. Its strength is policy separation: the same filtered envelope drives three different decision regimes without duplicating filtering code.

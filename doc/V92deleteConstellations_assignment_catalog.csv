@@ -1,0 +1,5 @@
+kind,offset_or_symbol,width,access,description
+arg,arg0(ctx),32,read,v92 runtime context pointer
+field,ctx+0x84..0x98,ptr,read,test/free six constellation pointers
+call,sysdep_free,func,call,free each non-null pointer
+note,pointers_not_zeroed,flag,behavior,caller must clear or avoid double-free externally

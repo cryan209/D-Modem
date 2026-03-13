@@ -1,0 +1,4 @@
+kind,offset_or_symbol,width,access,description
+field,state+0xdd2,16,write,phase accumulator reset
+field,state+0xdd4,16,write,phase step (0x688)
+

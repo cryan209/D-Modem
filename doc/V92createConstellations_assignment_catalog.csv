@@ -1,0 +1,9 @@
+kind,offset_or_symbol,width,access,description
+arg,arg0(ctx),32,read,v92 runtime context pointer
+field,ctx+0x84,ptr,write,constellation table pointer 0
+field,ctx+0x88,ptr,write,constellation table pointer 1
+field,ctx+0x8c,ptr,write,constellation table pointer 2
+field,ctx+0x90,ptr,write,constellation table pointer 3
+field,ctx+0x94,ptr,write,constellation table pointer 4
+field,ctx+0x98,ptr,write,constellation table pointer 5
+call,sysdep_malloc,func,call,allocator invoked with 0x200 bytes

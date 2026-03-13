@@ -1,0 +1,7 @@
+kind,offset_or_symbol,width,access,description
+arg,arg0,ptr,read/write,DFT bin array (0x10-byte entries)
+arg,arg1,16,read,number of bins
+arg,arg2,16,read,left-shift scale before energy
+field,bin+0x4/0x8,32,read,I/Q accumulators
+field,bin+0xc,16,write,computed energy
+

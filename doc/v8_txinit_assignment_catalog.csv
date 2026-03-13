@@ -1,0 +1,7 @@
+kind,offset_or_symbol,width,access,description
+field,ctx+0x77c..,0x8c words,write,TX FIR/state clear
+field,ctx+0x228..,0x1cc words,write,TX circular ring clear
+field,ctx+0x11c..,0x80 words,write,queue staging clear
+field,ctx+0x220/0x224,ptr,write,TX ring pointers
+field,ctx+0x21c,16,write,TX queue occupancy/init threshold
+

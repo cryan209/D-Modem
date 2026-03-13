@@ -1,0 +1,6 @@
+kind,offset_or_symbol,width,access,description
+field,ctx+0x5c0,4x16,read,staged TX sample block
+field,ctx+0x224,ptr,read/write,TX circular write pointer
+field,ctx+0x228..0x5bf,ring,write,TX circular sample ring
+field,ctx+0x21c,16,write,TX produced sample count
+

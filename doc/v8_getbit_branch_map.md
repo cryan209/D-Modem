@@ -1,50 +1,44 @@
 # v8_getbit Branch And Flow Map
 
 - Symbol: `v8_getbit`
-- Start: `0x754b0`
-- Size: `0x1c5` bytes (453)
-- End: `0x75674` (alignment at `0x75675..0x7567f`; next symbol `v8_copycoeff` at `0x75680`)
+- Start: `0x000754b0`
+- End: `0x00075674`
+- Size: `0x000001c5` bytes (`453`)
 
-## High-Level Structure
+## Summary
+- Bitstream extractor with shift-register caching, CRC trailer support, and reload/recursion behavior.
+- Emits one bit per call, refilling internal bit cache as needed from packed payload words.
 
-1. If `bits_left (s+0x34) > 0`, emit next bit directly from `shift_reg (s+0x30)`.
-2. Otherwise compute `remaining = total_bits(s+0x22) - consumed_bits(s+0x24)`.
-3. If `remaining > 0`, refill `shift_reg` from payload words at base `s+0x0` using either:
-  - partial chunk (`remaining < chunk_bits(s+0x26)`), or
-  - full chunk (`remaining >= chunk_bits`) with `word_index(s+0x28)++`.
-4. Optional CRC update when `crc_enable(s+0x20)!=0` and bits were loaded (`crc(s+0x1e)` polynomial `0x1021`).
-5. If `remaining <= 0`, handle terminal/reload modes:
-  - `remaining == 0` and CRC enabled: emit 16-bit CRC trailer.
-  - `remaining == -16 (0xfff0)`: emit 4-bit terminator (`0xF`).
-  - repeat/reload enabled (`s+0x2a != 0`): reset state from preload fields (`+0x38,+0x3c`) and recurse.
-  - otherwise return `-1`.
-6. Normal output path decrements `bits_left` and returns extracted LSB (`0/1`).
+## Control Regions
+- `R0_FAST_EMIT`: direct emit when `bits_left > 0`.
+- `R1_REFILL_DISPATCH`: compute `remaining = total_bits - consumed_bits` and choose refill/terminal path.
+- `R2_REFILL_PARTIAL`: refill using `remaining` bits when less than chunk width.
+- `R3_REFILL_FULL`: refill using full configured chunk width and increment word index.
+- `R4_CRC_UPDATE`: optional per-bit CRC-CCITT (`0x1021`) update over loaded bits.
+- `R5_TERMINAL`: terminal subcases (`remaining == 0`, `remaining == -16`, other).
+- `R6_RELOAD_RECURSE`: repeat mode reset + self-call.
 
-## Main Branch Points
+## Internal Branch Points
+- `0x000754ce`: `bits_left != 0` fast emit branch.
+- `0x000754e9`: `remaining > 0` refill path, else terminal dispatch.
+- `0x000754f6`: partial-vs-full refill split.
+- `0x00075524`: CRC update gate (`crc_enable != 0`).
+- `0x0007552d`: skip CRC loop when no loaded bits.
+- `0x000755d8/0x00075624`: terminal subcases (`0`, `-16`, fallback).
+- `0x000755e1`: reload enable test (`repeat != 0`) else return `-1`.
 
-- `0x754ce`: `bits_left` gate (`!=0` direct emit path).
-- `0x754e9`: `remaining > 0` vs terminal path.
-- `0x754f6`: partial vs full chunk refill split.
-- `0x75524`: CRC update enable gate.
-- `0x7552d`: CRC loop skipped when loaded-bit-count is zero.
-- `0x755d8/0x75624`: terminal subcases (`0`, `-16`, other).
-- `0x755e1`: reload/recursion enable (`s+0x2a != 0`) else `-1` return.
+## Direct Calls
+- `v8_getbit` (recursive call on reload path)
 
-## Call Targets
+## State/Field Effects
+- `+0x30/+0x34`: shift register and bits-left cache.
+- `+0x22/+0x24`: total/consumed bit counters.
+- `+0x28`: payload word index.
+- `+0x1e/+0x20`: CRC register and CRC-enable mode.
+- `+0x2a/+0x2c`: repeat-mode enable and repeat counter.
+- `+0x38/+0x3c`: reload seed state.
 
-- `v8_getbit` (recursive self-call on reload path)
-
-## Key Data/Flags Touched
-
-- `s+0x1e`: CRC register
-- `s+0x20`: CRC enable flag
-- `s+0x22`: total bits in current payload
-- `s+0x24`: consumed bits counter
-- `s+0x26`: chunk size per refill
-- `s+0x28`: payload word index
-- `s+0x2a`: repeat/reload enable
-- `s+0x2c`: packet/reload counter
-- `s+0x30`: shift register
-- `s+0x34`: bits left in shift register
-- `s+0x38`: preload shift register seed
-- `s+0x3c`: preload bits-left seed
+## Behavioral Invariants
+- Normal successful return values are `0` or `1`.
+- Error/empty return is `-1` only on terminal with repeat disabled.
+- Reload recursion always reseeds CRC to `0xffff` and resets consumed/index counters.

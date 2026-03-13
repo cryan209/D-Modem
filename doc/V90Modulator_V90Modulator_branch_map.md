@@ -1,15 +1,25 @@
-# V90Modulator::V90Modulator Branch Map
+# V90Modulator::V90Modulator (C1/C2 Unified) Branch And Flow Map
 
-## Unified constructor flow (C1/C2)
-- No conditional branches inside constructor body.
-- Initializes embedded scrambler and stores all incoming pointers/parameters.
-- Performs fixed sequence of allocations and child constructions.
+- Symbols covered:
+- `_ZN12V90ModulatorC1...` at `0x0001a560` (size `0x152`)
+- `_ZN12V90ModulatorC2...` at `0x0001a6c0` (size `0x152`)
 
-## Sequence
-1. `Scrambler<int8,int16>(this+0x44, 0x12, 0x17, 0x63)`
-2. Store ctor args to `this+0x00..0x28`, scalar to `this+0x64`
-3. `this+0x68 = malloc(2*N)`
-4. `this+0x6c = malloc(8*N)`
-5. `this+0x40 = new V90BitsToSymbol(3*N + 0x1388, params)`
-6. `this+0x38 = new V90Phase3Modulator(params, sess)`
-7. `this+0x3c = new V90Phase4Modulator(params, 0x0c, bitsToSymbol, mp, mapB, mapA, cp, sess)`
+## Summary
+- C1 and C2 contain equivalent linear constructor bodies in this object.
+- Unified behavior: initialize scrambler, cache ctor inputs, allocate buffers, construct phase pipeline objects.
+
+## Control Topology
+- Branchless linear flow in both symbols.
+- Distinct symbol entrypoints, shared semantic sequence.
+
+## Direct Calls
+- `_ZN9ScramblerIihEC1Ejjj`
+- `sysdep_malloc`
+- `_ZN15V90BitsToSymbolC1EjP13V90Parameters`
+- `_ZN18V90Phase3ModulatorC1EP13V90Parametersj`
+- `_ZN18V90Phase4ModulatorC1EP13V90ParametersjP15V90BitsToSymbolP5V90MPP16V90MappingParamsS7_P5V90CPj`
+
+## Constructor Sizing Rules
+- Work buffer A length = `2 * N`.
+- Work buffer B length = `8 * N`.
+- Bits-to-symbol constructor argument = `3 * N + 0x1388`.

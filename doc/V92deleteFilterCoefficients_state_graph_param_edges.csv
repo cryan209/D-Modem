@@ -1,0 +1,6 @@
+entity,operation,target,address,details
+ctx+0x5c,read/check,bankA,0x12e98,first coefficient bank
+ctx+0x60,read/check,bankB,0x12e9f,second bank
+ctx+0x64,read/check,bankC,0x12ea6,third bank
+ctx+0x68,read/check,bankD,0x12ead,fourth bank
+sysdep_free,call,free,0x12ec4|0x12ed4|0x12ee4|0x12ef4,free on non-null pointers

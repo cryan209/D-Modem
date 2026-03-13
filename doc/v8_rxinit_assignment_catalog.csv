@@ -1,0 +1,6 @@
+kind,offset_or_symbol,width,access,description
+field,ctx+0x894..,0xa0 words,write,RX history/sample clear
+field,ctx+0x8e4,16,write,RX gain seed
+field,ctx+0x1c+*,mixed,write,detector/AGC substate init block
+field,ctx+0x1c+0x10,ptr,write,RX input sample pointer (=ctx+0x5c8)
+

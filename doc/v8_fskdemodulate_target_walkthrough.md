@@ -1,42 +1,49 @@
 # v8_fskdemodulate Target Walkthrough
 
 - Function: `v8_fskdemodulate`
-- Range: `0x78c80` .. `0x790cb`
-- Chunks:
-  - `chunk_00.asm`: `0x78c80` .. `0x78f59`
-  - `chunk_01.asm`: `0x78f5f` .. `0x790cc`
+- Range: `0x00078c80` .. `0x000790cb`
+- Disassembly: [v8_fskdemodulate_disasm.asm](/root/D-Modem/doc/v8_fskdemodulate_disasm.asm)
+- Pseudo-C: [v8_fskdemodulate_pseudoc.c](/root/D-Modem/doc/v8_fskdemodulate_pseudoc.c)
 
-## Block-Level Walkthrough
+## Purpose
+- Convert staged FSK receive samples into bitstream updates using timing-gated mark/space correlation.
 
-| Block | Entry | Chunk | Behavior summary |
-|---|---:|---|---|
-| `B0_STAGE4` | `0x78ca3` | `chunk_00.asm` | Copies 4 new samples from `+0x5c8` into staging window at `+0xdf4`; increments `+0xc36`. |
-| `B1_GATE12` | `0x78ccf` | `chunk_00.asm` | If staged sample count (`+0xc36`) is not `12`, returns immediately. |
-| `B2_SYM_LOOP_HEAD` | `0x78cf4` | `chunk_00.asm` | Iterates symbol positions `0..11` under timing gate (`+0xde8`). |
-| `B3_CORR_A` | `0x78d72` | `chunk_00.asm` | FIR correlation using current window (`+0xdf4`) up to `min(sym_idx,0x27)`. |
-| `B4_CORR_B` | `0x78dd0` | `chunk_00.asm` | FIR continuation against historical window (`+0xe5c`) for remaining taps to `0x27`. |
-| `B5_DECIDE` | `0x78e1d` | `chunk_00.asm` | Computes mark/space energies, threshold gate, then selects symbol path A/B or reset path. |
-| `B6_RESET_LOW_ENERGY` | `0x78e7f` | `chunk_00.asm` | Clears both run counters: `dec=0`, `df0=0`. |
-| `B7_PATH_A` | `0x78fa9` | `chunk_01.asm` | Flushes `dec` run groups into output shift register using bit source `+0xc32`; then `df0++`. |
-| `B8_PATH_B` | `0x79047` | `chunk_01.asm` | Flushes `df0` run groups using bit source `+0xc30`; then `dec++`. |
-| `B9_FRAME_FLUSH` | `0x78ea4` | `chunk_00.asm` | At `sym_idx>11`, flushes residual `df0` then `dec`, updates `+0xde8 -= 12`. |
-| `B10_SHIFT_WINDOWS` | `0x78f65` | `chunk_01.asm` | Slides 12x40-sample working windows (`+0xe0e -> +0xe0c`) and updates tail history. |
-| `B11_RETURN` | `0x78fa1` | `chunk_01.asm` | Returns after frame flush + window shift. |
+## Signature (lifted)
+```c
+void v8_fskdemodulate(astruct_19 *demod_state)
+```
 
-## Key Branch Edges
+## Execution Phases
+1. Stage input chunk:
+- Copy 4 new samples from `+0x5c8` into staging area `+0xdf4`.
+- Increment staging counter `+0xc36`; return if not yet 12.
 
-- `0x78ccf`: `B1_GATE12 -> B11_RETURN` (insufficient staged samples)
-- `0x78ccf`: `B1_GATE12 -> B2_SYM_LOOP_HEAD` (12-sample batch ready)
-- `0x78d05`: timing not due `-> B2_SYM_LOOP_HEAD` next symbol
-- `0x78d05`: timing due `-> B3_CORR_A -> B4_CORR_B -> B5_DECIDE`
-- `0x78e69`: low-energy `-> B6_RESET_LOW_ENERGY`
-- `0x78e6e/0x78e74`: symbol decision `-> B8_PATH_B` or `B7_PATH_A`
-- `0x78e9e`: `sym_idx<=11` loops to `B2_SYM_LOOP_HEAD`; else `-> B9_FRAME_FLUSH -> B10_SHIFT_WINDOWS -> B11_RETURN`
+2. Timing-gated symbol pass:
+- Loop `sym_idx=0..11`.
+- Run correlation only when phase gate (`+0xde8`) allows; otherwise skip to next symbol.
+
+3. Correlation and energy calculation:
+- Correlate against two tap windows (current and historical).
+- Compute mark/space magnitudes and compare for classification.
+
+4. Run-counter update and grouped bit emission:
+- Depending on class, increment/reset `dec` (`+0xdec`) and `df0` (`+0xdf0`).
+- Convert complete run groups to bits via sources `+0xc30` / `+0xc32`, updating `+0xc38/+0xc3a`.
+
+5. Frame flush and window shift:
+- Flush residual run groups at end of 12-symbol scan.
+- Shift sample windows for next frame and adjust timing phase (`+0xde8 -= 12`).
+
+## Key State Touched
+- `+0xc36` (field, 16): staged-sample counter.
+- `+0xde8` (field, 32): timing phase accumulator.
+- `+0xdec/+0xdf0` (field, 32): run counters.
+- `+0xc30/+0xc32` (field, 16): bit values for classified symbol streams.
+- `+0xc38/+0xc3a` (field, 16): output bit count + shift register.
+- `+0xdf4/+0xe5c` (field windows): active and historical samples.
+
+## Direct Calls
+- (none)
 
 ## Practical Interpretation
-
-The demodulator is not state-machine-driven by explicit enum fields; it is a deterministic control pipeline over:
-
-1. a 12-sample staging cadence,
-2. timing-gated FIR correlation,
-3. two run counters (`dec` and `df0`) that are periodically converted into output bits.
+- `v8_fskdemodulate` is a self-contained DSP kernel optimized for predictable fixed-size work units. Its run-length-to-bit conversion is the key bridge from analog classification to handshake framing.

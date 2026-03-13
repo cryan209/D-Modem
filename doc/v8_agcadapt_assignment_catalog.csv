@@ -1,0 +1,10 @@
+kind,offset_or_symbol,width,access,description
+field,agc+0x16,16,read,input adaptation term
+field,agc+0x1a,16,read/write,AGC estimate state
+field,agc+0x1c,16,read/write,AGC gain coefficient
+field,agc+0x1e,16,read/write,AGC integrator state
+field,agc+0x20,16,read,integrator gain factor
+field,agc+0x0b,8,read,freeze/control flags
+const,0x6ccd,imm,read,leaky estimator coefficient
+const,0x390a/0x47cf,imm,read,gain scale factors
+

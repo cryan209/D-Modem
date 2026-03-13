@@ -1,9 +1,20 @@
 # V90Modem C2 State Graph
 
-Identical graph topology to C1:
-- embedded init,
-- optional debug constructor message,
-- title print,
-- shared block allocations,
-- side-based mod/demod construction,
-- invalid-side debug path.
+## Nodes
+- `ENTRY`
+- `INIT_EMBEDDED_MP_CP`
+- `DEBUG_CONSTRUCTION_MSG`
+- `PRINT_TITLE`
+- `BUILD_SHARED_BLOCKS`
+- `SIDE_DISPATCH`
+- `BUILD_MODULATOR`
+- `BUILD_DEMODULATOR`
+- `SIDE_INVALID`
+- `RETURN`
+
+## Edges
+- `ENTRY -> INIT_EMBEDDED_MP_CP -> PRINT_TITLE -> BUILD_SHARED_BLOCKS -> SIDE_DISPATCH`
+- `SIDE_DISPATCH -> BUILD_MODULATOR -> RETURN` (side `0`)
+- `SIDE_DISPATCH -> BUILD_DEMODULATOR -> RETURN` (side `1`)
+- `SIDE_DISPATCH -> SIDE_INVALID -> RETURN` (other side values)
+- `INIT_EMBEDDED_MP_CP -> DEBUG_CONSTRUCTION_MSG -> PRINT_TITLE` when debug level is verbose.

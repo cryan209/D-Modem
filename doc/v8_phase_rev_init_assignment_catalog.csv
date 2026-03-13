@@ -1,0 +1,6 @@
+kind,offset_or_symbol,width,access,description
+field,pr+0x0/+0x4/+0x8,32,write,running accumulators reset
+field,pr+0x0c/+0x0e/+0x10/+0x12,16,write,counters/window reset
+field,pr+0x14..,0x40 words,write,history buffer clear
+field,pr+0xdc,16,write,detection flag clear
+

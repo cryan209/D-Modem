@@ -1,0 +1,7 @@
+kind,offset_or_symbol,width,access,description
+field,ctx+0xb40+0x00/0x04/0x08,32,read/write,running detector accumulators
+field,ctx+0xb40+0x0c/0x0e/0x10/0x12,16,read/write,counters and ring indexes
+field,ctx+0xb40+0x14..,ring,read/write,phase reversal history window
+field,ctx+0xb40+0xdc,16,write,detection latch flag
+call,dsplibs_debug_printf,func,invoke,debug report when detector trips
+

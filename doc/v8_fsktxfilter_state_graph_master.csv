@@ -1,0 +1,7 @@
+plane,node,edge_to,condition,action,details
+A,ENTRY,INIT,always,write,"store input sample to state+0x894"
+A,INIT,LOOP_BODY,always,init,"set src/dst/coef pointers"
+B,LOOP_BODY,LOOP_CHECK,always,mac,"acc += sample*coef; shift history"
+C,LOOP_CHECK,LOOP_BODY,i<=0x3c,branch,"61 total iterations"
+C,LOOP_CHECK,FINAL_SHIFT,i>0x3c,branch,
+B,FINAL_SHIFT,RETURN,always,scale,"acc >>= 16"

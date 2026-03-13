@@ -1,0 +1,5 @@
+kind,offset_or_symbol,width,access,description
+arg,arg0(ctx),32,read,v92 runtime context pointer
+field,ctx+0x5c..0x68,ptr,read,test/free four filter bank pointers
+call,sysdep_free,func,call,free each non-null pointer
+note,pointers_not_zeroed,flag,behavior,caller-managed post-free hygiene
