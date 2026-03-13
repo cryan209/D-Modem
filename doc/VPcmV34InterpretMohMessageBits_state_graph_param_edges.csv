@@ -1,0 +1,12 @@
+source,parameter,access,notes
+ENTRY,*msg_word,read,16-bit MOH symbol
+MSG_5X,ctx+0xabe0,write,low nibble payload from 0x5x class
+MSG_75,ctx+0xabe2,write,sets value 3 on 0x75 message
+MSG_9X,ctx+0xabfa,write,substate selector (0/1/2)
+MSG_33,ctx+0xabf4,write,state code 0
+MSG_5X,ctx+0xabf4,write,state code 4
+MSG_77,ctx+0xabf4,write,state code 5
+MSG_9X,ctx+0xabf4,write,state code 2
+MSG_BB,ctx+0xabf4,write,state code 3
+MSG_DD,ctx+0xabf4,write,state code 1
+MSG_UNKNOWN,ctx+0xabf4,write,fallback state code 5

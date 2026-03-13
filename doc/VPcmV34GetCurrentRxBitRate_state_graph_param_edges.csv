@@ -1,0 +1,7 @@
+source,parameter,access,notes
+ENTRY,ctx+0x359c,read,side selector
+SIDE66_GATE,ctx+0x0,read,state gate uses state-1
+SIDE_OTHER_GATE,ctx+0x0,read,state gate uses exact value 3
+RET_DEMOD_RATE,flo+0x175c,read_ptr,V90Demodulator instance
+RET_PTR_AC18,ctx+0xac18,read_ptr,indirect rate pointer
+RET_SCALED_AA98,ctx+0xaa98,read_signed,cached rate index scaled by 0x960

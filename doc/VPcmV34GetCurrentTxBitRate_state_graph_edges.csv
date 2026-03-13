@@ -1,0 +1,10 @@
+from,to,condition,kind,target
+ENTRY,SIDE_OTHER,ctx359c_ne_0x66,branch,
+ENTRY,SIDE66,ctx359c_eq_0x66,branch,
+SIDE_OTHER,RET_FALLBACK_AA88,adj_gt_1,return,sign16(ctx+0xaa88)*0x960
+SIDE_OTHER,RET_0,obj1758_mode_ne_3,return,0
+SIDE_OTHER,RET_FPU_1758,obj1758_mode_eq_3,return,fpu_scaled_1758
+SIDE66,RET_0x7530,state_eq_3,return,0x7530
+SIDE66,RET_0,state_eq_2_and_obj6124_mode_ne_3,return,0
+SIDE66,RET_FPU_6124,state_eq_2_and_obj6124_mode_eq_3,return,fpu_scaled_6124
+SIDE66,RET_FALLBACK_AA88,otherwise,return,sign16(ctx+0xaa88)*0x960

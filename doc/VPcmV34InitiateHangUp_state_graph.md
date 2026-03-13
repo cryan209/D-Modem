@@ -1,0 +1,15 @@
+# VPcmV34InitiateHangUp State Graph
+
+## Nodes
+
+- ENTRY
+- ACTIVE_DEMOD_PATH
+- HANDSHAKE_REINIT_PATH
+- RET
+
+## Edges
+
+- ENTRY -> ACTIVE_DEMOD_PATH (`state-1 <= 1`)
+- ENTRY -> HANDSHAKE_REINIT_PATH (otherwise)
+- ACTIVE_DEMOD_PATH -> RET
+- HANDSHAKE_REINIT_PATH -> RET

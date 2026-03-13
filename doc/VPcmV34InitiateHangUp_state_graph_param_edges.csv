@@ -1,0 +1,8 @@
+source,parameter,access,notes
+ENTRY,ctx+0x220/0x224/0x22c,write,always cleared at entry
+ACTIVE_DEMOD_PATH,flo+0x173e,write,hangup flag set
+ACTIVE_DEMOD_PATH,(*(flo+0x175c)+0x20c)+0x8c,write,demod control mode set to 2
+HANDSHAKE_REINIT_PATH,ctx+0x4,write,state forced to 6
+HANDSHAKE_REINIT_PATH,ctx+0x2218,write,reason/state code set to 5
+HANDSHAKE_REINIT_PATH,ctx+0x4bc..0x4c0,write,counter words cleared
+HANDSHAKE_REINIT_PATH,v34handshakinit(ctx,2),call,re-enter handshake mode

@@ -1,0 +1,10 @@
+from,to,condition,kind,target
+ENTRY,CASE0_DISABLE,code_eq_0,branch,
+ENTRY,CASE1_ENABLE,code_eq_1,branch,
+ENTRY,CASE2_STATE5,code_eq_2,branch,
+ENTRY,CASE3_STATE6_PTR,code_eq_3,branch,
+ENTRY,RET,otherwise,return,
+CASE0_DISABLE,RET,done,return,
+CASE1_ENABLE,RET,done,return,
+CASE2_STATE5,RET,done,return,
+CASE3_STATE6_PTR,RET,done,return,

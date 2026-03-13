@@ -1,0 +1,12 @@
+from,to,condition,kind,target
+ENTRY,STATE1_PATH,state_eq_1,branch,
+ENTRY,STATE2_PATH,state_eq_2,branch,
+ENTRY,GENERIC_PATH,otherwise,branch,
+STATE1_PATH,STATE1_DEMOD,demod6120_present,branch,
+STATE1_PATH,COMMON_TAIL,demod6120_absent,branch,
+STATE2_PATH,STATE2_DEMOD,demod6120_present,branch,
+STATE2_PATH,COMMON_TAIL,demod6120_absent,branch,
+STATE1_DEMOD,COMMON_TAIL,done,branch,
+STATE2_DEMOD,COMMON_TAIL,done,branch,
+GENERIC_PATH,COMMON_TAIL,done,branch,
+COMMON_TAIL,RET,done,return,

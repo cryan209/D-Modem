@@ -1,0 +1,13 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,ENTRY,entry,SELECT_RATE_SOURCE,0x6640|0x6678,H,initial setup and debug gate,VPcmV34InitiateRetrain_state_graph_edges.csv
+control,SELECT_RATE_SOURCE,done,TIMING_DELAY_SETUP,0x6678|0x670f,H,rate-window setup completes,VPcmV34InitiateRetrain_state_graph_edges.csv
+control,TIMING_DELAY_SETUP,done,SESSION_NORMALIZE,0x670f|0x67d9,H,timing fields and delay then session decode,VPcmV34InitiateRetrain_state_graph_edges.csv
+control,SESSION_NORMALIZE,done,SESSION_ACTIONS,0x67f0|0x6830|0x68a8,H,normalized request enters action switch,VPcmV34InitiateRetrain_state_graph_edges.csv
+control,SESSION_ACTIONS,done,REINIT_TAIL,0x68ca,H,all session variants rejoin retrain tail,VPcmV34InitiateRetrain_state_graph_edges.csv
+control,REINIT_TAIL,ctx359c_eq_0x65,SIDE_65_CONSTS,0x695c|0x6988|0x6a60,H,side-65 constant tail,VPcmV34InitiateRetrain_state_graph_edges.csv
+control,REINIT_TAIL,ctx359c_eq_0x66,SIDE_66_CONSTS,0x698e|0x6992|0x6a80,H,side-66 constant tail,VPcmV34InitiateRetrain_state_graph_edges.csv
+call,SELECT_RATE_SOURCE,setMinMaxRates_variant,TIMING_DELAY_SETUP,0x6881|0x6ae3,H,V90/K56 min-max hooks,VPcmV34InitiateRetrain_state_graph_param_edges.csv
+call,TIMING_DELAY_SETUP,setEchoDelay,SESSION_NORMALIZE,0x6799,H,echo delay reconfigured,VPcmV34InitiateRetrain_state_graph_param_edges.csv
+call,SESSION_ACTIONS,setPcmSessionType,REINIT_TAIL,0x6b84|0x6bb4,H,session type changes for PCM profiles,VPcmV34InitiateRetrain_state_graph_param_edges.csv
+call,REINIT_TAIL,v34handshakinit,REINIT_TAIL,0x68d8,H,common retrain handshake restart,VPcmV34InitiateRetrain_state_graph_param_edges.csv
+param,REINIT_TAIL,ctx+ac1c_constants,RET,0x6940|0x6a60|0x6a80,H,constant block reset and side-specific fill,VPcmV34InitiateRetrain_state_graph_param_edges.csv

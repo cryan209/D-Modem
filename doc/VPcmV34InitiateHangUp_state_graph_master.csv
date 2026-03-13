@@ -1,0 +1,7 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,ENTRY,state_minus_1_le_1,ACTIVE_DEMOD_PATH,0x6c09|0x6c0d|0x6c0f,H,active demod shutdown path,VPcmV34InitiateHangUp_state_graph_edges.csv
+control,ENTRY,otherwise,HANDSHAKE_REINIT_PATH,0x6c70,H,full reinit path,VPcmV34InitiateHangUp_state_graph_edges.csv
+param,ENTRY,ctx+0x220_0x224_0x22c,write,0x6bf5|0x6bfd|0x6c03,H,entry clears timing/rate window,VPcmV34InitiateHangUp_state_graph_param_edges.csv
+param,ACTIVE_DEMOD_PATH,flo_flags,write,0x6c0f|0x6c27,H,set demod hangup flags,VPcmV34InitiateHangUp_state_graph_param_edges.csv
+call,HANDSHAKE_REINIT_PATH,v34handshakinit,call,0x6c7e,H,restart handshake substate machine,VPcmV34InitiateHangUp_state_graph_param_edges.csv
+param,HANDSHAKE_REINIT_PATH,ctx+0x4_0x2218_0x4bc..0x4c0,write,0x6c83|0x6c91|0x6c99,H,force state and clear counters,VPcmV34InitiateHangUp_state_graph_param_edges.csv

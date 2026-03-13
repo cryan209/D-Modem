@@ -1,0 +1,5 @@
+from,to,condition,kind,target
+ENTRY,ACTIVE_DEMOD_PATH,state_minus_1_le_1,branch,
+ENTRY,HANDSHAKE_REINIT_PATH,otherwise,branch,
+ACTIVE_DEMOD_PATH,RET,done,return,
+HANDSHAKE_REINIT_PATH,RET,done,return,

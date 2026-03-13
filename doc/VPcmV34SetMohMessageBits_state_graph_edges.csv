@@ -1,0 +1,14 @@
+from,to,condition,kind,target
+ENTRY,CASE0_MSG33,state_eq_0,branch,
+ENTRY,CASE1_MSGDD,state_eq_1,branch,
+ENTRY,CASE2_MSG9X,state_eq_2,branch,
+ENTRY,CASE3_MSGBB,state_eq_3,branch,
+ENTRY,CASE4_MSG5X,state_eq_4,branch,
+ENTRY,CASE5_MSG77,state_eq_5,branch,
+ENTRY,RET,state_out_of_range,return,
+CASE0_MSG33,RET,done,return,*out=0x33
+CASE1_MSGDD,RET,done,return,*out=0xdd
+CASE2_MSG9X,RET,done,return,*out in {0x95,0x96,0x9a}
+CASE3_MSGBB,RET,done,return,*out=0xbb
+CASE4_MSG5X,RET,done,return,*out=0x50+ctx+0xabe0
+CASE5_MSG77,RET,done,return,*out=0x77

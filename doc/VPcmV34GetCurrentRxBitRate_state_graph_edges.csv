@@ -1,0 +1,7 @@
+from,to,condition,kind,target
+ENTRY,SIDE66_GATE,ctx359c_eq_0x66,branch,
+ENTRY,SIDE_OTHER_GATE,ctx359c_ne_0x66,branch,
+SIDE66_GATE,RET_DEMOD_RATE,adj_le_1,return,demod_getBitRate
+SIDE66_GATE,RET_SCALED_AA98,otherwise,return,sign16(ctx+0xaa98)*0x960
+SIDE_OTHER_GATE,RET_PTR_AC18,state_eq_3,return,*(*(ctx+0xac18))
+SIDE_OTHER_GATE,RET_SCALED_AA98,otherwise,return,sign16(ctx+0xaa98)*0x960

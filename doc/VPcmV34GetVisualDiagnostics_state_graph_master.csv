@@ -1,0 +1,15 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,ENTRY,selector_gt_8,RET,0x7205|0x7208|0x72a0,H,range guard immediate return,VPcmV34GetVisualDiagnostics_state_graph_edges.csv
+control,ENTRY,selector_eq_0,SEL_0,0x7228|0x72cf,H,jump-table entry 0,VPcmV34GetVisualDiagnostics_state_graph_edges.csv
+control,ENTRY,selector_eq_1,SEL_1,0x7228|0x7335,H,jump-table entry 1,VPcmV34GetVisualDiagnostics_state_graph_edges.csv
+control,ENTRY,selector_eq_2,SEL_2,0x7228|0x7389,H,jump-table entry 2,VPcmV34GetVisualDiagnostics_state_graph_edges.csv
+control,ENTRY,selector_eq_3,SEL_3,0x7228|0x73d0,H,jump-table entry 3,VPcmV34GetVisualDiagnostics_state_graph_edges.csv
+control,ENTRY,selector_eq_4,SEL_4,0x7228|0x7412,H,jump-table entry 4,VPcmV34GetVisualDiagnostics_state_graph_edges.csv
+control,ENTRY,selector_eq_5,SEL_5,0x7228|0x7430,H,jump-table entry 5,VPcmV34GetVisualDiagnostics_state_graph_edges.csv
+control,ENTRY,selector_eq_6,SEL_6,0x7228|0x72b6,H,jump-table entry 6,VPcmV34GetVisualDiagnostics_state_graph_edges.csv
+control,ENTRY,selector_eq_7,SEL_7,0x7228|0x7471,H,jump-table entry 7,VPcmV34GetVisualDiagnostics_state_graph_edges.csv
+control,ENTRY,selector_eq_8,SEL_8,0x7228|0x722f,H,jump-table entry 8,VPcmV34GetVisualDiagnostics_state_graph_edges.csv
+call,SEL_0,getConstellation_variant,RET,0x74f1|0x7595,H,VPcmFloModem/K56Flex constellation call paths,VPcmV34GetVisualDiagnostics_state_graph_param_edges.csv
+call,SEL_1,getLinearEqualizer_variant,RET,0x74c8|0x756c,H,VPcmFloModem/K56Flex equalizer call paths,VPcmV34GetVisualDiagnostics_state_graph_param_edges.csv
+call,SEL_2,getDFE_variant,RET,0x751a|0x73c3,H,VPcmFloModem/K56Flex DFE call paths,VPcmV34GetVisualDiagnostics_state_graph_param_edges.csv
+param,RET,eax_count_return,return,0x72a0|0x72b5,H,all handlers converge to common count return,VPcmV34GetVisualDiagnostics_state_graph_param_edges.csv

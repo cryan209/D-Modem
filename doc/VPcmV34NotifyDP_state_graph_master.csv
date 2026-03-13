@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,ENTRY,code_eq_0,CASE0_DISABLE,0x79a1|0x79a3|0x79a5,H,disable case,VPcmV34NotifyDP_state_graph_edges.csv
+control,ENTRY,code_eq_1,CASE1_ENABLE,0x793f|0x79c0,H,enable case,VPcmV34NotifyDP_state_graph_edges.csv
+control,ENTRY,code_eq_2,CASE2_STATE5,0x794d|0x7950|0x79e4,H,state-5 case,VPcmV34NotifyDP_state_graph_edges.csv
+control,ENTRY,code_eq_3,CASE3_STATE6_PTR,0x7956|0x7959|0x7967,H,state-6+ptr case,VPcmV34NotifyDP_state_graph_edges.csv
+param,CASE0_DISABLE,ctx+0x262,write,0x79b3,H,notification clear,VPcmV34NotifyDP_state_graph_param_edges.csv
+param,CASE1_ENABLE,ctx+0x262,write,0x79d1,H,notification set,VPcmV34NotifyDP_state_graph_param_edges.csv
+param,CASE3_STATE6_PTR,ctx+0xaa74,write,0x7985,H,derived pointer publish,VPcmV34NotifyDP_state_graph_param_edges.csv

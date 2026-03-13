@@ -1,0 +1,8 @@
+source,parameter,access,notes
+ENTRY,arg_code,read,dispatch selector
+CASE0_DISABLE,ctx+0x262,write,disable notification gate
+CASE1_ENABLE,ctx+0x262,write,enable notification gate
+CASE2_STATE5,ctx+0x0,write,enter state 5
+CASE2_STATE5,ctx+0x238,write,clear timer/counter field
+CASE3_STATE6_PTR,ctx+0xabdc,read_ptr,base pointer used to derive runtime ptr
+CASE3_STATE6_PTR,ctx+0xaa74,write,write derived pointer base+0xbb80

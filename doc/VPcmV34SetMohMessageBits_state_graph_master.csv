@@ -1,0 +1,9 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,ENTRY,state_eq_0,CASE0_MSG33,0x8823|0x8829|0x8880,H,jump-table index 0,VPcmV34SetMohMessageBits_state_graph_edges.csv
+control,ENTRY,state_eq_1,CASE1_MSGDD,0x8823|0x8894,H,jump-table index 1,VPcmV34SetMohMessageBits_state_graph_edges.csv
+control,ENTRY,state_eq_2,CASE2_MSG9X,0x8823|0x88b4,H,jump-table index 2,VPcmV34SetMohMessageBits_state_graph_edges.csv
+control,ENTRY,state_eq_3,CASE3_MSGBB,0x8823|0x88a4,H,jump-table index 3,VPcmV34SetMohMessageBits_state_graph_edges.csv
+control,ENTRY,state_eq_4,CASE4_MSG5X,0x8823|0x8835,H,jump-table index 4,VPcmV34SetMohMessageBits_state_graph_edges.csv
+control,ENTRY,state_eq_5,CASE5_MSG77,0x8823|0x886c,H,jump-table index 5,VPcmV34SetMohMessageBits_state_graph_edges.csv
+param,CASE2_MSG9X,ctx+0xabfa,select_message,0x88c6|0x88cf|0x8964,H,subcode mapping for 0x9x,VPcmV34SetMohMessageBits_state_graph_param_edges.csv
+param,CASE4_MSG5X,ctx+0xabe0,payload_add_0x50,0x8847|0x884e,H,0x5x payload encoding,VPcmV34SetMohMessageBits_state_graph_param_edges.csv

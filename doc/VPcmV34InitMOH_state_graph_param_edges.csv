@@ -1,0 +1,10 @@
+source,parameter,access,notes
+ENTRY,ctx+0xabec,write,input mode shadow
+MODE_EQ_1,ctx+0xabf0,write,mode coerced to 0 for special init path
+MODE_OTHER,ctx+0xabf0,write,mode stored directly
+COMMON_INIT,ctx+0xabe0..0xabfa,write,MOH/session fields reset
+COMMON_INIT,ctx+0x4/0x0/0x2218,write,phase/state reinit
+COMMON_INIT,ctx+0x4bc..0x4c0,write,counter words cleared
+COMMON_INIT,flo+0x6f5c,call,GenericToneDetector::reset
+SIDE_65_CONSTS,ctx+0xac28..0xac2c,write,0x0000/0x0000/0x39c3 constants
+SIDE_66_CONSTS,ctx+0xac28..0xac2c,write,0x5a82/0x55fc/0x39c3 constants

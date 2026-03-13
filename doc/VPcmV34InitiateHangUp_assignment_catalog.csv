@@ -1,0 +1,6 @@
+layer,state_hex,evidence_addresses,count
+control,ACTIVE_STATE_GATE,0x6c09|0x6c0d,2
+write,ENTRY_WINDOW_CLEAR,0x6bf5|0x6bfd|0x6c03,3
+write,ACTIVE_DEMOD_FLAGS,0x6c0f|0x6c27,2
+call,HANDSHAKE_REINIT_CALL,0x6c7e,1
+write,REINIT_STATE_WRITES,0x6c83|0x6c91|0x6c99,3

@@ -1,0 +1,12 @@
+source,parameter,access,notes
+SELECT_RATE_SOURCE,ctx+0x220/0x224,write,min/max rate window setup/clamp
+SELECT_RATE_SOURCE,V90ConstellationDesigner::setMinMaxRates,call,active V.90 object path
+SELECT_RATE_SOURCE,K56FlexFloModem::setMinMaxRates,call,active K56 object path
+TIMING_DELAY_SETUP,ctx+0x22c/0x230/0xaa7c/0x25c,write,retrain timing fields
+TIMING_DELAY_SETUP,V92EchoCanceller::setEchoDelay,call,echo delay update
+SESSION_NORMALIZE,requested_session,rewrite,coerces invalid/blocked requests to 0
+SESSION_ACTIONS,VPcmFloModem::setPcmSessionType,call,for 0x5a/0x5c requests
+SESSION_ACTIONS,ctx+0x248/0x24c/0xac00/0xa23c,write,session mode side effects
+REINIT_TAIL,v34handshakinit(ctx,1),call,re-enter retrain handshake
+REINIT_TAIL,ctx+0x0/0x4/0x2218/0x4bc..0x4c0,write,state and counters reset
+REINIT_TAIL,ctx+0xac1c block,write,zero and side-specific constants

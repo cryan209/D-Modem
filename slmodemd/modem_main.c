@@ -168,10 +168,11 @@ static void rx_dump_open(void)
 {
 	if (rx_dump_fd >= 0) return;
 	rx_dump_fd = open("/tmp/modem_rx.raw", O_WRONLY | O_CREAT | O_TRUNC, 0644);
-	if (rx_dump_fd < 0)
+	if (rx_dump_fd < 0) {
 		ERR("rx_dump: cannot create /tmp/modem_rx.raw: %s\n", strerror(errno));
-	else
+	} else {
 		DBG("rx_dump: opened /tmp/modem_rx.raw\n");
+	}
 }
 
 static void rx_dump_write(const char *buf, int samples)
@@ -827,6 +828,7 @@ static int socket_dial (struct modem *m)
 	}
 	//AT Dial
 	if (strncasecmp(m->at_cmd,"ATD",3)==0){
+		rx_dump_open();
 		DBG("socket_dial: dialing %s\n",m->dial_string);
 		sip_modem_hookstate = 1;
 		snprintf(dialreturn,255,"MD%s",m->dial_string);	
@@ -835,6 +837,7 @@ static int socket_dial (struct modem *m)
 	}
 	/* Explicit ATA and ATS0 auto-answer both need to accept the pending SIP call. */
 	if (strncasecmp(m->at_cmd,"ATA",3)==0 || sip_ringing) {
+		rx_dump_open();
 		DBG("socket_dial: answering%s\n",
 		    strncasecmp(m->at_cmd,"ATA",3)==0 ? "" : " (auto)");
 		sip_ringing = 0;
@@ -868,6 +871,7 @@ static int socket_stop (struct modem *m)
 static int socket_hangup (struct modem *m)
 {
 	char buf[256];
+	rx_dump_close();
 	DBG("hangup...\n");
 	sip_modem_hookstate = 0;
 	snprintf(buf, sizeof(buf), "MH%i", sip_modem_hookstate);
@@ -890,7 +894,7 @@ static int socket_ioctl(struct modem *m, unsigned int cmd, unsigned long arg)
 		ret = CODEC_UNKNOWN; /* VoIP path has no physical codec — disable hardware-specific prefilter compensation */
 		break;
 	case MDMCTL_IODELAY: // kernel module returns s->delay + ST7554_HW_IODELAY (48)
-		ret = dev->delay;
+		ret = 0; /* VoIP: no local echo path — minimize echo canceller interference */
 		break;
 	case MDMCTL_SPEAKERVOL:
 		modem_volume = arg;

@@ -1,0 +1,6 @@
+layer,state_hex,evidence_addresses,count
+control,CODE_DISPATCH,0x793f|0x794d|0x7956,3
+call,LOG_EDPRINTF,0x796e|0x79ac|0x79c7|0x79eb,4
+write,NOTIFY_GATE_262,0x79b3|0x79d1,2
+write,MAIN_STATE,0x7973|0x79f0,2
+write,DERIVED_PTR_AA74,0x7985,1

@@ -1,0 +1,7 @@
+source,parameter,access,notes
+ENTRY,ctx+0x359c,read,side selector
+SIDE_OTHER,ctx+0x0,read,state-1 gate
+SIDE66,ctx+0x0,read,state exact match 2/3
+RET_FPU_1758,flo+0x1758,read_ptr,TX runtime object for non-66 active path
+RET_FPU_6124,flo+0x6124,read_ptr,TX runtime object for side-66 state2 path
+RET_FALLBACK_AA88,ctx+0xaa88,read_signed,cached fallback scale source

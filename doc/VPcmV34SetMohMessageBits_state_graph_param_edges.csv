@@ -1,0 +1,9 @@
+source,parameter,access,notes
+ENTRY,ctx+0xabf0,read,MOH message-state selector
+CASE2_MSG9X,ctx+0xabfa,read,subselector for 0x9x code emission
+CASE4_MSG5X,ctx+0xabe0,read,low nibble payload for 0x5x code
+CASE0_MSG33,*out_word,write,emit 0x33
+CASE1_MSGDD,*out_word,write,emit 0xdd
+CASE2_MSG9X,*out_word,write,emit 0x95/0x96/0x9a
+CASE3_MSGBB,*out_word,write,emit 0xbb
+CASE5_MSG77,*out_word,write,emit 0x77

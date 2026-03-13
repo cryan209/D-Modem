@@ -1,0 +1,23 @@
+# VPcmV34InitMOH State Graph
+
+## Nodes
+
+- ENTRY
+- MODE_EQ_1
+- MODE_OTHER
+- COMMON_INIT
+- SIDE_65_CONSTS
+- SIDE_66_CONSTS
+- RET
+
+## Edges
+
+- ENTRY -> MODE_EQ_1 (`mode == 1`)
+- ENTRY -> MODE_OTHER (`mode != 1`)
+- MODE_EQ_1 -> COMMON_INIT
+- MODE_OTHER -> COMMON_INIT
+- COMMON_INIT -> SIDE_65_CONSTS (`ctx+0x359c == 0x65`)
+- COMMON_INIT -> SIDE_66_CONSTS (`ctx+0x359c == 0x66`)
+- COMMON_INIT -> RET (otherwise)
+- SIDE_65_CONSTS -> RET
+- SIDE_66_CONSTS -> RET

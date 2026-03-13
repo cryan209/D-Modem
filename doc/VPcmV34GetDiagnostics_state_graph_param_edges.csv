@@ -1,0 +1,8 @@
+source,parameter,access,notes
+STATE1_DEMOD,V90Demodulator::getAT_UDE,call,fills caller diagnostics block
+STATE2_DEMOD,V90Demodulator::getAT_UDE,call,fills caller diagnostics block
+GENERIC_PATH,ctx+0xaa84/0xaa88/0xaa98,read_scaled,base bit-rate metrics
+GENERIC_PATH,ctx+0xaa94/0xaa96/0xaaa8,read_signed,carrier/SNR-related cached values
+GENERIC_PATH,ctx+0x4+0x21a/0x248,read_loop,iterative quality metric derivation
+COMMON_TAIL,ctx+0xac04..0xac14,read,common AC metrics copied to output
+COMMON_TAIL,out+0x228,write,sentinel -1 when ctx+0xac0c is zero

@@ -1,0 +1,6 @@
+layer,state_hex,evidence_addresses,count
+control,MODE_BRANCH,0x6d12|0x6e30,2
+write,MOH_FIELD_INIT,0x6d27|0x6d37|0x6d50|0x6d70|0x6d77,5
+call,HANDSHAKE_AND_TONE_RESET,0x6d84|0x6dc6,2
+write,STATE_COUNTER_RESET,0x6d89|0x6da8|0x6dbd,3
+write,SIDE_CONSTANT_TAIL,0x6e48|0x6e70|0x6e54,3

@@ -1,0 +1,6 @@
+layer,state_hex,evidence_addresses,count
+control,SIDE_SELECTOR,0x6f48|0x6f62,2
+control,STATE_GATES,0x6f64|0x6f7a|0x6f93,3
+call,DEMOD_RATE_CALL,0x6f80|0x6f89,2
+return,RET_PTR_AC18,0x6f93,1
+return,RET_SCALED_AA98,0x6f69|0x6f70,2

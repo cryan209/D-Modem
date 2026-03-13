@@ -1,0 +1,11 @@
+from,to,condition,kind,target
+ENTRY,SELECT_RATE_SOURCE,entry,branch,
+SELECT_RATE_SOURCE,TIMING_DELAY_SETUP,done,branch,
+TIMING_DELAY_SETUP,SESSION_NORMALIZE,done,branch,
+SESSION_NORMALIZE,SESSION_ACTIONS,done,branch,
+SESSION_ACTIONS,REINIT_TAIL,done,branch,
+REINIT_TAIL,SIDE_65_CONSTS,ctx359c_eq_0x65,branch,
+REINIT_TAIL,SIDE_66_CONSTS,ctx359c_eq_0x66,branch,
+REINIT_TAIL,RET,otherwise,return,
+SIDE_65_CONSTS,RET,done,return,
+SIDE_66_CONSTS,RET,done,return,

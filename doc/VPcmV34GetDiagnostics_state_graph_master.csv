@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,ENTRY,state_eq_1,STATE1_PATH,0x7616|0x7619|0x77a0,H,state-1 dispatch,VPcmV34GetDiagnostics_state_graph_edges.csv
+control,ENTRY,state_eq_2,STATE2_PATH,0x761f|0x7622|0x780a,H,state-2 dispatch,VPcmV34GetDiagnostics_state_graph_edges.csv
+control,ENTRY,otherwise,GENERIC_PATH,0x7628|0x7631,H,generic fallback branch,VPcmV34GetDiagnostics_state_graph_edges.csv
+control,STATE1_PATH,demod6120_present,STATE1_DEMOD,0x77a0|0x77a8|0x77b7,H,state1 demod call path,VPcmV34GetDiagnostics_state_graph_edges.csv
+control,STATE2_PATH,demod6120_present,STATE2_DEMOD,0x7810|0x7812|0x781d,H,state2 demod call path,VPcmV34GetDiagnostics_state_graph_edges.csv
+compute,GENERIC_PATH,quality_loop,COMMON_TAIL,0x76b0|0x76d1|0x76f7,H,iterative metric loop + fild conversion,VPcmV34GetDiagnostics_state_graph_param_edges.csv
+param,COMMON_TAIL,ac_metrics_copy,RET,0x7710|0x7731|0x7753,H,shared AC metrics and sentinel tail,VPcmV34GetDiagnostics_state_graph_param_edges.csv

@@ -1,0 +1,11 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,ENTRY,msg_eq_0x33,MSG_33,0x8986|0x898a|0x8a10,H,exact 0x33 class,VPcmV34InterpretMohMessageBits_state_graph_edges.csv
+control,ENTRY,msg_hi_eq_0x50,MSG_5X,0x8995|0x899b|0x8a30,H,nibble 0x5x class,VPcmV34InterpretMohMessageBits_state_graph_edges.csv
+control,ENTRY,msg_eq_0x77,MSG_77,0x89a4|0x89a8|0x8a50,H,exact 0x77 class,VPcmV34InterpretMohMessageBits_state_graph_edges.csv
+control,ENTRY,msg_eq_0x75,MSG_75,0x89ae|0x89b2|0x8ad0,H,exact 0x75 class,VPcmV34InterpretMohMessageBits_state_graph_edges.csv
+control,ENTRY,msg_hi_eq_0x90,MSG_9X,0x89b8|0x89be|0x8a72,H,nibble 0x9x class,VPcmV34InterpretMohMessageBits_state_graph_edges.csv
+control,ENTRY,msg_eq_0xbb,MSG_BB,0x89c4|0x89c8|0x8af3,H,exact 0xbb class,VPcmV34InterpretMohMessageBits_state_graph_edges.csv
+control,ENTRY,msg_eq_0xdd,MSG_DD,0x89ce|0x89d2|0x8b68,H,exact 0xdd class,VPcmV34InterpretMohMessageBits_state_graph_edges.csv
+control,ENTRY,otherwise,MSG_UNKNOWN,0x89d8|0x89e6,H,unknown-message fallback,VPcmV34InterpretMohMessageBits_state_graph_edges.csv
+param,MSG_9X,ctx+0xabfa,write,0x8a92|0x8b30|0x8be7,H,submode set from low nibble mapping,VPcmV34InterpretMohMessageBits_state_graph_param_edges.csv
+param,MSG_5X,ctx+0xabe0,write,0x8a30|0x8a3a,H,payload nibble captured,VPcmV34InterpretMohMessageBits_state_graph_param_edges.csv

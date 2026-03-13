@@ -1,0 +1,17 @@
+from,to,condition,kind,target
+ENTRY,MSG_33,msg_eq_0x33,branch,
+ENTRY,MSG_5X,msg_hi_eq_0x50,branch,
+ENTRY,MSG_77,msg_eq_0x77,branch,
+ENTRY,MSG_75,msg_eq_0x75,branch,
+ENTRY,MSG_9X,msg_hi_eq_0x90,branch,
+ENTRY,MSG_BB,msg_eq_0xbb,branch,
+ENTRY,MSG_DD,msg_eq_0xdd,branch,
+ENTRY,MSG_UNKNOWN,otherwise,branch,
+MSG_33,RET,done,return,abf4=0
+MSG_5X,RET,done,return,abe0=low_nibble;abf4=4
+MSG_77,RET,done,return,abf4=5
+MSG_75,RET,done,return,abe2=3;abf4=5
+MSG_9X,RET,done,return,abfa=decoded;abf4=2
+MSG_BB,RET,done,return,abf4=3
+MSG_DD,RET,done,return,abf4=1
+MSG_UNKNOWN,RET,done,return,abf4=5

@@ -1,0 +1,9 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,ENTRY,mode_eq_1,MODE_EQ_1,0x6d12|0x6e30,H,special mode branch,VPcmV34InitMOH_state_graph_edges.csv
+control,ENTRY,mode_ne_1,MODE_OTHER,0x6d21,H,regular mode branch,VPcmV34InitMOH_state_graph_edges.csv
+control,MODE_EQ_1,fallthrough,COMMON_INIT,0x6e39|0x6d27,H,rejoin after coercion,VPcmV34InitMOH_state_graph_edges.csv
+control,COMMON_INIT,ctx359c_eq_0x65,SIDE_65_CONSTS,0x6deb|0x6e11|0x6e48,H,side-65 constants,VPcmV34InitMOH_state_graph_edges.csv
+control,COMMON_INIT,ctx359c_eq_0x66,SIDE_66_CONSTS,0x6e13|0x6e17|0x6e70,H,side-66 constants,VPcmV34InitMOH_state_graph_edges.csv
+call,COMMON_INIT,v34handshakinit,COMMON_INIT,0x6d84,H,restart handshake context,VPcmV34InitMOH_state_graph_param_edges.csv
+call,COMMON_INIT,GenericToneDetector_reset,COMMON_INIT,0x6dc6,H,reset tone detector state,VPcmV34InitMOH_state_graph_param_edges.csv
+param,COMMON_INIT,ctx+0xabe0..0xabfa,write,0x6d37|0x6d50|0x6d70,H,MOH field initialization block,VPcmV34InitMOH_state_graph_param_edges.csv

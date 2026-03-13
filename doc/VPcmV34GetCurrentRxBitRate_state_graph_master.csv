@@ -1,0 +1,7 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,ENTRY,ctx359c_eq_0x66,SIDE66_GATE,0x6f48|0x6f62,H,side-66 branch,VPcmV34GetCurrentRxBitRate_state_graph_edges.csv
+control,ENTRY,ctx359c_ne_0x66,SIDE_OTHER_GATE,0x6f64,H,non-66 branch,VPcmV34GetCurrentRxBitRate_state_graph_edges.csv
+control,SIDE66_GATE,adj_le_1,RET_DEMOD_RATE,0x6f78|0x6f7e|0x6f80,H,active-demod branch,VPcmV34GetCurrentRxBitRate_state_graph_edges.csv
+control,SIDE_OTHER_GATE,state_eq_3,RET_PTR_AC18,0x6f64|0x6f67|0x6f93,H,legacy pointer branch,VPcmV34GetCurrentRxBitRate_state_graph_edges.csv
+param,RET_SCALED_AA98,ctx+0xaa98,return_value,0x6f69|0x6f70,H,fallback scaled return,VPcmV34GetCurrentRxBitRate_state_graph_param_edges.csv
+call,RET_DEMOD_RATE,getBitRate,return_value,0x6f89,H,V90 demod queried directly,VPcmV34GetCurrentRxBitRate_state_graph_param_edges.csv

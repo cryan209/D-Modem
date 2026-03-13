@@ -1,0 +1,11 @@
+source,parameter,access,notes
+ENTRY,arg_selector,read,jump-table selector (0..8)
+SEL_0,out_buffer,write,constellation/queue pairs
+SEL_1,out_buffer,write,linear-equalizer/tap pairs
+SEL_2,out_buffer,write,DFE/queue pairs
+SEL_3,out_buffer,write,scalar metric or K56 resampler phase
+SEL_4,out_buffer,write,scalar metric or K56 resampler offset
+SEL_5,ctx+0x9140/0x9154,read_copy,state-0 trace exported as imag-only pairs
+SEL_7,ctx+0x80c0/0x80d4,read_copy,trace exported as imag-only pairs
+SEL_8,flo+0x6bd0,read,stream length+float data path when state==2
+RET,eax,write,returns produced sample count

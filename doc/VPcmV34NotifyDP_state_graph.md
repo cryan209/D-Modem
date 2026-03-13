@@ -1,0 +1,22 @@
+# VPcmV34NotifyDP State Graph
+
+## Nodes
+
+- ENTRY
+- CASE0_DISABLE
+- CASE1_ENABLE
+- CASE2_STATE5
+- CASE3_STATE6_PTR
+- RET
+
+## Edges
+
+- ENTRY -> CASE0_DISABLE (`code == 0`)
+- ENTRY -> CASE1_ENABLE (`code == 1`)
+- ENTRY -> CASE2_STATE5 (`code == 2`)
+- ENTRY -> CASE3_STATE6_PTR (`code == 3`)
+- ENTRY -> RET (otherwise)
+- CASE0_DISABLE -> RET
+- CASE1_ENABLE -> RET
+- CASE2_STATE5 -> RET
+- CASE3_STATE6_PTR -> RET

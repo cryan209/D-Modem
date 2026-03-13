@@ -1,0 +1,10 @@
+from,to,condition,kind,target
+ENTRY,MODE_EQ_1,mode_eq_1,branch,
+ENTRY,MODE_OTHER,mode_ne_1,branch,
+MODE_EQ_1,COMMON_INIT,fallthrough,branch,
+MODE_OTHER,COMMON_INIT,fallthrough,branch,
+COMMON_INIT,SIDE_65_CONSTS,ctx359c_eq_0x65,branch,
+COMMON_INIT,SIDE_66_CONSTS,ctx359c_eq_0x66,branch,
+COMMON_INIT,RET,otherwise,return,
+SIDE_65_CONSTS,RET,done,return,
+SIDE_66_CONSTS,RET,done,return,
