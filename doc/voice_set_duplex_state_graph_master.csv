@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x000abf20,H,function entry,voice_set_duplex_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x000abf20,H,entry complete,voice_set_duplex_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x000abf4c,H,actions complete,voice_set_duplex_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x000abf4c,H,return,voice_set_duplex_state_graph_edges.csv
+param,self_object,write,vv_runtime_state,0x000abf20,H,this method updates/reads remaining v/V runtime state,voice_set_duplex_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x000abf20,H,see call list,voice_set_duplex_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x000abf4c,H,method return,voice_set_duplex_state_graph_param_edges.csv

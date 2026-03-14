@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x0008df60|0x0008e0e2,2
+control,branch_density,cond=8|jmp=2,2
+call,direct_calls,count=3,1
+param,key_fields,see_V22_SRE_init_state_graph_param_edges.csv,1

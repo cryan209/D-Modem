@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x000ae1e0,H,function entry,CrossDataLinks_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x000ae1e0,H,entry complete,CrossDataLinks_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x000ae25a,H,actions complete,CrossDataLinks_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x000ae25a,H,return,CrossDataLinks_state_graph_edges.csv
+param,self_object,write,detect_rate_runtime_state,0x000ae1e0,H,this method updates/reads detection and rate-sequence state,CrossDataLinks_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x000ae1e0,H,see call list,CrossDataLinks_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x000ae25a,H,method return,CrossDataLinks_state_graph_param_edges.csv

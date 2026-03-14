@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,v21_obj_runtime_state,0x000a2410,H,this method updates/reads V21 object state
+call,B1_ACTION,helper_calls,0x000a2410,H,see call list
+return,B2_RETURN,return_value_or_void,0x000a245a,H,method return

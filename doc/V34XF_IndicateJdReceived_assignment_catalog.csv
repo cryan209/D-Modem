@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x0000a250|0x0000a2e5,2
+control,branch_density,cond=3|jmp=1,2
+call,direct_calls,count=1,1
+param,key_fields,see_V34XF_IndicateJdReceived_state_graph_param_edges.csv,1

@@ -431,18 +431,21 @@ static void v8_shim_open_handoff(struct v8_blob_wrapper *blob,
 	blob->handoff_delay = (int)(io_delay + 0x270);
 
 	if (blob->dsp_info) {
-		if (force_conservative_runtime) {
-			blob->dsp_info->qc_lapm = 0;
-			blob->dsp_info->qc_index = 9;
-		}
+		/* VoIP: always use conservative seeding — no real CJ
+		 * detection over SIP, so qc_index=9 / qc_lapm=0 gives
+		 * the blob the safest V.34 init path regardless of
+		 * whether V.8 CJ was seen or synthesised. */
+		blob->dsp_info->qc_lapm = 0;
+		blob->dsp_info->qc_index = 9;
 	}
 
 	if (blob->dp_runtime) {
 		blob->dp_runtime->flags0 |= 0x01;
-		if (force_conservative_runtime) {
-			blob->dp_runtime->flags2 = 0x00;
-			blob->dp_runtime->qc_index = 9;
-		}
+		/* Always conservative: clear flags2 bit 6 (0x40) and
+		 * force qc_index=9 so blob uses timeout/fallback V.34
+		 * initialization path. */
+		blob->dp_runtime->flags2 = 0x00;
+		blob->dp_runtime->qc_index = 9;
 	}
 
 	modem_set_param(blob->base.modem, MDMPRM_DP_REQUESTED, next_dp);

@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x00008540,H,function entry,V34GiveINFO1aBits_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00008540,H,entry complete,V34GiveINFO1aBits_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x0000880a,H,actions complete,V34GiveINFO1aBits_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x0000880a,H,return,V34GiveINFO1aBits_state_graph_edges.csv
+param,self_object,write,v34_v34xf_runtime_state,0x00008540,H,this method updates/reads V34/V34XF runtime state,V34GiveINFO1aBits_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00008540,H,see call list,V34GiveINFO1aBits_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x0000880a,H,method return,V34GiveINFO1aBits_state_graph_param_edges.csv

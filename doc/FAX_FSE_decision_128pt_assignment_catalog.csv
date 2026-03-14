@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x00097c40|0x00097fcd,2
+control,branch_density,cond=18|jmp=8,2
+call,direct_calls,count=2,1
+param,key_fields,see_FAX_FSE_decision_128pt_state_graph_param_edges.csv,1

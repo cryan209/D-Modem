@@ -894,7 +894,16 @@ static int socket_ioctl(struct modem *m, unsigned int cmd, unsigned long arg)
 		ret = CODEC_UNKNOWN; /* VoIP path has no physical codec — disable hardware-specific prefilter compensation */
 		break;
 	case MDMCTL_IODELAY: // kernel module returns s->delay + ST7554_HW_IODELAY (48)
-		ret = 0; /* VoIP: no local echo path — minimize echo canceller interference */
+		/*
+		 * VoIP: report minimum safe delay.  The blob computes
+		 *   ext_delay = (iodelay + 4 - 0x30)  [must be >= 0]
+		 *   filtdelay = ((iodelay+6)>>2) + 0x22  [echo filter taps]
+		 *   dmadelay  = 0x610 - ext_delay        [FEC buffer]
+		 *   echo_delay = ext_delay + 0x68         [echo canceller]
+		 * With 48 we get ext_delay=4, filtdelay=47, dmadelay=1548,
+		 * echo_delay=108 — the blob's natural hardware minimum.
+		 */
+		ret = 48;
 		break;
 	case MDMCTL_SPEAKERVOL:
 		modem_volume = arg;

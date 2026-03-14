@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x0000a6e0|0x0000a71f,2
+control,branch_density,cond=1|jmp=0,2
+call,direct_calls,count=1,1
+param,key_fields,see_V34XF_IndicateK56FlexRateDetermined_state_graph_param_edges.csv,1

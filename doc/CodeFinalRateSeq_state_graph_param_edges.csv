@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,detect_rate_runtime_state,0x00082400,H,this method updates/reads detection and rate-sequence state
+call,B1_ACTION,helper_calls,0x00082400,H,see call list
+return,B2_RETURN,return_value_or_void,0x000824a3,H,method return

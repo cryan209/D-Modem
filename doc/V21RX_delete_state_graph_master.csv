@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x00099270,H,function entry,V21RX_delete_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00099270,H,entry complete,V21RX_delete_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x000992ea,H,actions complete,V21RX_delete_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x000992ea,H,return,V21RX_delete_state_graph_edges.csv
+param,self_object,write,v21_obj_runtime_state,0x00099270,H,this method updates/reads V21 object state,V21RX_delete_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00099270,H,see call list,V21RX_delete_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x000992ea,H,method return,V21RX_delete_state_graph_param_edges.csv

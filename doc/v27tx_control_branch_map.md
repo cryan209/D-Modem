@@ -1,0 +1,25 @@
+# v27tx_control Branch And Flow Map
+
+- Symbol: v27tx_control
+- Start: 0x0009c7c0
+- End: 0x0009c7cf
+- Size: 0x00000010 bytes
+
+## Summary
+
+- Conditional branches: 0
+- Unconditional jumps: 1
+- Direct calls: 0
+- Core role: Apply control command(s) to v27 tx context.
+
+## Control Regions
+
+| Block | Entry | Role |
+|---|---:|---|
+| B0_ENTRY | 0x0009c7c0 | Entry and guard setup. |
+| B1_ACTION | 0x0009c7c0 | Main method behavior. |
+| B2_RETURN | 0x0009c7cf | Return tail. |
+
+## External Calls
+
+- 			9c7cc: R_386_PC32	V27TX_control

@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x00097c40,H,function entry,FAX_FSE_decision_128pt_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00097c40,H,entry complete,FAX_FSE_decision_128pt_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x00097fcd,H,actions complete,FAX_FSE_decision_128pt_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x00097fcd,H,return,FAX_FSE_decision_128pt_state_graph_edges.csv
+param,self_object,write,faxvmi_fse_runtime_state,0x00097c40,H,this method updates/reads fax VMI/FSE runtime state,FAX_FSE_decision_128pt_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00097c40,H,see call list,FAX_FSE_decision_128pt_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x00097fcd,H,method return,FAX_FSE_decision_128pt_state_graph_param_edges.csv

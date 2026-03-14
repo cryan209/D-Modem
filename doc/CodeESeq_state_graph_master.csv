@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x00082290,H,function entry,CodeESeq_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00082290,H,entry complete,CodeESeq_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x00082346,H,actions complete,CodeESeq_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x00082346,H,return,CodeESeq_state_graph_edges.csv
+param,self_object,write,detect_rate_runtime_state,0x00082290,H,this method updates/reads detection and rate-sequence state,CodeESeq_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00082290,H,see call list,CodeESeq_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x00082346,H,method return,CodeESeq_state_graph_param_edges.csv
