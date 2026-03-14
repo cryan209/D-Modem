@@ -73,6 +73,8 @@ static const char *v8_status_name(unsigned status)
 		return "V8_ANS_SEND_ANSAM";
 	case V8_OPEN_STATUS_ANS_SEND_JM:
 		return "V8_ANS_SEND_JM";
+	case V8_OPEN_STATUS_ORG_WAITING_FOR_QCA1D:
+		return "V8_ORG_WAITING_FOR_QCA1d";
 	case V8_OPEN_STATUS_OK:
 		return "V8_OK";
 	default:
@@ -262,21 +264,62 @@ static void v8_shim_fill_open_caps(struct v8_open_create_cfg *cfg,
 static void v8_shim_seed_open_runtime(struct v8_blob_wrapper *blob,
 				      const struct v8_open_create_cfg *cfg)
 {
+	unsigned char flags0;
+	unsigned char flags1;
 	unsigned char flags2;
+	unsigned qc_index;
+	int originator;
 
 	if (!blob->dp_runtime)
 		return;
 
-	flags2 = 0x00U;
-	if (cfg->advertise.quick_connect)
-		flags2 |= 0x10U;
-	if (cfg->advertise.lapm)
-		flags2 |= 0x40U;
+	/*
+	 * Mirror documented blob create-time behavior:
+	 * - flags0: clear bit1, seed V.90/V.34/V.32 capability bits
+	 * - flags1: seed LAPM capability bit (0x40)
+	 * - flags2: seed QC bit (0x10) only for originator V.92 path
+	 *           (leave LAPM-negotiated bit 0x40 for update-time logic)
+	 */
+	originator = (cfg->answer_mode == 0U);
+	flags0 = blob->dp_runtime->flags0;
+	flags1 = blob->dp_runtime->flags1;
+	flags2 = blob->dp_runtime->flags2;
+	qc_index = blob->dp_runtime->qc_index;
 
-	blob->dp_runtime->flags0 = 0xa0U;
-	blob->dp_runtime->flags1 = cfg->advertise.lapm ? 0x40U : 0x00U;
+	flags0 = (unsigned char)(flags0 & (unsigned char)~0x02U);
+	if (originator &&
+	    cfg->target_dp_id == (unsigned)DP_V92 &&
+	    cfg->advertise.v90)
+		flags0 = (unsigned char)(flags0 | 0x08U);
+	else
+		flags0 = (unsigned char)(flags0 & (unsigned char)~0x08U);
+	if (cfg->advertise.v34)
+		flags0 = (unsigned char)(flags0 | 0x20U);
+	else
+		flags0 = (unsigned char)(flags0 & (unsigned char)~0x20U);
+	if (cfg->advertise.v32)
+		flags0 = (unsigned char)(flags0 | 0x80U);
+	else
+		flags0 = (unsigned char)(flags0 & (unsigned char)~0x80U);
+
+	if (cfg->advertise.lapm)
+		flags1 = (unsigned char)(flags1 | 0x40U);
+	else
+		flags1 = (unsigned char)(flags1 & (unsigned char)~0x40U);
+
+	flags2 = (unsigned char)(flags2 & (unsigned char)~(0x10U | 0x40U));
+	if (originator &&
+	    cfg->target_dp_id == (unsigned)DP_V92 &&
+	    cfg->advertise.quick_connect)
+		flags2 = (unsigned char)(flags2 | 0x10U);
+
+	if (!qc_index)
+		qc_index = 9U;
+
+	blob->dp_runtime->flags0 = flags0;
+	blob->dp_runtime->flags1 = flags1;
 	blob->dp_runtime->flags2 = flags2;
-	blob->dp_runtime->qc_index = 0U;
+	blob->dp_runtime->qc_index = qc_index;
 }
 
 static int v8_shim_open_cap_enabled(const struct v8_open_advertise_cfg *caps,
@@ -381,19 +424,33 @@ static enum DP_ID v8_shim_open_timeout_dp(enum DP_ID target_dp_id,
 	return v8_shim_open_next_dp(target_dp_id, caps);
 }
 
-static void v8_shim_open_handoff(struct v8_blob_wrapper *blob,
-				 struct v8_shim_state *state)
+static int v8_shim_open_handoff(struct v8_blob_wrapper *blob,
+				struct v8_shim_state *state,
+				unsigned status)
 {
 	enum DP_ID next_dp;
 	unsigned force_conservative_runtime;
 	unsigned no_cj_timeout_fallback;
 	long io_delay;
+	int qc_handoff;
 
 	if (state->handoff_emitted)
-		return;
+		return 0;
 
 	next_dp = state->open_next_dp;
 	no_cj_timeout_fallback = 0U;
+	qc_handoff = (status == V8_OPEN_STATUS_ORG_WAITING_FOR_QCA1D);
+	if (qc_handoff) {
+		if (blob->target_dp_id != DP_V90 &&
+		    blob->target_dp_id != DP_V90_NO_V8BIS &&
+		    blob->target_dp_id != DP_V92) {
+			V8SHIM_DBG("open handoff: QC status with invalid target=%d\n",
+				  blob->target_dp_id);
+			return -1;
+		}
+		next_dp = DP_V92;
+	}
+
 	if (state->use_open_stub &&
 	    blob->v8_engine &&
 	    v8_open_answer_cm_timeout(blob->v8_engine)) {
@@ -431,6 +488,8 @@ static void v8_shim_open_handoff(struct v8_blob_wrapper *blob,
 	blob->handoff_delay = (int)(io_delay + 0x270);
 
 	if (blob->dsp_info) {
+		if (qc_handoff)
+			blob->dsp_info->qc_lapm &= 1U;
 		if (force_conservative_runtime) {
 			blob->dsp_info->qc_lapm = 0;
 			blob->dsp_info->qc_index = 9;
@@ -439,6 +498,8 @@ static void v8_shim_open_handoff(struct v8_blob_wrapper *blob,
 
 	if (blob->dp_runtime) {
 		blob->dp_runtime->flags0 |= 0x01;
+		if (qc_handoff)
+			blob->dp_runtime->flags2 |= 0x10U;
 		if (force_conservative_runtime) {
 			blob->dp_runtime->flags2 = 0x00;
 			blob->dp_runtime->qc_index = 9;
@@ -447,6 +508,7 @@ static void v8_shim_open_handoff(struct v8_blob_wrapper *blob,
 
 	modem_set_param(blob->base.modem, MDMPRM_DP_REQUESTED, next_dp);
 	state->handoff_emitted = 1;
+	return 0;
 }
 
 static struct dp *v8_shim_create_open(struct modem *m, enum DP_ID id,
@@ -612,12 +674,14 @@ static int v8_shim_process(struct dp *dp, void *in, void *out, int cnt)
 		status = v8_open_process(blob->v8_engine, in, out, cnt);
 		blob->last_v8_status = (unsigned)status;
 		ret = DPSTAT_OK;
-		if (status == V8_OPEN_STATUS_OK) {
-			v8_shim_open_handoff(blob, state);
-			if (blob->handoff_delay > cnt) {
+		if (status == V8_OPEN_STATUS_OK ||
+		    status == V8_OPEN_STATUS_ORG_WAITING_FOR_QCA1D) {
+			if (v8_shim_open_handoff(blob, state, (unsigned)status) < 0)
+				ret = DPSTAT_ERROR;
+			if (ret == DPSTAT_OK && blob->handoff_delay > cnt) {
 				blob->handoff_delay -= cnt;
 				suppress_log = 1;
-			} else {
+			} else if (ret == DPSTAT_OK) {
 				blob->handoff_delay = 0;
 				ret = DPSTAT_CHANGEDP;
 			}

@@ -48,6 +48,7 @@ struct v8_open_create_cfg {
 #define V8_OPEN_STATUS_ORG_SEND_CM     9
 #define V8_OPEN_STATUS_ANS_SEND_JM     3
 #define V8_OPEN_STATUS_ORG_JM_DETECTED 10
+#define V8_OPEN_STATUS_ORG_WAITING_FOR_QCA1D 16
 #define V8_OPEN_STATUS_OK             13
 
 void *v8_open_create(const struct v8_open_create_cfg *cfg);
