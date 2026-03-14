@@ -3804,20 +3804,9 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 		return;
 	}
 
-	/*
-	 * Use detector idle-run counter as log throttle key.
-	 * `cm_seen_count` can remain 0 for long spans in valid traffic and
-	 * would otherwise spam one log per observe tick.
+	/* Keep CM logs focused on state transitions/handoffs; per-tick
+	 * "detector armed" traces are too noisy and do not exist in blob output.
 	 */
-	if ((engine->ans_rx_14 & 0x003fU) == 0U) {
-		V8OPEN_DBG("cm-stub: detector armed avg=%u peak=%u hold=%u hits=%u thresh=%u window=%u\n",
-			  avg_abs,
-			  peak_abs,
-			  v8_open_samples_from_ms(engine, engine->ans_det_0a),
-			  engine->cm_seen_count,
-			  engine->ans_det_0a,
-			  v8_open_answer_detector_window(engine));
-	}
 }
 
 static void v8_open_observe_cj(struct v8_open_engine *engine,
@@ -4135,6 +4124,10 @@ static unsigned v8_open_phase_status(const struct v8_open_engine *engine,
 	case V8_OPEN_PHASE_ANS_WAIT_FOR_CJ:
 		return V8_OPEN_STATUS_ANS_SEND_JM;
 	case V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM:
+		if (engine->ans_cm_timeout_fallback)
+			return V8_OPEN_STATUS_ANS_TIMEOUT_WAITING_FOR_CM;
+		if (engine->ans_cj_timeout_fallback)
+			return V8_OPEN_STATUS_ANS_TIMEOUT_WAITING_FOR_CJ;
 		return V8_OPEN_STATUS_ANS_SEND_JM;
 	case V8_OPEN_PHASE_ORG_SEND_CM:
 		return V8_OPEN_STATUS_ORG_SEND_CM;

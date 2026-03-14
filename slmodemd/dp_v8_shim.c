@@ -675,7 +675,9 @@ static int v8_shim_process(struct dp *dp, void *in, void *out, int cnt)
 		blob->last_v8_status = (unsigned)status;
 		ret = DPSTAT_OK;
 		if (status == V8_OPEN_STATUS_OK ||
-		    status == V8_OPEN_STATUS_ORG_WAITING_FOR_QCA1D) {
+		    status == V8_OPEN_STATUS_ORG_WAITING_FOR_QCA1D ||
+		    status == V8_OPEN_STATUS_ANS_TIMEOUT_WAITING_FOR_CM ||
+		    status == V8_OPEN_STATUS_ANS_TIMEOUT_WAITING_FOR_CJ) {
 			if (v8_shim_open_handoff(blob, state, (unsigned)status) < 0)
 				ret = DPSTAT_ERROR;
 			if (ret == DPSTAT_OK && blob->handoff_delay > cnt) {
