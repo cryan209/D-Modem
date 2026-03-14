@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x000a8880,H,function entry,FPM_FSM_init_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x000a8880,H,entry complete,FPM_FSM_init_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x000a8931,H,actions complete,FPM_FSM_init_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x000a8931,H,return,FPM_FSM_init_state_graph_edges.csv
+param,self_object,write,fpm_family_state,0x000a8880,H,this method updates/reads FPM family state,FPM_FSM_init_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x000a8880,H,see call list,FPM_FSM_init_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x000a8931,H,method return,FPM_FSM_init_state_graph_param_edges.csv

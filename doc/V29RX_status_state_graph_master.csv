@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x000a45f0,H,function entry,V29RX_status_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x000a45f0,H,entry complete,V29RX_status_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x000a46ad,H,actions complete,V29RX_status_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x000a46ad,H,return,V29RX_status_state_graph_edges.csv
+param,self_object,write,v17_v27_v29_state,0x000a45f0,H,this method updates/reads family state,V29RX_status_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x000a45f0,H,see call list,V29RX_status_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x000a46ad,H,method return,V29RX_status_state_graph_param_edges.csv
