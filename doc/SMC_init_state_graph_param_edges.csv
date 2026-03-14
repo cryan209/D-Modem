@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,nonfax_smallprefix_runtime_state,0x0009fc80,H,this method updates/reads non-fax small-prefix utility state
+call,B1_ACTION,helper_calls,0x0009fc80,H,see call list
+return,B2_RETURN,return_value_or_void,0x0009fcb4,H,method return

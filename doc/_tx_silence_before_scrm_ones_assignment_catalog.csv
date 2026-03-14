@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x0009d720|0x0009d78e,2
+control,branch_density,cond=2|jmp=1,2
+call,direct_calls,count=2,1
+param,key_fields,see__tx_silence_before_scrm_ones_state_graph_param_edges.csv,1

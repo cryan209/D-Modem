@@ -1,0 +1,13 @@
+/* Pseudo-C reconstruction of _ZN12V90ModulatorC1EjP13V90Phase2InfoP5V90JdP5V92JdP19tagV90DILdescriptorP16V90MappingParamsS9_P22tagV90AdditionalCPinfoP5V90CPP5V90MPP13V90Parametersj
+ * Symbol: _ZN12V90ModulatorC1EjP13V90Phase2InfoP5V90JdP5V92JdP19tagV90DILdescriptorP16V90MappingParamsS9_P22tagV90AdditionalCPinfoP5V90CPP5V90MPP13V90Parametersj
+ * Range: 0x0001a560..0x0001a6b1
+ */
+
+#include <stdint.h>
+
+typedef struct opaque_ctx opaque_ctx;
+
+int _ZN12V90ModulatorC1EjP13V90Phase2InfoP5V90JdP5V92JdP19tagV90DILdescriptorP16V90MappingParamsS9_P22tagV90AdditionalCPinfoP5V90CPP5V90MPP13V90Parametersj_pseudoc(void *self)
+{
+    return dsp_priority_nonfax_mangled_chunk1_step(self);
+}

@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x000ae260|0x000ae36a,2
+control,branch_density,cond=8|jmp=2,2
+call,direct_calls,count=2,1
+param,key_fields,see_bSearchEnergy_state_graph_param_edges.csv,1

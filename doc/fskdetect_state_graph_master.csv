@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x00073a50,H,function entry,fskdetect_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00073a50,H,entry complete,fskdetect_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x00073d03,H,actions complete,fskdetect_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x00073d03,H,return,fskdetect_state_graph_edges.csv
+param,self_object,write,nonfax_plainc_runtime_state,0x00073a50,H,this method updates/reads non-fax plain-C helper state,fskdetect_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00073a50,H,see call list,fskdetect_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x00073d03,H,method return,fskdetect_state_graph_param_edges.csv
