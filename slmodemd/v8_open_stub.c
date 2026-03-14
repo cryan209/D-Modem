@@ -61,6 +61,7 @@
 #define V8OPEN_CM_FORCE_SUPPRESS_MAX 4U
 #define V8OPEN_CM_FORCE_SUPPRESS_REMAIN_MS 220U
 #define V8OPEN_CM_ANSAM_PHASE_SCAN_MAX 9U
+#define V8OPEN_CM_CONFIRM_IDENTICAL_MIN 2U
 #define V8OPEN_AGC_FIR_SAMPLES 40U
 #define V8OPEN_AGC_POWER_RING 36U
 #define V8OPEN_AGC_BLOCK_SAMPLES 4U
@@ -409,6 +410,9 @@ struct v8_open_engine {
 	unsigned cm_best_pass;
 	unsigned cm_best_count;
 	unsigned short cm_best_seq[V8OPEN_CM_WORDS];
+	unsigned cm_confirm_valid_count;
+	unsigned cm_confirm_word_count;
+	unsigned short cm_confirm_seq[V8OPEN_CM_WORDS];
 	unsigned have_call_match;
 	unsigned have_proto_match;
 	unsigned short matched_call_word;
@@ -1732,7 +1736,7 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 				      const short *samples,
 				      int cnt);
 static void v8_open_parse_rx_sequence(struct v8_open_engine *engine);
-static int v8_open_cm_sequence_valid(const struct v8_open_engine *engine);
+static int v8_open_cm_sequence_valid(struct v8_open_engine *engine);
 static int v8_open_try_salvage_best_cm(struct v8_open_engine *engine);
 
 static unsigned v8_open_abs_u32_from_i32(int v)
@@ -2353,11 +2357,15 @@ static unsigned v8_open_pcm_negotiation_usable(const struct v8_open_engine *engi
 	return 1U;
 }
 
-static int v8_open_cm_sequence_valid(const struct v8_open_engine *engine)
+static int v8_open_cm_sequence_valid(struct v8_open_engine *engine)
 {
 	unsigned cap_matches;
-	unsigned modulation_matches;
 	unsigned pcm_usable;
+	unsigned high_speed;
+	unsigned short sig[7];
+	unsigned sig_len;
+	unsigned short call_word;
+	unsigned short proto_word;
 
 	if (!engine)
 		return 0;
@@ -2373,13 +2381,14 @@ static int v8_open_cm_sequence_valid(const struct v8_open_engine *engine)
 		cap_matches++;
 	if (engine->remote_access_present)
 		cap_matches++;
-	modulation_matches = 0U;
-	if (engine->remote_v34)
-		modulation_matches++;
-	if (engine->remote_v32)
-		modulation_matches++;
-	if (engine->remote_pcm_present && pcm_usable)
-		modulation_matches++;
+	/*
+	 * Require V.34-or-higher capability before accepting CM as handshake
+	 * completion evidence.
+	 */
+	high_speed = engine->remote_v34 ||
+		(engine->remote_pcm_present && pcm_usable);
+	if (!high_speed)
+		return 0;
 
 	/*
 	 * Protocol token (e.g. LAPM) is optional in CM; accept CM when the
@@ -2387,9 +2396,9 @@ static int v8_open_cm_sequence_valid(const struct v8_open_engine *engine)
 	 */
 	if (engine->have_call_match) {
 		if (engine->have_proto_match)
-			return 1;
+			goto cm_validated;
 		if (cap_matches > 0U)
-			return 1;
+			goto cm_validated;
 		return 0;
 	}
 
@@ -2398,6 +2407,62 @@ static int v8_open_cm_sequence_valid(const struct v8_open_engine *engine)
 	 * category-only or weak/framing-tolerant evidence.
 	 */
 	return 0;
+
+cm_validated:
+	if (engine->rx_seq_b_count < 5U)
+		return 0;
+
+	/*
+	 * Compare a canonical CM identity instead of raw sliding words. The
+	 * raw window length/content shifts (5/6/7...) while demod aligns, which
+	 * should not reset identical-sequence confirmation.
+	 */
+	call_word = engine->matched_call_word ?
+		engine->matched_call_word :
+		v8_open_find_rx_token(engine, 0x0101U, 0U);
+	proto_word = engine->matched_proto_word ?
+		engine->matched_proto_word :
+		v8_open_find_rx_token(engine, 0x00a1U, 0U);
+	sig[0] = call_word;
+	sig[1] = v8_open_find_rx_token(engine, 0x0141U, 0U);
+	sig[2] = v8_open_find_rx_token(engine, 0x0141U, 1U);
+	sig[3] = v8_open_find_rx_token(engine, 0x0141U, 2U);
+	sig[4] = v8_open_find_rx_token(engine, 0x0161U, 0U);
+	sig[5] = proto_word;
+	sig[6] = (unsigned short)((engine->remote_v34 ? 0x0001U : 0U) |
+				  (engine->remote_v32 ? 0x0002U : 0U) |
+				  (engine->remote_pcm_present ? 0x0004U : 0U) |
+				  (engine->remote_access_present ? 0x0008U : 0U) |
+				  (engine->have_call_match ? 0x0010U : 0U) |
+				  (engine->have_proto_match ? 0x0020U : 0U));
+	sig_len = (unsigned)(sizeof(sig) / sizeof(sig[0]));
+
+	if (engine->cm_confirm_valid_count == 0U ||
+	    engine->cm_confirm_word_count != sig_len ||
+	    memcmp(engine->cm_confirm_seq,
+		   sig,
+		   sig_len * sizeof(engine->cm_confirm_seq[0])) != 0) {
+		memcpy(engine->cm_confirm_seq,
+		       sig,
+		       sig_len * sizeof(engine->cm_confirm_seq[0]));
+		engine->cm_confirm_word_count = sig_len;
+		engine->cm_confirm_valid_count = 1U;
+		V8OPEN_DBG("cm-stub: confirmed valid CM 1/%u (V.34+), waiting for identical repeat words=%u\n",
+			  V8OPEN_CM_CONFIRM_IDENTICAL_MIN,
+			  engine->rx_seq_b_count > V8OPEN_CM_WORDS ?
+			  V8OPEN_CM_WORDS : engine->rx_seq_b_count);
+		return 0;
+	}
+
+	if (engine->cm_confirm_valid_count < 0xffffU)
+		engine->cm_confirm_valid_count++;
+	if (engine->cm_confirm_valid_count < V8OPEN_CM_CONFIRM_IDENTICAL_MIN)
+		return 0;
+	V8OPEN_DBG("cm-stub: confirmed valid CM %u/%u (identical V.34+ sequence)\n",
+		  engine->cm_confirm_valid_count,
+		  V8OPEN_CM_CONFIRM_IDENTICAL_MIN);
+
+	return 1;
 }
 
 static unsigned short v8_open_rx_normalize_word(const struct v8_open_engine *engine,
@@ -4498,6 +4563,12 @@ static void v8_open_transition(struct v8_open_engine *engine,
 	    !engine->ci_detected) {
 		V8OPEN_DBG("ci-detect: timeout, proceeding to ANSam without CI detection\n");
 	}
+	if (next_phase == V8_OPEN_PHASE_ANS_SEND_ANSAM &&
+	    engine->phase == V8_OPEN_PHASE_ANS_WAIT_FOR_CI) {
+		engine->cm_confirm_valid_count = 0U;
+		engine->cm_confirm_word_count = 0U;
+		memset(engine->cm_confirm_seq, 0, sizeof(engine->cm_confirm_seq));
+	}
 
 	if (next_phase == V8_OPEN_PHASE_ANS_WAIT_FOR_CM && engine->cm_detected)
 		next_phase = V8_OPEN_PHASE_ANS_SEND_JM;
@@ -4912,6 +4983,9 @@ void *v8_open_create(const struct v8_open_create_cfg *cfg)
 	engine->cm_best_pass = 0U;
 	engine->cm_best_count = 0U;
 	memset(engine->cm_best_seq, 0, sizeof(engine->cm_best_seq));
+	engine->cm_confirm_valid_count = 0U;
+	engine->cm_confirm_word_count = 0U;
+	memset(engine->cm_confirm_seq, 0, sizeof(engine->cm_confirm_seq));
 	engine->have_call_match = 0U;
 	engine->have_proto_match = 0U;
 	engine->matched_call_word = 0U;
@@ -5007,7 +5081,12 @@ int v8_open_process(void *engine_ptr, void *in, void *out, int cnt)
 		rx_samples = (const short *)rx_in;
 		rx_remaining = cnt;
 		while (rx_remaining > 0) {
-			rx_step = rx_remaining > 4 ? 4 : rx_remaining;
+			/*
+			 * Keep V.8 RX progression sample-granular to match blob
+			 * detector/demod pacing. 4-sample batching can smear
+			 * symbol timing and hurt CM framing stability.
+			 */
+			rx_step = 1;
 			for (j = 0; j < rx_step; ++j)
 				rx_step_buf[j] =
 					v8_open_rx_frontend_sample(engine, rx_samples[j]);
