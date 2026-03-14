@@ -60,6 +60,7 @@
 #define V8OPEN_CM_FORCE_COLLECT_REMAIN_MS 280U
 #define V8OPEN_CM_FORCE_SUPPRESS_MAX 4U
 #define V8OPEN_CM_FORCE_SUPPRESS_REMAIN_MS 220U
+#define V8OPEN_CM_ANSAM_PHASE_SCAN_MAX 9U
 #define V8OPEN_AGC_FIR_SAMPLES 40U
 #define V8OPEN_AGC_POWER_RING 36U
 #define V8OPEN_AGC_BLOCK_SAMPLES 4U
@@ -538,6 +539,10 @@ static const char *v8_open_status_name(unsigned status)
 		return "V8_INIT";
 	case V8_OPEN_STATUS_ANS_SEND_ANSAM:
 		return "V8_ANS_SEND_ANSAM";
+	case V8_OPEN_STATUS_ANS_TIMEOUT_WAITING_FOR_CM:
+		return "V8_ANS_TIME_OUT_WAITING_FOR_CM";
+	case V8_OPEN_STATUS_ANS_TIMEOUT_WAITING_FOR_CJ:
+		return "V8_ANS_TIME_OUT_WAITING_FOR_CJ";
 	case V8_OPEN_STATUS_ORG_SEND_CM:
 		return "V8_ORG_SEND_CM";
 	case V8_OPEN_STATUS_ANS_SEND_JM:
@@ -3694,6 +3699,16 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 		return;
 	}
 
+	if (engine->phase == V8_OPEN_PHASE_ANS_SEND_ANSAM &&
+	    engine->rx_phase_scan_index >= V8OPEN_CM_ANSAM_PHASE_SCAN_MAX &&
+	    !engine->cm_collecting &&
+	    !engine->cm_detected) {
+		/* Bound ANSam-side probing; do full CM recovery in WAIT_FOR_CM. */
+		engine->cm_predetecting = 0U;
+		engine->cm_predetect_deadline = 0U;
+		return;
+	}
+
 	if (!engine->cm_predetecting) {
 		v8_open_answer_predetector_arm(engine);
 		engine->cm_seen_count = 0U;
@@ -3744,8 +3759,13 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 			  engine->ans_det_12);
 	}
 
-	if (detector_tripped ||
-	    (engine->ans_det_06 && v8_open_handoff_ready(engine, avg_abs, peak_abs))) {
+	/*
+	 * Keep ANS_SEND_ANSAM conservative (handoff_ready gate), but once we
+	 * are in ANS_WAIT_FOR_CM allow explicit detector trip to start collect.
+	 */
+	if (engine->ans_det_06 &&
+	    (v8_open_handoff_ready(engine, avg_abs, peak_abs) ||
+	     (detector_tripped && engine->phase == V8_OPEN_PHASE_ANS_WAIT_FOR_CM))) {
 		engine->cm_predetecting = 0U;
 		engine->cm_predetect_deadline = 0U;
 		engine->cm_signature = signature;
@@ -4148,19 +4168,6 @@ static unsigned v8_open_phase_status(const struct v8_open_engine *engine,
 
 static enum DP_ID v8_open_preferred_dp(const struct v8_open_engine *engine)
 {
-	unsigned ambiguous_modulation;
-
-	ambiguous_modulation = 0U;
-	if (engine &&
-	    engine->cm_detected &&
-	    engine->remote_call_data &&
-	    !engine->remote_v34 &&
-	    !engine->remote_v32 &&
-	    !engine->remote_pcm_present &&
-	    (engine->remote_access_present || engine->have_call_match)) {
-		ambiguous_modulation = 1U;
-	}
-
 	/*
 	 * When CM was detected but capability tokens are weak/ambiguous,
 	 * prefer conservative non-PCM fallback instead of jumping back to the
@@ -4178,7 +4185,7 @@ static enum DP_ID v8_open_preferred_dp(const struct v8_open_engine *engine)
 		    engine->remote_pcm_present)
 			return DP_V90;
 		if (engine->cfg.advertise.v34 &&
-		    (engine->remote_v34 || ambiguous_modulation))
+		    engine->remote_v34)
 			return DP_V34;
 		if (engine->cfg.advertise.v32)
 			return DP_V32;
@@ -4232,22 +4239,9 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	unsigned short rx_proto;
 	unsigned want_pcm;
 	unsigned want_access;
-	unsigned short local_mod0_word;
 	unsigned short local_pcm_word;
-	unsigned assume_v34_ambiguous_cm;
 	jm = &engine->jm;
 	memset(jm, 0, sizeof(*jm));
-
-	assume_v34_ambiguous_cm = 0U;
-	if (engine->cm_detected &&
-	    engine->remote_call_data &&
-	    !engine->remote_v34 &&
-	    !engine->remote_v32 &&
-	    !engine->remote_pcm_present &&
-	    (engine->remote_access_present || engine->have_call_match) &&
-	    engine->cfg.advertise.v34) {
-		assume_v34_ambiguous_cm = 1U;
-	}
 
 	jm->data_supported = engine->cfg.advertise.data && engine->remote_call_data;
 	jm->lapm_supported = engine->cfg.advertise.lapm && engine->remote_lapm;
@@ -4275,7 +4269,7 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	    engine->cfg.advertise.pcm_digital && engine->remote_pcm_present)
 		jm->modulation_mask |= 0x08U;
 	if (engine->cfg.advertise.v34 &&
-	    (engine->remote_v34 || assume_v34_ambiguous_cm)) {
+	    engine->remote_v34) {
 		jm->modulation_mask |= 0x04U;
 		local_mod0_octet |= 0x40U;
 	}
@@ -4302,7 +4296,6 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	jm->modulation1_octet = local_mod1_octet;
 	jm->modulation2_octet = local_mod2_octet;
 	jm->pcm_octet = local_pcm_octet;
-	local_mod0_word = v8_open_encode_octet(local_mod0_octet);
 	local_pcm_word = v8_open_encode_octet(local_pcm_octet);
 
 	rx_call = v8_open_find_rx_token(engine, 0x0101U, 0U);
@@ -4335,16 +4328,13 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 	}
 
 	jm->modulation0_octet = local_mod0_octet;
-	if (rx_mod0 && !assume_v34_ambiguous_cm) {
+	if (rx_mod0) {
 		unsigned char rx_mod0_octet;
 
 		rx_mod0_octet = v8_open_decode_word_octet((unsigned short)(rx_mod0 | 0x0001U));
 		jm->modulation0_octet =
 			(unsigned char)((jm->modulation0_octet & rx_mod0_octet) | 0x05U);
-	} else if (rx_mod0 && assume_v34_ambiguous_cm)
-		V8OPEN_DBG("jm-shim: ambiguous CM modulation, ignoring rx mod0 intersection raw=%03x local=%03x\n",
-			  rx_mod0,
-			  local_mod0_word);
+	}
 	jm->modulation0_word = v8_open_encode_octet(jm->modulation0_octet);
 
 	jm->has_modulation1 = 1U;
@@ -4517,6 +4507,13 @@ static void v8_open_transition(struct v8_open_engine *engine,
 
 		carry_active = engine->cm_collecting ||
 			(engine->cm_predetecting && engine->cm_seen_count > 0U);
+		/*
+		 * Blob behavior is more deterministic around CM wait entry; stale
+		 * ANS_SEND_ANSAM detector/collector carry frequently causes false
+		 * immediate handoff and preamble-only windows. Start WAIT_FOR_CM
+		 * with a fresh receiver state.
+		 */
+		carry_active = 0U;
 		if (carry_active &&
 		    v8_open_stage2_monobit(engine, V8OPEN_CM_STAGE2_MONO_BITS_CARRY)) {
 			V8OPEN_DBG("cm-stub: entering WAIT_FOR_CM, dropping stale mono stage2 hits=%u bits=%u/%u runs=%u/%u/%u prof=%u\n",
@@ -4604,13 +4601,17 @@ static void v8_open_transition(struct v8_open_engine *engine,
 		engine->cm_collect_pass = 0U;
 		engine->cm_even_words = 0U;
 		engine->cm_force_suppress_count = 0U;
-		engine->cm_signature = 0U;
-		engine->cm_best_pass = 0U;
-		engine->cm_best_count = 0U;
-		memset(engine->cm_best_seq, 0, sizeof(engine->cm_best_seq));
-		v8_open_rx_reset_collect(engine);
-		v8_open_answer_predetector_arm(engine);
-		engine->cm_predetecting = 1U;
+			engine->cm_signature = 0U;
+			engine->cm_best_pass = 0U;
+			engine->cm_best_count = 0U;
+			memset(engine->cm_best_seq, 0, sizeof(engine->cm_best_seq));
+			engine->rx_demod_profile = 0U;
+			engine->rx_phase_scan_index = 0U;
+			engine->rx_lock_skip_bits = 0U;
+			engine->rx_orient_flip = 0U;
+			v8_open_rx_reset_collect(engine);
+			v8_open_answer_predetector_arm(engine);
+			engine->cm_predetecting = 1U;
 		engine->cm_predetect_deadline = 0U;
 		}
 	}
