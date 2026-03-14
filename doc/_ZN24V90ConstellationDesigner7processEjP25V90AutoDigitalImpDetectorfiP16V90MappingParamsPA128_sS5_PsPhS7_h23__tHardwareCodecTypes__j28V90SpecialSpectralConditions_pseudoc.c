@@ -1,0 +1,13 @@
+/* Pseudo-C reconstruction of _ZN24V90ConstellationDesigner7processEjP25V90AutoDigitalImpDetectorfiP16V90MappingParamsPA128_sS5_PsPhS7_h23__tHardwareCodecTypes__j28V90SpecialSpectralConditions
+ * Symbol: _ZN24V90ConstellationDesigner7processEjP25V90AutoDigitalImpDetectorfiP16V90MappingParamsPA128_sS5_PsPhS7_h23__tHardwareCodecTypes__j28V90SpecialSpectralConditions
+ * Range: 0x0004cbd0..0x0004d1f9
+ */
+
+#include <stdint.h>
+
+typedef struct opaque_ctx opaque_ctx;
+
+int _ZN24V90ConstellationDesigner7processEjP25V90AutoDigitalImpDetectorfiP16V90MappingParamsPA128_sS5_PsPhS7_h23__tHardwareCodecTypes__j28V90SpecialSpectralConditions_pseudoc(void *self)
+{
+    return dsp_priority_nonfax_mangled_chunk3_step(self);
+}

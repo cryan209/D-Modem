@@ -1,0 +1,29 @@
+# _ZN24V90SpectralShapingFilterC2Ev Target Walkthrough
+
+- Function: _ZN24V90SpectralShapingFilterC2Ev
+- Symbol: _ZN24V90SpectralShapingFilterC2Ev
+- Range: 0x00033150 .. 0x00033177
+- Disassembly: [_ZN24V90SpectralShapingFilterC2Ev_disasm.asm](/root/D-Modem/doc/_ZN24V90SpectralShapingFilterC2Ev_disasm.asm)
+- Pseudo-C: [_ZN24V90SpectralShapingFilterC2Ev_pseudoc.c](/root/D-Modem/doc/_ZN24V90SpectralShapingFilterC2Ev_pseudoc.c)
+
+## Purpose
+
+V90/V92/V34 or DSP utility mangled helper.
+
+## Signature (lifted)
+
+~~~c
+int _ZN24V90SpectralShapingFilterC2Ev_pseudoc(void *self)
+~~~
+
+## Block-Level Walkthrough
+
+| Block | Entry | Behavior summary |
+|---|---:|---|
+| B0_ENTRY | 0x00033150 | Entry and local state setup. |
+| B1_ACTION | 0x00033150 | Main helper/state-machine behavior. |
+| B2_RETURN | 0x00033177 | Return tail. |
+
+## Direct Calls
+
+- none

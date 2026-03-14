@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x0003fad0|0x00040018,2
+control,branch_density,cond=14|jmp=8,2
+call,direct_calls,count=9,1
+param,key_fields,see__ZN22V90ConnectionEvaluator14evaluatePhase4Ef_state_graph_param_edges.csv,1
