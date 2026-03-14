@@ -1,0 +1,26 @@
+# _ZN16V92EchoCanceller17updateEchoHistoryEPfj Branch And Flow Map
+
+- Symbol: _ZN16V92EchoCanceller17updateEchoHistoryEPfj
+- Start: 0x00011770
+- End: 0x00011863
+- Size: 0x000000f4 bytes
+
+## Summary
+
+- Conditional branches: 6
+- Unconditional jumps: 2
+- Direct calls: 2
+- Core role: V90/V92/V34 or DSP utility mangled helper.
+
+## Control Regions
+
+| Block | Entry | Role |
+|---|---:|---|
+| B0_ENTRY | 0x00011770 | Entry and guard setup. |
+| B1_ACTION | 0x00011770 | Main method behavior. |
+| B2_RETURN | 0x00011863 | Return tail. |
+
+## External Calls
+
+- 			117b6: R_386_PC32	FloatARMA::process(float)
+- 			117f4: R_386_PC32	FloatARMA::process(float)
