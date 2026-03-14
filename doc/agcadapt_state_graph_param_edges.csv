@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,v34_batch7_state,0x0005ae00,H,this method updates/reads TX/RX runtime state
+call,B1_ACTION,helper_calls,0x0005ae00,H,see call list
+return,B2_RETURN,return_value_or_void,0x0005af0b,H,method return

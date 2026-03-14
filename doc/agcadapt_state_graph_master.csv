@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x0005ae00,H,function entry,agcadapt_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x0005ae00,H,entry complete,agcadapt_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x0005af0b,H,actions complete,agcadapt_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x0005af0b,H,return,agcadapt_state_graph_edges.csv
+param,self_object,write,v34_batch7_state,0x0005ae00,H,this method updates/reads TX/RX runtime state,agcadapt_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x0005ae00,H,see call list,agcadapt_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x0005af0b,H,method return,agcadapt_state_graph_param_edges.csv
