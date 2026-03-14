@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,nonfax_mangled_runtime_state,0x00015120,H,this method updates/reads mangled C++ runtime state
+call,B1_ACTION,helper_calls,0x00015120,H,see call list
+return,B2_RETURN,return_value_or_void,0x000153fd,H,method return

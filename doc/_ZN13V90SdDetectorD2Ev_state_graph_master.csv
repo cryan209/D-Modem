@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x0003bd30,H,function entry,_ZN13V90SdDetectorD2Ev_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x0003bd30,H,entry complete,_ZN13V90SdDetectorD2Ev_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x0003bd4d,H,actions complete,_ZN13V90SdDetectorD2Ev_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x0003bd4d,H,return,_ZN13V90SdDetectorD2Ev_state_graph_edges.csv
+param,self_object,write,nonfax_mangled_runtime_state,0x0003bd30,H,this method updates/reads mangled C++ runtime state,_ZN13V90SdDetectorD2Ev_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x0003bd30,H,see call list,_ZN13V90SdDetectorD2Ev_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x0003bd4d,H,method return,_ZN13V90SdDetectorD2Ev_state_graph_param_edges.csv

@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x00014250|0x00014446,2
+control,branch_density,cond=21|jmp=0,2
+call,direct_calls,count=18,1
+param,key_fields,see__ZN12V92ModulatorD1Ev_state_graph_param_edges.csv,1
