@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x00036b10,H,function entry,V90Equalizer_printCoefsToFile_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00036b10,H,entry complete,V90Equalizer_printCoefsToFile_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x00036b10,H,actions complete,V90Equalizer_printCoefsToFile_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x00036b10,H,return,V90Equalizer_printCoefsToFile_state_graph_edges.csv
+param,self_object,write,module_state_fields,0x00036b10,H,this-pointer method updates/reads module state,V90Equalizer_printCoefsToFile_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00036b10,H,see call list for helper interactions,V90Equalizer_printCoefsToFile_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x00036b10,H,method return,V90Equalizer_printCoefsToFile_state_graph_param_edges.csv

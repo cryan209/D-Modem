@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x00042140|0x00043616,2
+control,branch_density,cond=77|jmp=29,2
+call,direct_calls,count=29,1
+param,key_fields,see_V90AutoDigitalImpDetector_studyUrefHandler_state_graph_param_edges.csv,1

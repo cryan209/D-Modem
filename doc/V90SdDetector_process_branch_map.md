@@ -1,0 +1,25 @@
+# V90SdDetector_process Branch And Flow Map
+
+- Symbol: V90SdDetector_process
+- Start: 0x0003bd70
+- End: 0x0003be23
+- Size: 0x000000b4 bytes
+
+## Summary
+
+- Conditional branches: 6
+- Unconditional jumps: 2
+- Direct calls: 0
+- Core role: V.90 detector/extractor helper method.
+
+## Control Regions
+
+| Block | Entry | Role |
+|---|---:|---|
+| B0_ENTRY | 0x0003bd70 | Entry and guard setup. |
+| B1_ACTION | 0x0003bd70 | Main method behavior. |
+| B2_RETURN | 0x0003be23 | Return tail. |
+
+## External Calls
+
+- none

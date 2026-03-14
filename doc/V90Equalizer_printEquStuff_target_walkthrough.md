@@ -1,0 +1,28 @@
+# V90Equalizer_printEquStuff Target Walkthrough
+
+- Function: V90Equalizer_printEquStuff
+- Range: 0x000388b0 .. 0x000388b0
+- Disassembly: [V90Equalizer_printEquStuff_disasm.asm](/root/D-Modem/doc/V90Equalizer_printEquStuff_disasm.asm)
+- Pseudo-C: [V90Equalizer_printEquStuff_pseudoc.c](/root/D-Modem/doc/V90Equalizer_printEquStuff_pseudoc.c)
+
+## Purpose
+
+V.90 final-module helper method.
+
+## Signature (lifted)
+
+~~~c
+void V90Equalizer_printEquStuff_pseudoc(void *self)
+~~~
+
+## Block-Level Walkthrough
+
+| Block | Entry | Behavior summary |
+|---|---:|---|
+| B0_ENTRY | 0x000388b0 | Entry and local state setup. |
+| B1_ACTION | 0x000388b0 | Main helper/state-machine behavior. |
+| B2_RETURN | 0x000388b0 | Return tail. |
+
+## Direct Calls
+
+- none

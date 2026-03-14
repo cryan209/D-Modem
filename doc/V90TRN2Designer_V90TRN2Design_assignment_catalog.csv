@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x0003cb60|0x0003da16,2
+control,branch_density,cond=58|jmp=15,2
+call,direct_calls,count=26,1
+param,key_fields,see_V90TRN2Designer_V90TRN2Design_state_graph_param_edges.csv,1
