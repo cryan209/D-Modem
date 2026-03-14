@@ -1,0 +1,29 @@
+# decodeDepth Target Walkthrough
+
+- Function: decodeDepth
+- Symbol: decodeDepth
+- Range: 0x00058910 .. 0x0005912a
+- Disassembly: [decodeDepth_disasm.asm](/root/D-Modem/doc/decodeDepth_disasm.asm)
+- Pseudo-C: [decodeDepth_pseudoc.c](/root/D-Modem/doc/decodeDepth_pseudoc.c)
+
+## Purpose
+
+Decode depth/state path in V.34 demapper/decoder processing.
+
+## Signature (lifted)
+
+~~~c
+int decodeDepth_pseudoc(void *self)
+~~~
+
+## Block-Level Walkthrough
+
+| Block | Entry | Behavior summary |
+|---|---:|---|
+| B0_ENTRY | 0x00058910 | Entry and local state setup. |
+| B1_ACTION | 0x00058910 | Main helper/state-machine behavior. |
+| B2_RETURN | 0x0005912a | Return tail. |
+
+## Direct Calls
+
+- none

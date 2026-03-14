@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x0007a5a0|0x0007a9e5,2
+control,branch_density,cond=18|jmp=13,2
+call,direct_calls,count=20,1
+param,key_fields,see_CALLPROG_Dial_state_graph_param_edges.csv,1

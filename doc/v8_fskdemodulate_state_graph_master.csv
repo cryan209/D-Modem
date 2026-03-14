@@ -1,31 +1,8 @@
 plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
-control,START,entry,B0_STAGE4,0x78c80,H,Function entry initializes 4-sample staging copy loop,v8_fskdemodulate_state_graph_edges.csv
-control,B0_STAGE4,loop_done,B1_GATE12,0x78cc9->0x78ccf,H,After 4 samples copied gate on staged count,v8_fskdemodulate_state_graph_edges.csv
-control,B1_GATE12,count!=12,RETURN_EARLY,0x78cd4,H,Insufficient staged data returns,v8_fskdemodulate_state_graph_edges.csv
-control,B1_GATE12,count==12,B2_SYM_LOOP_HEAD,0x78cd4,H,Enters 12-symbol processing,v8_fskdemodulate_state_graph_edges.csv
-control,B2_SYM_LOOP_HEAD,timing_due,B3_CORR_A,0x78d05,H,Timing gate pass,v8_fskdemodulate_state_graph_edges.csv
-control,B2_SYM_LOOP_HEAD,timing_not_due,B2_SYM_ADVANCE,0x78d05->0x78e93,H,Timing gate skip,v8_fskdemodulate_state_graph_edges.csv
-control,B3_CORR_A,taps_done,B4_CORR_B,0x78dbe/0x78dce,H,Transition to history taps,v8_fskdemodulate_state_graph_edges.csv
-control,B4_CORR_B,taps_done,B5_DECIDE,0x78e1b,H,Energy decision stage,v8_fskdemodulate_state_graph_edges.csv
-control,B5_DECIDE,low_energy,B6_RESET_LOW_ENERGY,0x78e69,H,No-tone threshold branch,v8_fskdemodulate_state_graph_edges.csv
-control,B5_DECIDE,symbol_path_A,B7_PATH_A_C32,0x78e74,H,Branch A uses c32 source,v8_fskdemodulate_state_graph_edges.csv
-control,B5_DECIDE,symbol_path_B,B8_PATH_B_C30,0x78e6e,H,Branch B uses c30 source,v8_fskdemodulate_state_graph_edges.csv
-control,B6_RESET_LOW_ENERGY,join,B2_SYM_ADVANCE,0x78e8b->0x78e93,H,Common advance join,v8_fskdemodulate_state_graph_edges.csv
-control,B7_PATH_A_C32,sym_idx<=11,B2_SYM_LOOP_HEAD,0x79035->0x78cf4,H,Continue symbol loop,v8_fskdemodulate_state_graph_edges.csv
-control,B7_PATH_A_C32,sym_idx>11,B9_FRAME_FLUSH,0x79042->0x78ea4,H,Frame-end flush branch,v8_fskdemodulate_state_graph_edges.csv
-control,B8_PATH_B_C30,join,B2_SYM_ADVANCE,0x790c7->0x78e8b,H,Common advance join,v8_fskdemodulate_state_graph_edges.csv
-control,B2_SYM_ADVANCE,sym_idx<=11,B2_SYM_LOOP_HEAD,0x78e9e,H,Main loop back-edge,v8_fskdemodulate_state_graph_edges.csv
-control,B2_SYM_ADVANCE,sym_idx>11,B9_FRAME_FLUSH,0x78e9e->0x78ea4,H,Exit symbol loop,v8_fskdemodulate_state_graph_edges.csv
-control,B9_FRAME_FLUSH,done,B10_SHIFT_WINDOWS,0x78f46->0x78f65,H,Residual flush complete,v8_fskdemodulate_state_graph_edges.csv
-control,B10_SHIFT_WINDOWS,done,B11_RETURN,0x78fa1,H,Window shift complete,v8_fskdemodulate_state_graph_edges.csv
-counter,ANY,,dec_reset,0x78e85|0x79025,H,dec counter cleared,v8_fskdemodulate_state_graph_counter_edges.csv
-counter,ANY,,df0_reset,0x78e8d|0x78eb8|0x7905d,H,df0 counter cleared,v8_fskdemodulate_state_graph_counter_edges.csv
-counter,dec,,dec_inc,0x790c1,H,Path-B increments dec,v8_fskdemodulate_state_graph_counter_edges.csv
-counter,df0,,df0_inc,0x7902f,H,Path-A increments df0,v8_fskdemodulate_state_graph_counter_edges.csv
-counter,df0,,df0_flush_groups,0x78ec5..0x78ef0|0x7908a..0x790b9,H,Grouped flush of df0,v8_fskdemodulate_state_graph_counter_edges.csv
-counter,dec,,dec_flush_groups,0x78f15..0x78f42|0x78ff0..0x7901b,H,Grouped flush of dec,v8_fskdemodulate_state_graph_counter_edges.csv
-bitout,emit_c30,,shiftreg_append,0x78ed7|0x790a0,H,Append c30 bit source,v8_fskdemodulate_state_graph_counter_edges.csv
-bitout,emit_c32,,shiftreg_append,0x78f29|0x79002,H,Append c32 bit source,v8_fskdemodulate_state_graph_counter_edges.csv
-timing,phase,,phase_minus_12,0x78f50|0x78f59,H,Frame timing advance,v8_fskdemodulate_state_graph_counter_edges.csv
-window,stage_df4,,shift_e0e_to_e0c,0x78f65..0x78f83,H,Shift working windows,v8_fskdemodulate_state_graph_counter_edges.csv
-window,history_tail,,copy_back_0x28,0x78f94..0x78f9f,H,Tail history copyback,v8_fskdemodulate_state_graph_counter_edges.csv
+control,START,entry,B0_ENTRY,0x00078c80,H,function entry,v8_fskdemodulate_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00078c80,H,entry complete,v8_fskdemodulate_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x000790cb,H,actions complete,v8_fskdemodulate_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x000790cb,H,return,v8_fskdemodulate_state_graph_edges.csv
+param,self_object,write,v8_batch1_state,0x00078c80,H,this method updates/reads V.8 handshake state,v8_fskdemodulate_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00078c80,H,see call list,v8_fskdemodulate_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x000790cb,H,method return,v8_fskdemodulate_state_graph_param_edges.csv

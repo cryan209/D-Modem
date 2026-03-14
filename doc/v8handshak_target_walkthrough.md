@@ -1,34 +1,66 @@
-# v8handshak Jump-Target Walkthrough
+# v8handshak Target Walkthrough
 
-This file annotates the jump-table targets in `v8handshak` with short behavioral labels and chunk locations.
+- Function: v8handshak
+- Symbol: v8handshak
+- Range: 0x00077310 .. 0x000783a2
+- Disassembly: [v8handshak_disasm.asm](/root/D-Modem/doc/v8handshak_disasm.asm)
+- Pseudo-C: [v8handshak_pseudoc.c](/root/D-Modem/doc/v8handshak_pseudoc.c)
 
-- Function: `v8handshak`
-- Range: `0x77310` .. `0x783a3`
-- Main TX state field: `WORD [ctx+0x9d4]`
-- Main RX state field: `WORD [ctx+0x9d6]`
-- Substate field: `WORD [ctx+0x9d8]`
+## Purpose
 
-## Dispatch A (Loop-Time TX Switch)
+Core V.8 handshake state machine and protocol progression.
 
-Switch site: `0x7735c` using `.rodata+0x5680`, index `(tx_state - 0x05)`.
+## Signature (lifted)
 
-| Target | Chunk | TX states hitting target | Behavior label |
-|---:|---|---|---|
-| `0x77340` | `chunk_00.asm` | default/unmapped in table A (`0x07..0x16`, `0x18..0x2a`, `0x2c`) | Default scheduler: keep dispatching while TX samples exist, else run RX/control machine |
-| `0x77363` | `chunk_00.asm` | `0x2d` (`V8_TX_ANSAM`) | ANSam tone generator (cosine synth) and queue write |
-| `0x773d0` | `chunk_00.asm` | `0x2b` (`V8_TX_QC_PREAMBLE`) | QC preamble FSK transmit; after 0x3c symbols it switches TX to `0x17` |
-| `0x7746a` | `chunk_00.asm` | `0x17` (`V8_TX_MSG`) | Main FSK message transmit loop (bitstream via `v8_getbit`) with timeout handling |
-| `0x774d9` | `chunk_00.asm` | `0x06` (`V8_TX_CM`) | CM/initial FSK transmit loop with timeout fallback |
-| `0x775e8` | `chunk_00.asm` | `0x05` (`V8_TX_SILENCE`) | Emit zero samples and queue them |
+~~~c
+int v8handshak_pseudoc(void *self)
+~~~
 
-## Chunk-Centric Reading Order
+## Block-Level Walkthrough
 
-- `chunk_00.asm`: dispatch table, all TX switch targets, and entry into RX-side logic.
-- `chunk_01.asm`: RX state `0x28` demod/bit-history processing and several timeout transitions.
-- `chunk_02.asm`: ANSam/QCA sequence handling, V.21 init branching, and terminal transitions.
-- `chunk_03.asm`: JM/QCA final branches, rebuild/evaluate JM helpers, and substate fan-out.
+| Block | Entry | Behavior summary |
+|---|---:|---|
+| B0_ENTRY | 0x00077310 | Entry and local state setup. |
+| B1_ACTION | 0x00077310 | Main helper/state-machine behavior. |
+| B2_RETURN | 0x000783a2 | Return tail. |
 
-## Notes
+## Direct Calls
 
-- Unlike `v34handshak`, `v8handshak` has a single TX jump-table dispatch.
-- Most TX-state rewrites are triggered from RX-side detections and timers, not directly from TX handlers.
+- 			773ab: R_386_PC32	v8_cosread
+- 			773c0: R_386_PC32	v8_txwritequeue
+- 			773e3: R_386_PC32	v8_fskmodulate
+- 			7749a: R_386_PC32	v8_fskmodulate
+- 			7753f: R_386_PC32	v8_cosread
+- 			77550: R_386_PC32	v8_mpyint
+- 			77566: R_386_PC32	v8_mpyint
+- 			7757b: R_386_PC32	v8_cosread
+- 			77588: R_386_PC32	v8_mpyint
+- 			77599: R_386_PC32	v8_fsktxfilter
+- 			775d5: R_386_PC32	v8_txwritequeue
+- 			77618: R_386_PC32	v8_txwritequeue
+- 			77648: R_386_PC32	v8_rxreadqueue
+- 			7765b: R_386_PC32	v8_getbit
+- 			7769d: R_386_PC32	v8_getbit
+- 			776d1: R_386_PC32	V8agc
+- 			776ff: R_386_PC32	v8_absfn
+- 			7771d: R_386_PC32	checkSignalStability
+- 			77758: R_386_PC32	v8_phase_rev_detect
+- 			77808: R_386_PC32	V8agc
+- 			7781b: R_386_PC32	v8_fskdemodulate
+- 			778c8: R_386_PC32	V8agc
+- 			77aaa: R_386_PC32	dsplibs_debug_printf
+- 			77b41: R_386_PC32	v8_tone_detect
+- 			77c88: R_386_PC32	v8_dftupdate
+- 			77d28: R_386_PC32	v8_V21_Init
+- 			77da2: R_386_PC32	dsplibs_debug_printf
+- 			77ddd: R_386_PC32	v8_dftenergy
+- 			78038: R_386_PC32	dsplibs_debug_printf
+- 			780ee: R_386_PC32	dsplibs_debug_printf
+- 			78121: R_386_PC32	dsplibs_debug_printf
+- 			78145: R_386_PC32	dsplibs_debug_printf
+- 			781af: R_386_PC32	dsplibs_debug_printf
+- 			781ea: R_386_PC32	dsplibs_debug_printf
+- 			7820b: R_386_PC32	dsplibs_debug_printf
+- 			7829d: R_386_PC32	dsplibs_debug_printf
+- 			782f3: R_386_PC32	rebuildJMSequence
+- 			78361: R_386_PC32	evaluateRxJMSequence

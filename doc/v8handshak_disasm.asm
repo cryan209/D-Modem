@@ -1,3 +1,9 @@
+
+slmodemd/dsplibs.o:     file format elf32-i386
+
+
+Disassembly of section .text:
+
 00077310 <v8handshak>:
    77310:	55                   	push   ebp
    77311:	57                   	push   edi
@@ -1009,17 +1015,3 @@
    78395:	be 32 00 00 00       	mov    esi,0x32
    7839a:	66 89 b3 d8 09 00 00 	mov    WORD PTR [ebx+0x9d8],si
    783a1:	eb 87                	jmp    7832a <v8handshak+0x101a>
-   783a3:	90                   	nop
-   783a4:	90                   	nop
-   783a5:	90                   	nop
-   783a6:	90                   	nop
-   783a7:	90                   	nop
-   783a8:	90                   	nop
-   783a9:	90                   	nop
-   783aa:	90                   	nop
-   783ab:	90                   	nop
-   783ac:	90                   	nop
-   783ad:	90                   	nop
-   783ae:	90                   	nop
-   783af:	90                   	nop
-

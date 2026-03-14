@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x00077310|0x000783a2,2
+control,branch_density,cond=90|jmp=51,2
+call,direct_calls,count=38,1
+param,key_fields,see_v8handshak_state_graph_param_edges.csv,1

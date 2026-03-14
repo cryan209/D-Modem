@@ -1,7 +1,5 @@
 from_state,dispatch_target,to_state,evidence_addr,confidence,notes
-0x2b,0x773d0,0x17,0x77a4b,H,QC preamble completes then switches to normal FSK message TX
-0x2d,0x77363,0x05,0x77dfc->0x77e0b,H,ANSam/QCA completion path forces terminal TX state
-ANY,rx-path,0x2d,0x77c58,M,ANSam detection gate enters ANSam tone TX
-ANY,rx-path,0x2b,0x77d85,H,QC-capable branch enters QC preamble TX
-ANY,rx-path,0x17,0x77d46|0x7804a|0x782dc,M,Multiple negotiation branches enter/return to FSK message TX
-ANY,rx-path,0x05,0x777ef|0x77ed9|0x77fec|0x781c1,M,Failure/success terminalization paths force TX state 0x05
+START,entry,B0_ENTRY,0x00077310,H,function entry
+B0_ENTRY,fallthrough,B1_ACTION,0x00077310,H,entry complete
+B1_ACTION,fallthrough,B2_RETURN,0x000783a2,H,actions complete
+B2_RETURN,ret,RET,0x000783a2,H,return

@@ -1,10 +1,11 @@
 # v8handshak Chunk Index
 
-Source symbol: v8handshak @ 0x77310 size 0x1093
+Source symbol: v8handshak @ 0x00077310 size 0x00001093
 
 | Chunk | First Address | Last Address | Lines |
 |---|---:|---:|---:|
-| chunk_00.asm | 0x77310 | 0x776ff | 260 |
-| chunk_01.asm | 0x77703 | 0x77b45 | 260 |
-| chunk_02.asm | 0x77b48 | 0x77ff3 | 260 |
-| chunk_03.asm | 0x77ffa | 0x783af | 245 |
+| chunk_00.asm | 0x00077310 | 0x000783a2 | 1017 |
+
+## High-level role
+
+- Core V.8 handshake state machine and protocol progression.

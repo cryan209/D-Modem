@@ -1,3 +1,9 @@
+
+slmodemd/dsplibs.o:     file format elf32-i386
+
+
+Disassembly of section .text:
+
 00078c80 <v8_fskdemodulate>:
    78c80:	55                   	push   ebp
    78c81:	57                   	push   edi
@@ -332,5 +338,3 @@
    790bd:	8b 74 24 3c          	mov    esi,DWORD PTR [esp+0x3c]
    790c1:	ff 86 ec 0d 00 00    	inc    DWORD PTR [esi+0xdec]
    790c7:	e9 bf fd ff ff       	jmp    78e8b <v8_fskdemodulate+0x20b>
-   790cc:	8d 74 26 00          	lea    esi,[esi+eiz*1+0x0]
-

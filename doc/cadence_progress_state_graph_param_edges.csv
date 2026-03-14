@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,dsp_priority_batch3_state,0x0007cd80,H,this method updates/reads cadence/tone filter state
+call,B1_ACTION,helper_calls,0x0007cd80,H,see call list
+return,B2_RETURN,return_value_or_void,0x0007d3e0,H,method return
