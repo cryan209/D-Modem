@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x00018050|0x00019026,2
+control,branch_density,cond=69|jmp=52,2
+call,direct_calls,count=95,1
+param,key_fields,see_V92Phase4Modulator_generateSymbol_state_graph_param_edges.csv,1
