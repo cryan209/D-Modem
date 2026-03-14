@@ -1,0 +1,16 @@
+# _ZN3PsdC2Ej10WindowTypej Control Graph (Address-Backed)
+
+## Control Blocks
+
+| Block | Entry |
+|---|---:|
+| B0_ENTRY | 0x00046ab0 |
+| B1_ACTION | 0x00046ab0 |
+| B2_RETURN | 0x00046b01 |
+
+~~~mermaid
+flowchart LR
+  S[START] --> B0[B0_ENTRY] --> B1[B1_ACTION] --> B2[B2_RETURN] --> R[RET]
+~~~
+
+Edge CSV: /root/D-Modem/doc/_ZN3PsdC2Ej10WindowTypej_state_graph_edges.csv

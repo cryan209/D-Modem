@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,fax_tail_runtime_state,0x00093420,H,this method updates/reads fax tail runtime state
+call,B1_ACTION,helper_calls,0x00093420,H,see call list
+return,B2_RETURN,return_value_or_void,0x00093686,H,method return

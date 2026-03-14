@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x00045b40|0x00045be1,2
+control,branch_density,cond=0|jmp=0,2
+call,direct_calls,count=4,1
+param,key_fields,see__ZN19V90SpectralVerifierC1EP13V90Parameters_state_graph_param_edges.csv,1

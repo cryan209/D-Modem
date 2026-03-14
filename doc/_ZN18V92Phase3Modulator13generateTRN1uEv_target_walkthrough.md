@@ -1,0 +1,29 @@
+# _ZN18V92Phase3Modulator13generateTRN1uEv Target Walkthrough
+
+- Function: _ZN18V92Phase3Modulator13generateTRN1uEv
+- Symbol: _ZN18V92Phase3Modulator13generateTRN1uEv
+- Range: 0x000165c0 .. 0x000165f9
+- Disassembly: [_ZN18V92Phase3Modulator13generateTRN1uEv_disasm.asm](/root/D-Modem/doc/_ZN18V92Phase3Modulator13generateTRN1uEv_disasm.asm)
+- Pseudo-C: [_ZN18V92Phase3Modulator13generateTRN1uEv_pseudoc.c](/root/D-Modem/doc/_ZN18V92Phase3Modulator13generateTRN1uEv_pseudoc.c)
+
+## Purpose
+
+V90/V92/V34 or DSP utility mangled helper.
+
+## Signature (lifted)
+
+~~~c
+int _ZN18V92Phase3Modulator13generateTRN1uEv_pseudoc(void *self)
+~~~
+
+## Block-Level Walkthrough
+
+| Block | Entry | Behavior summary |
+|---|---:|---|
+| B0_ENTRY | 0x000165c0 | Entry and local state setup. |
+| B1_ACTION | 0x000165c0 | Main helper/state-machine behavior. |
+| B2_RETURN | 0x000165f9 | Return tail. |
+
+## Direct Calls
+
+- 			165d8: R_386_PC32	Scrambler<unsigned char, int>::process(unsigned char)

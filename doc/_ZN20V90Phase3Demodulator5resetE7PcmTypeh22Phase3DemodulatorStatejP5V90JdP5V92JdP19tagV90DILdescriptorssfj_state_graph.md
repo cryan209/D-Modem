@@ -1,0 +1,16 @@
+# _ZN20V90Phase3Demodulator5resetE7PcmTypeh22Phase3DemodulatorStatejP5V90JdP5V92JdP19tagV90DILdescriptorssfj Control Graph (Address-Backed)
+
+## Control Blocks
+
+| Block | Entry |
+|---|---:|
+| B0_ENTRY | 0x00020f90 |
+| B1_ACTION | 0x00020f90 |
+| B2_RETURN | 0x000212b0 |
+
+~~~mermaid
+flowchart LR
+  S[START] --> B0[B0_ENTRY] --> B1[B1_ACTION] --> B2[B2_RETURN] --> R[RET]
+~~~
+
+Edge CSV: /root/D-Modem/doc/_ZN20V90Phase3Demodulator5resetE7PcmTypeh22Phase3DemodulatorStatejP5V90JdP5V92JdP19tagV90DILdescriptorssfj_state_graph_edges.csv

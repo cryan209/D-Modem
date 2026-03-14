@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x00095eb0|0x000964d8,2
+control,branch_density,cond=40|jmp=25,2
+call,direct_calls,count=20,1
+param,key_fields,see_faxvmi_hdlc_unframe_state_graph_param_edges.csv,1
