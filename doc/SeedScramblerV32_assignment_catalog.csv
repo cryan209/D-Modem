@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x00081ae0|0x00081aee,2
+control,branch_density,cond=0|jmp=0,2
+call,direct_calls,count=0,1
+param,key_fields,see_SeedScramblerV32_state_graph_param_edges.csv,1

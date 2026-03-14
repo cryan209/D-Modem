@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x00085950|0x00085aac,2
+control,branch_density,cond=6|jmp=3,2
+call,direct_calls,count=0,1
+param,key_fields,see_SDMv32_scrambler_state_graph_param_edges.csv,1

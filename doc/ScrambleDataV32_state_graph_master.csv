@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x00081b40,H,function entry,ScrambleDataV32_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00081b40,H,entry complete,ScrambleDataV32_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x00081b5b,H,actions complete,ScrambleDataV32_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x00081b5b,H,return,ScrambleDataV32_state_graph_edges.csv
+param,self_object,write,hdx_moddata_runtime_state,0x00081b40,H,this method updates/reads HDX/mod-data runtime state,ScrambleDataV32_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00081b40,H,see call list,ScrambleDataV32_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x00081b5b,H,method return,ScrambleDataV32_state_graph_param_edges.csv

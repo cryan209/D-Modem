@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x00084280,H,function entry,RxHdxSTone_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00084280,H,entry complete,RxHdxSTone_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x00084381,H,actions complete,RxHdxSTone_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x00084381,H,return,RxHdxSTone_state_graph_edges.csv
+param,self_object,write,hdx_moddata_runtime_state,0x00084280,H,this method updates/reads HDX/mod-data runtime state,RxHdxSTone_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00084280,H,see call list,RxHdxSTone_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x00084381,H,method return,RxHdxSTone_state_graph_param_edges.csv

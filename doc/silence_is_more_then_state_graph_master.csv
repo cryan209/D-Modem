@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x000b0360,H,function entry,silence_is_more_then_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x000b0360,H,entry complete,silence_is_more_then_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x000b03a1,H,actions complete,silence_is_more_then_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x000b03a1,H,return,silence_is_more_then_state_graph_edges.csv
+param,self_object,write,telephony_tone_runtime_state,0x000b0360,H,this method updates/reads telephony/tone runtime state,silence_is_more_then_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x000b0360,H,see call list,silence_is_more_then_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x000b03a1,H,method return,silence_is_more_then_state_graph_param_edges.csv

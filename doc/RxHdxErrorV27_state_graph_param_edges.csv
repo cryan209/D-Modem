@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,hdx_moddata_runtime_state,0x000a2dd0,H,this method updates/reads HDX/mod-data runtime state
+call,B1_ACTION,helper_calls,0x000a2dd0,H,see call list
+return,B2_RETURN,return_value_or_void,0x000a2e0a,H,method return

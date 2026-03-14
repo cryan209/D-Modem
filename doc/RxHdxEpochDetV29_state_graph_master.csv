@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x000a4470,H,function entry,RxHdxEpochDetV29_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x000a4470,H,entry complete,RxHdxEpochDetV29_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x000a450b,H,actions complete,RxHdxEpochDetV29_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x000a450b,H,return,RxHdxEpochDetV29_state_graph_edges.csv
+param,self_object,write,hdx_moddata_runtime_state,0x000a4470,H,this method updates/reads HDX/mod-data runtime state,RxHdxEpochDetV29_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x000a4470,H,see call list,RxHdxEpochDetV29_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x000a450b,H,method return,RxHdxEpochDetV29_state_graph_param_edges.csv

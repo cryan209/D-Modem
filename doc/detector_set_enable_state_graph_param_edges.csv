@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,telephony_tone_runtime_state,0x000ad6b0,H,this method updates/reads telephony/tone runtime state
+call,B1_ACTION,helper_calls,0x000ad6b0,H,see call list
+return,B2_RETURN,return_value_or_void,0x000ad6bc,H,method return

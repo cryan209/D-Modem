@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x000857f0,H,function entry,SDMv32_descrambler_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x000857f0,H,entry complete,SDMv32_descrambler_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x0008594c,H,actions complete,SDMv32_descrambler_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x0008594c,H,return,SDMv32_descrambler_state_graph_edges.csv
+param,self_object,write,nonfax_top2_runtime_state,0x000857f0,H,this method updates/reads non-fax utility runtime state,SDMv32_descrambler_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x000857f0,H,see call list,SDMv32_descrambler_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x0008594c,H,method return,SDMv32_descrambler_state_graph_param_edges.csv

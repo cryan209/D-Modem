@@ -97,7 +97,7 @@ int modem_debug_log_data(struct modem *m, unsigned id, const void *data, int cou
 
 static int debug_vprintf(unsigned level, const char *fmt, va_list args)
 {
-	static char debug_temp[512];
+	static char debug_temp[2048];
         struct timeval tv;
         int i, len;
 	gettimeofday(&tv,NULL);

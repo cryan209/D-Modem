@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x000a0690|0x000a0761,2
+control,branch_density,cond=3|jmp=2,2
+call,direct_calls,count=5,1
+param,key_fields,see_RxHdxPrtcolV17_state_graph_param_edges.csv,1

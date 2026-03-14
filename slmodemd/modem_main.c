@@ -161,18 +161,47 @@ static struct timeval sip_ring_last = { 0, 0 };
 static void *rcSIPtoMODEM = NULL;
 static void *rcMODEMtoSIP = NULL;
 
-/* RX audio dump for diagnostics — writes raw 16-bit signed 9600Hz mono to /tmp/modem_rx.raw */
+/* Audio dumps for diagnostics:
+ *   /tmp/modem_rx_8k.raw  — 16-bit signed 8000 Hz mono (pre-resample, from SIP)
+ *   /tmp/modem_rx.raw     — 16-bit signed 9600 Hz mono (post-resample, to blob)
+ *   /tmp/modem_tx.raw     — 16-bit signed 9600 Hz mono (from blob, pre-resample)
+ */
 static int rx_dump_fd = -1;
+static int rx8k_dump_fd = -1;
+static int tx_dump_fd = -1;
 
 static void rx_dump_open(void)
 {
-	if (rx_dump_fd >= 0) return;
-	rx_dump_fd = open("/tmp/modem_rx.raw", O_WRONLY | O_CREAT | O_TRUNC, 0644);
 	if (rx_dump_fd < 0) {
-		ERR("rx_dump: cannot create /tmp/modem_rx.raw: %s\n", strerror(errno));
-	} else {
-		DBG("rx_dump: opened /tmp/modem_rx.raw\n");
+		rx_dump_fd = open("/tmp/modem_rx.raw", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+		if (rx_dump_fd < 0) {
+			ERR("rx_dump: cannot create /tmp/modem_rx.raw: %s\n", strerror(errno));
+		} else {
+			DBG("rx_dump: opened /tmp/modem_rx.raw\n");
+		}
 	}
+	if (rx8k_dump_fd < 0) {
+		rx8k_dump_fd = open("/tmp/modem_rx_8k.raw", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+		if (rx8k_dump_fd < 0) {
+			ERR("rx_dump: cannot create /tmp/modem_rx_8k.raw: %s\n", strerror(errno));
+		} else {
+			DBG("rx_dump: opened /tmp/modem_rx_8k.raw\n");
+		}
+	}
+	if (tx_dump_fd < 0) {
+		tx_dump_fd = open("/tmp/modem_tx.raw", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+		if (tx_dump_fd < 0) {
+			ERR("rx_dump: cannot create /tmp/modem_tx.raw: %s\n", strerror(errno));
+		} else {
+			DBG("rx_dump: opened /tmp/modem_tx.raw\n");
+		}
+	}
+}
+
+static void rx8k_dump_write(const char *buf, int samples)
+{
+	if (rx8k_dump_fd >= 0)
+		write(rx8k_dump_fd, buf, samples * 2);
 }
 
 static void rx_dump_write(const char *buf, int samples)
@@ -181,12 +210,28 @@ static void rx_dump_write(const char *buf, int samples)
 		write(rx_dump_fd, buf, samples * 2);
 }
 
+static void tx_dump_write(const char *buf, int samples)
+{
+	if (tx_dump_fd >= 0)
+		write(tx_dump_fd, buf, samples * 2);
+}
+
 static void rx_dump_close(void)
 {
 	if (rx_dump_fd >= 0) {
 		close(rx_dump_fd);
 		rx_dump_fd = -1;
 		DBG("rx_dump: closed /tmp/modem_rx.raw\n");
+	}
+	if (rx8k_dump_fd >= 0) {
+		close(rx8k_dump_fd);
+		rx8k_dump_fd = -1;
+		DBG("rx_dump: closed /tmp/modem_rx_8k.raw\n");
+	}
+	if (tx_dump_fd >= 0) {
+		close(tx_dump_fd);
+		tx_dump_fd = -1;
+		DBG("rx_dump: closed /tmp/modem_tx.raw\n");
 	}
 }
 
@@ -963,6 +1008,7 @@ static int mdm_device_read(struct device_struct *dev, char *buf, int size)
 					return 0;
 				}
 
+				rx8k_dump_write(socket_frame.data.audio.buf, sizeof(socket_frame.data.audio.buf)/2);
 				RcFixed_Resample(rcSIPtoMODEM, socket_frame.data.audio.buf, sizeof(socket_frame.data.audio.buf)/2, buf, &size);
 				rx_dump_write(buf, size);
 				return size;
@@ -1026,6 +1072,7 @@ static int mdm_device_write(struct device_struct *dev, const char *buf, int size
 		return 0;
 	}
 
+	tx_dump_write(buf, MODEM_FRAMESIZE);
 	socket_frame.type = SOCKET_FRAME_AUDIO;
 	size = sizeof(socket_frame.data.audio.buf)/2;
 	RcFixed_Resample(rcMODEMtoSIP, (char*)buf, MODEM_FRAMESIZE, socket_frame.data.audio.buf, &size);

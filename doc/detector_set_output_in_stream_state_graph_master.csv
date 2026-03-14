@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x000ad6d0,H,function entry,detector_set_output_in_stream_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x000ad6d0,H,entry complete,detector_set_output_in_stream_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x000ad6db,H,actions complete,detector_set_output_in_stream_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x000ad6db,H,return,detector_set_output_in_stream_state_graph_edges.csv
+param,self_object,write,telephony_tone_runtime_state,0x000ad6d0,H,this method updates/reads telephony/tone runtime state,detector_set_output_in_stream_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x000ad6d0,H,see call list,detector_set_output_in_stream_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x000ad6db,H,method return,detector_set_output_in_stream_state_graph_param_edges.csv

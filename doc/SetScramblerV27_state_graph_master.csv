@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x000a5e90,H,function entry,SetScramblerV27_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x000a5e90,H,entry complete,SetScramblerV27_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x000a5eeb,H,actions complete,SetScramblerV27_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x000a5eeb,H,return,SetScramblerV27_state_graph_edges.csv
+param,self_object,write,nonfax_support_runtime_state,0x000a5e90,H,this method updates/reads non-fax support runtime state,SetScramblerV27_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x000a5e90,H,see call list,SetScramblerV27_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x000a5eeb,H,method return,SetScramblerV27_state_graph_param_edges.csv
