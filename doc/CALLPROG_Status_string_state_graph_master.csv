@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x00079540,H,function entry,CALLPROG_Status_string_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00079540,H,entry complete,CALLPROG_Status_string_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x0007956c,H,actions complete,CALLPROG_Status_string_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x0007956c,H,return,CALLPROG_Status_string_state_graph_edges.csv
+param,self_object,write,callprog_dialer_runtime_state,0x00079540,H,this method updates/reads callprog/dialer runtime state,CALLPROG_Status_string_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00079540,H,see call list,CALLPROG_Status_string_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x0007956c,H,method return,CALLPROG_Status_string_state_graph_param_edges.csv

@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x000a61c0|0x000a6402,2
+control,branch_density,cond=18|jmp=8,2
+call,direct_calls,count=6,1
+param,key_fields,see_DataCarrierDetectV29_state_graph_param_edges.csv,1

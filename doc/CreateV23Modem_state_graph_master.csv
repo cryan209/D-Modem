@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x00086890,H,function entry,CreateV23Modem_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00086890,H,entry complete,CreateV23Modem_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x00086a9b,H,actions complete,CreateV23Modem_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x00086a9b,H,return,CreateV23Modem_state_graph_edges.csv
+param,self_object,write,b103_v23_runtime_state,0x00086890,H,this method updates/reads B103/V23 runtime state,CreateV23Modem_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00086890,H,see call list,CreateV23Modem_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x00086a9b,H,method return,CreateV23Modem_state_graph_param_edges.csv

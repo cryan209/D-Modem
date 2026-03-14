@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x000b0f20,H,function entry,RcFixed_Create_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x000b0f20,H,entry complete,RcFixed_Create_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x000b1220,H,actions complete,RcFixed_Create_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x000b1220,H,return,RcFixed_Create_state_graph_edges.csv
+param,self_object,write,dsp_priority_batch5_state,0x000b0f20,H,this method updates/reads high-impact utility state,RcFixed_Create_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x000b0f20,H,see call list,RcFixed_Create_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x000b1220,H,method return,RcFixed_Create_state_graph_param_edges.csv

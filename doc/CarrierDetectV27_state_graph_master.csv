@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x000a5ac0,H,function entry,CarrierDetectV27_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x000a5ac0,H,entry complete,CarrierDetectV27_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x000a5ad5,H,actions complete,CarrierDetectV27_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x000a5ad5,H,return,CarrierDetectV27_state_graph_edges.csv
+param,self_object,write,vxx_datapath_runtime_state,0x000a5ac0,H,this method updates/reads v.xx demod/detect state,CarrierDetectV27_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x000a5ac0,H,see call list,CarrierDetectV27_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x000a5ad5,H,method return,CarrierDetectV27_state_graph_param_edges.csv

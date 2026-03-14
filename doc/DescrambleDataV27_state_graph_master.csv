@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x000a5aa0,H,function entry,DescrambleDataV27_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x000a5aa0,H,entry complete,DescrambleDataV27_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x000a5abb,H,actions complete,DescrambleDataV27_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x000a5abb,H,return,DescrambleDataV27_state_graph_edges.csv
+param,self_object,write,vxx_datapath_runtime_state,0x000a5aa0,H,this method updates/reads v.xx demod/detect state,DescrambleDataV27_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x000a5aa0,H,see call list,DescrambleDataV27_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x000a5abb,H,method return,DescrambleDataV27_state_graph_param_edges.csv

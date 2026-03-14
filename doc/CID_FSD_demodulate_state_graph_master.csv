@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x00092280,H,function entry,CID_FSD_demodulate_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00092280,H,entry complete,CID_FSD_demodulate_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x00092698,H,actions complete,CID_FSD_demodulate_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x00092698,H,return,CID_FSD_demodulate_state_graph_edges.csv
+param,self_object,write,detector_runtime_state,0x00092280,H,this method updates/reads detector runtime state,CID_FSD_demodulate_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00092280,H,see call list,CID_FSD_demodulate_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x00092698,H,method return,CID_FSD_demodulate_state_graph_param_edges.csv

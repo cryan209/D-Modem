@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x0007e2e0,H,function entry,Dual_TONE_create_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x0007e2e0,H,entry complete,Dual_TONE_create_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x0007e31f,H,actions complete,Dual_TONE_create_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x0007e31f,H,return,Dual_TONE_create_state_graph_edges.csv
+param,self_object,write,detector_runtime_state,0x0007e2e0,H,this method updates/reads detector runtime state,Dual_TONE_create_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x0007e2e0,H,see call list,Dual_TONE_create_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x0007e31f,H,method return,Dual_TONE_create_state_graph_param_edges.csv

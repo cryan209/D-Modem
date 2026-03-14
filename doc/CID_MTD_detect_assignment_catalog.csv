@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x000926a0|0x000927a2,2
+control,branch_density,cond=3|jmp=0,2
+call,direct_calls,count=2,1
+param,key_fields,see_CID_MTD_detect_state_graph_param_edges.csv,1

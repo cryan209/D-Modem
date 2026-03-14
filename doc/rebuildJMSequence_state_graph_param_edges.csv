@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,dsp_priority_batch5_state,0x00075c50,H,this method updates/reads high-impact utility state
+call,B1_ACTION,helper_calls,0x00075c50,H,see call list
+return,B2_RETURN,return_value_or_void,0x0007688d,H,method return

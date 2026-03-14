@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x0000e430,H,function entry,VPcmFloModem_runPcmModem_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x0000e430,H,entry complete,VPcmFloModem_runPcmModem_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x0000ec28,H,actions complete,VPcmFloModem_runPcmModem_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x0000ec28,H,return,VPcmFloModem_runPcmModem_state_graph_edges.csv
+param,self_object,write,dsp_priority_batch5_state,0x0000e430,H,this method updates/reads high-impact utility state,VPcmFloModem_runPcmModem_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x0000e430,H,see call list,VPcmFloModem_runPcmModem_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x0000ec28,H,method return,VPcmFloModem_runPcmModem_state_graph_param_edges.csv

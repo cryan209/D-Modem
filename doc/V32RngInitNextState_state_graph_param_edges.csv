@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,v32_nextstate_fields,0x00084c80,H,this method updates/reads V.32 next-state context
+call,B1_ACTION,helper_calls,0x00084c80,H,see call list
+return,B2_RETURN,return_value_or_void,0x000852c9,H,method return
