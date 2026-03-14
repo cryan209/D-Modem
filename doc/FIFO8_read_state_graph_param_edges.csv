@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,fifo_runtime_state,0x000aefe0,H,this method updates/reads FIFO ring state
+call,B1_ACTION,helper_calls,0x000aefe0,H,see call list
+return,B2_RETURN,return_value_or_void,0x000af08c,H,method return

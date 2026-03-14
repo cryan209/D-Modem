@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x00096c60,H,function entry,FIFO_read_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00096c60,H,entry complete,FIFO_read_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x00096d0f,H,actions complete,FIFO_read_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x00096d0f,H,return,FIFO_read_state_graph_edges.csv
+param,self_object,write,fifo_runtime_state,0x00096c60,H,this method updates/reads FIFO ring state,FIFO_read_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00096c60,H,see call list,FIFO_read_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x00096d0f,H,method return,FIFO_read_state_graph_param_edges.csv
