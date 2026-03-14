@@ -1,0 +1,29 @@
+# FloatARMA_reset Target Walkthrough
+
+- Function: FloatARMA_reset
+- Symbol: FloatARMA::reset()
+- Range: 0x000470d0 .. 0x00047141
+- Disassembly: [FloatARMA_reset_disasm.asm](/root/D-Modem/doc/FloatARMA_reset_disasm.asm)
+- Pseudo-C: [FloatARMA_reset_pseudoc.c](/root/D-Modem/doc/FloatARMA_reset_pseudoc.c)
+
+## Purpose
+
+Reset DSP utility runtime state.
+
+## Signature (lifted)
+
+~~~c
+void FloatARMA_reset_pseudoc(void *self)
+~~~
+
+## Block-Level Walkthrough
+
+| Block | Entry | Behavior summary |
+|---|---:|---|
+| B0_ENTRY | 0x000470d0 | Entry and local state setup. |
+| B1_ACTION | 0x000470d0 | Main helper/state-machine behavior. |
+| B2_RETURN | 0x00047141 | Return tail. |
+
+## Direct Calls
+
+- none

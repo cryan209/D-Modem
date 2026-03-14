@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x00000100,H,function entry,dcr_process_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00000100,H,entry complete,dcr_process_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x00000337,H,actions complete,dcr_process_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x00000337,H,return,dcr_process_state_graph_edges.csv
+param,self_object,write,dsp_batch2_state,0x00000100,H,this-pointer method updates/reads detector/decoder state,dcr_process_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00000100,H,see call list,dcr_process_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x00000337,H,method return,dcr_process_state_graph_param_edges.csv

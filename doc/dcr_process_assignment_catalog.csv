@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x00000100|0x00000337,2
+control,branch_density,cond=37|jmp=18,2
+call,direct_calls,count=5,1
+param,key_fields,see_dcr_process_state_graph_param_edges.csv,1

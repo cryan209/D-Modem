@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x00002740|0x00002b54,2
+control,branch_density,cond=34|jmp=16,2
+call,direct_calls,count=0,1
+param,key_fields,see_RingDetector_Process_state_graph_param_edges.csv,1

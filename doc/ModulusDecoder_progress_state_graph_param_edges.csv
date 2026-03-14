@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,dsp_batch2_state,0x000320f0,H,this-pointer method updates/reads detector/decoder state
+call,B1_ACTION,helper_calls,0x000320f0,H,see call list
+return,B2_RETURN,return_value_or_void,0x00032305,H,method return
