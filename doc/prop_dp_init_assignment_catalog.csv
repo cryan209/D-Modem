@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x00000000|0x0000002b,2
+control,branch_density,cond=49|jmp=22,2
+call,direct_calls,count=30,1
+param,key_fields,see_prop_dp_init_state_graph_param_edges.csv,1

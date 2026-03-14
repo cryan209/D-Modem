@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x000579c0,H,function entry,getFrame_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x000579c0,H,entry complete,getFrame_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x00057dc3,H,actions complete,getFrame_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x00057dc3,H,return,getFrame_state_graph_edges.csv
+param,self_object,write,v34_primitive_state,0x000579c0,H,this method updates/reads primitive coding state,getFrame_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x000579c0,H,see call list,getFrame_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x00057dc3,H,method return,getFrame_state_graph_param_edges.csv

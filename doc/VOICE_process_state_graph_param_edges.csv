@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,dsp_batch3_state,0x00000bd0,H,this-pointer method updates/reads subsystem state
+call,B1_ACTION,helper_calls,0x00000bd0,H,see call list
+return,B2_RETURN,return_value_or_void,0x000013af,H,method return

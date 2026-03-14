@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x000058e0,H,function entry,dp_runtime_create_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x000058e0,H,entry complete,dp_runtime_create_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x00005a09,H,actions complete,dp_runtime_create_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x00005a09,H,return,dp_runtime_create_state_graph_edges.csv
+param,self_object,write,dsp_batch4_state,0x000058e0,H,this-pointer method updates/reads wrapper/runtime state,dp_runtime_create_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x000058e0,H,see call list,dp_runtime_create_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x00005a09,H,method return,dp_runtime_create_state_graph_param_edges.csv

@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x00001500,H,function entry,FAX_create_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00001500,H,entry complete,FAX_create_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x00001733,H,actions complete,FAX_create_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x00001733,H,return,FAX_create_state_graph_edges.csv
+param,self_object,write,dsp_batch3_state,0x00001500,H,this-pointer method updates/reads subsystem state,FAX_create_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00001500,H,see call list,FAX_create_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x00001733,H,method return,FAX_create_state_graph_param_edges.csv

@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x000009a0,H,function entry,VOICE_command_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x000009a0,H,entry complete,VOICE_command_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x00000bc3,H,actions complete,VOICE_command_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x00000bc3,H,return,VOICE_command_state_graph_edges.csv
+param,self_object,write,dsp_batch3_state,0x000009a0,H,this-pointer method updates/reads subsystem state,VOICE_command_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x000009a0,H,see call list,VOICE_command_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x00000bc3,H,method return,VOICE_command_state_graph_param_edges.csv

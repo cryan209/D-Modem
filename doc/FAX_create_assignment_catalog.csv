@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x00001500|0x00001733,2
+control,branch_density,cond=15|jmp=10,2
+call,direct_calls,count=16,1
+param,key_fields,see_FAX_create_state_graph_param_edges.csv,1

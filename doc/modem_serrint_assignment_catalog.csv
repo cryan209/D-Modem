@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x0005cf80|0x0005d5bd,2
+control,branch_density,cond=29|jmp=15,2
+call,direct_calls,count=13,1
+param,key_fields,see_modem_serrint_state_graph_param_edges.csv,1

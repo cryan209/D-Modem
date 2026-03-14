@@ -1,0 +1,16 @@
+# prop_dp_exit Control Graph (Address-Backed)
+
+## Control Blocks
+
+| Block | Entry |
+|---|---:|
+| B0_ENTRY | 0x00000030 |
+| B1_ACTION | 0x00000030 |
+| B2_RETURN | 0x0000005b |
+
+~~~mermaid
+flowchart LR
+  S[START] --> B0[B0_ENTRY] --> B1[B1_ACTION] --> B2[B2_RETURN] --> R[RET]
+~~~
+
+Edge CSV: /root/D-Modem/doc/prop_dp_exit_state_graph_edges.csv
