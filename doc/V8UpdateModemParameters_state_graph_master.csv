@@ -1,0 +1,14 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_SELECT_SOURCE,0x74840,H,function entry,V8UpdateModemParameters_state_graph_edges.csv
+control,B0_SELECT_SOURCE,fallthrough,B1_HEADER_FLAGS,0x748b0,H,source selected,V8UpdateModemParameters_state_graph_edges.csv
+control,B1_HEADER_FLAGS,special,B2_SPECIAL_CODE_PATH,0x74a00,H,special path,V8UpdateModemParameters_state_graph_edges.csv
+control,B1_HEADER_FLAGS,normal,B3_CAPABILITY_SCAN,0x74ac0,H,normal path,V8UpdateModemParameters_state_graph_edges.csv
+control,B2_SPECIAL_CODE_PATH,fallthrough,B3_CAPABILITY_SCAN,0x74aae,H,special done,V8UpdateModemParameters_state_graph_edges.csv
+control,B3_CAPABILITY_SCAN,fallthrough,B4_DIAG_AND_RETURN,0x74af7,H,scan done,V8UpdateModemParameters_state_graph_edges.csv
+control,B4_DIAG_AND_RETURN,ret,RET,0x74c51,H,return,V8UpdateModemParameters_state_graph_edges.csv
+param,v8+0xa44,write,source_select,0x74862|0x748e3,H,c54 vs cd4,V8UpdateModemParameters_state_graph_param_edges.csv
+param,out_header_bytes,write,flag_fields,0x7488c|0x748ba|0x74900,H,header writes,V8UpdateModemParameters_state_graph_param_edges.csv
+param,v8+0xebc_0xec0_0xec2,write,special_codes,0x7490c|0x74a00,H,special handling,V8UpdateModemParameters_state_graph_param_edges.csv
+call,B2_SPECIAL_CODE_PATH,write,charFlip_calls,0x74a54|0x74a8e,H,byte encode,V8UpdateModemParameters_state_graph_param_edges.csv
+param,sequence_word_scan,write,capability_masks,0x74ac0|0x74bf0,H,bit clearing,V8UpdateModemParameters_state_graph_param_edges.csv
+return,B4_DIAG_AND_RETURN,write,eax_status,0x74c51,H,return,V8UpdateModemParameters_state_graph_param_edges.csv

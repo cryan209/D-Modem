@@ -1,28 +1,31 @@
-# V90Modem::reset Branch Map
+# V90Modem_reset Branch And Flow Map
 
-## Entry
-- Reads `qcFlag` argument (`esi`).
-- If `dsplibs_debug_level > 1`:
-- `dsplibs_debug_printf("V90Modem Reset, qcFlag = %d\\r\\n", qcFlag)`.
-- Calls `V90Modem::printTitle()` unconditionally.
+- Symbol: V90Modem_reset
+- Start: 0x000199a0
+- End: 0x00019a7c
+- Size: 0x000000dd bytes
 
-## Side dispatch (`this+0x49bc`)
-1. `side == 0` (modulator)
-- Tail-call `V90Modulator::reset(this->modulator)`.
+## Summary
 
-2. `side == 1` (demodulator)
-- Reads `params = *(this+0x49b4)` then checks `params->field_0x4`.
-- If `params->field_0x4 != 0`:
-- Prints `"due to probe mode quick connect is masked !!!\\r\\n"` via `edprintf`.
-- Forces `qcFlag = 0` (mask quick connect).
-- Computes `dilType = (qcFlag != 0) ? 1 : 0`.
-- Calls `setDilDescriptor(this->dilDescriptor, dilType)` where `this->dilDescriptor` is at `this+0x14`.
-- Tail-calls `V90Demodulator::reset(this->demodulator, qcFlag)`.
+- Conditional branches: 6
+- Unconditional jumps: 5
+- Direct calls: 4
+- Core role: Reset top-level V.90 modem state for a new session.
 
-3. Invalid side (`side != 0 && side != 1`)
-- If `dsplibs_debug_level > 1`:
-- `dsplibs_debug_printf("V90Modem Reset: Illegal modemSide\\r\\n")`.
-- Else return.
+## Control Regions
 
-## Notes
-- Side 1 path can override caller’s quick-connect request due to probe mode gating.
+| Block | Entry | Role |
+|---|---:|---|
+| B0_ENTRY | 0x000199a0 | Entry and guard setup. |
+| B1_ACTION | 0x000199a0 | Main method behavior. |
+| B2_RETURN | 0x00019a7c | Return tail. |
+
+## External Calls
+
+- 			199c0: R_386_PC32	V90Modem::printTitle()
+- 			199f8: R_386_PC32	V90Modulator::reset()
+- 			19a0c: R_386_PC32	dsplibs_debug_printf
+- 			19a35: R_386_PC32	setDilDescriptor(tagV90DILdescriptor*, DilType)
+- 			19a50: R_386_PC32	V90Demodulator::reset(unsigned int)
+- 			19a69: R_386_PC32	dsplibs_debug_printf
+- 			19a77: R_386_PC32	edprintf

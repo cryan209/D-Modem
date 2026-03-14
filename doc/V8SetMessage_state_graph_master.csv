@@ -1,0 +1,14 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_SEQ_SELECT,0x742b0,H,function entry,V8SetMessage_state_graph_edges.csv
+control,B0_SEQ_SELECT,valid,B1_VALIDATE_LEN,0x742dc,H,seq valid,V8SetMessage_state_graph_edges.csv
+control,B0_SEQ_SELECT,invalid,B4_ERROR_OR_RETURN,0x74397,H,seq invalid,V8SetMessage_state_graph_edges.csv
+control,B1_VALIDATE_LEN,valid,B2_ENCODE_LOOP,0x74319,H,len valid,V8SetMessage_state_graph_edges.csv
+control,B1_VALIDATE_LEN,invalid,B4_ERROR_OR_RETURN,0x74421,H,len invalid,V8SetMessage_state_graph_edges.csv
+control,B2_ENCODE_LOOP,fallthrough,B3_TRAILER_INIT,0x7433e,H,encode done,V8SetMessage_state_graph_edges.csv
+control,B3_TRAILER_INIT,fallthrough,B4_ERROR_OR_RETURN,0x7438f,H,trailer done,V8SetMessage_state_graph_edges.csv
+control,B4_ERROR_OR_RETURN,ret,RET,0x74437,H,return,V8SetMessage_state_graph_edges.csv
+param,seq_id_and_len,write,validate_and_clamp,0x742ca|0x74305,H,input validation,V8SetMessage_state_graph_param_edges.csv
+call,B2_ENCODE_LOOP,write,charFlip,0x74328,H,byte transform,V8SetMessage_state_graph_param_edges.csv
+param,seq_buffer_words,write,encoded_payload,0x74320|0x74335,H,word writes,V8SetMessage_state_graph_param_edges.csv
+param,seq+0x1e_0x22_0x26_0x2a,write,trailer_fields,0x7433e|0x74389,H,control init,V8SetMessage_state_graph_param_edges.csv
+return,B4_ERROR_OR_RETURN,write,eax_status,0x74437,H,return,V8SetMessage_state_graph_param_edges.csv

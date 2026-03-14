@@ -1,9 +1,5 @@
-from,to,condition,kind,target
-ENTRY,RATE_DERIVE,always,flow,
-RATE_DERIVE,RANGE_VALIDATE,always,flow,
-RANGE_VALIDATE,RANGE_VALIDATE,if(min>14||max>14||min<2||max<2),branch,
-RANGE_VALIDATE,MASK_BUILD,range_valid_or_repaired,flow,
-MASK_BUILD,MASK_BUILD,idx_loop_14_to_2,loop,
-MASK_BUILD,BULK_INIT,loop_done,flow,
-BULK_INIT,BULK_INIT,debug_enabled,call,dsplibs_debug_printf
-BULK_INIT,RETURN,always,return,
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_ENTRY,0x000298e0,H,function entry
+B0_ENTRY,fallthrough,B1_ACTION,0x000298e0,H,entry complete
+B1_ACTION,fallthrough,B2_RETURN,0x0002a6e4,H,actions complete
+B2_RETURN,ret,RET,0x0002a6e4,H,return

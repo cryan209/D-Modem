@@ -1,0 +1,5 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0x359c,side_selector,0x58464|0x586db,H,branch selector
+param,ctx+0xaaxx,profile_fields,0x58556|0x58670,H,constants
+param,clear_loops,state_windows,0x5846a|0x585c0,H,bulk init
+return,B4_RETURN,eax_status,0x58714,H,return

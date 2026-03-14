@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,conneval_demapper_state_fields,0x000400b0,H,this-pointer method updates/reads evaluator or demapper state
+call,B1_ACTION,helper_calls,0x000400b0,H,see call list for helper interactions
+return,B2_RETURN,return_value_or_void,0x00040137,H,method return

@@ -1,0 +1,12 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY_VALIDATE,0x72d50,H,function entry,V34SetupModulator_state_graph_edges.csv
+control,B0_ENTRY_VALIDATE,valid,B1_PRIMARY_RATE_DISPATCH,0x72da2,H,valid input,V34SetupModulator_state_graph_edges.csv
+control,B1_PRIMARY_RATE_DISPATCH,selected,B2_SECONDARY_RATE_DISPATCH,0x72ef0,H,primary selected,V34SetupModulator_state_graph_edges.csv
+control,B2_SECONDARY_RATE_DISPATCH,selected,B3_TABLE_AND_MEMSET,0x72f64,H,secondary selected,V34SetupModulator_state_graph_edges.csv
+control,B3_TABLE_AND_MEMSET,fallthrough,B4_DEBUG_AND_RETURN,0x73305,H,config done,V34SetupModulator_state_graph_edges.csv
+control,B4_DEBUG_AND_RETURN,ret,RET,0x7338e,H,return,V34SetupModulator_state_graph_edges.csv
+param,arg_rate_carrier,write,dispatch_keys,0x72da2|0x730c0,H,case keys,V34SetupModulator_state_graph_param_edges.csv
+param,mod+0x10_0x14,write,hsine_step_ptr,0x72f64|0x73013,H,timing source,V34SetupModulator_state_graph_param_edges.csv
+call,B3_TABLE_AND_MEMSET,write,memset_calls,0x72f8c|0x72fad,H,clear buffers,V34SetupModulator_state_graph_param_edges.csv
+call,B4_DEBUG_AND_RETURN,write,debug_prints,0x73041|0x7326f,H,verbose,V34SetupModulator_state_graph_param_edges.csv
+return,B4_DEBUG_AND_RETURN,write,eax_status,0x7338e,H,return,V34SetupModulator_state_graph_param_edges.csv

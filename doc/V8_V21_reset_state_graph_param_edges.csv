@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,v8+0xe0c_window,tap_state_zero,0x78c22|0x78c2e,H,0x28 words cleared
+param,v8+0xde8_0xdec_0xdf0,counter_zero,0x78c34|0x78c42,H,zeroed counters
+return,B2_RETURN,void_return,0x78c48,H,return

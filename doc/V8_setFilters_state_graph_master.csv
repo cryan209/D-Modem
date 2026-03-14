@@ -1,0 +1,7 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_WRITE_FILTER_PTRS,0x78c50,H,function entry,V8_setFilters_state_graph_edges.csv
+control,B0_WRITE_FILTER_PTRS,fallthrough,B1_RETURN,0x78c7c,H,pointers written,V8_setFilters_state_graph_edges.csv
+control,B1_RETURN,ret,RET,0x78c7c,H,return,V8_setFilters_state_graph_edges.csv
+param,args_f0_f1_f2_f3,write,inputs,0x78c50|0x78c72,H,incoming filter pointers,V8_setFilters_state_graph_param_edges.csv
+param,v8+0xdd8_0xddc_0xde0_0xde4,write,store_slots,0x78c58|0x78c76,H,pointer slot writes,V8_setFilters_state_graph_param_edges.csv
+return,B1_RETURN,write,void_return,0x78c7c,H,return,V8_setFilters_state_graph_param_edges.csv

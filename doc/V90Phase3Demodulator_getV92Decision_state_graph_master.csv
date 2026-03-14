@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x00021680,H,function entry,V90Phase3Demodulator_getV92Decision_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00021680,H,entry complete,V90Phase3Demodulator_getV92Decision_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x00023827,H,actions complete,V90Phase3Demodulator_getV92Decision_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x00023827,H,return,V90Phase3Demodulator_getV92Decision_state_graph_edges.csv
+param,self_object,write,phase3demod_state_fields,0x00021680,H,this-pointer method updates phase-3 demodulator state,V90Phase3Demodulator_getV92Decision_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00021680,H,see call list for helper interactions,V90Phase3Demodulator_getV92Decision_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x00023827,H,method return,V90Phase3Demodulator_getV92Decision_state_graph_param_edges.csv

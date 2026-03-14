@@ -1,11 +1,4 @@
-caller,callee,arg_index,source,notes
-V90Modem::reset,dsplibs_debug_printf,0,.rodata.str1.1+0x1098,"V90Modem Reset, qcFlag = %d"
-V90Modem::reset,dsplibs_debug_printf,1,qcFlag,requested quick-connect flag
-V90Modem::reset,V90Modem::printTitle,0,this,implicit this
-V90Modem::reset,V90Modulator::reset,0,this->modulator (this+0x0),child this pointer
-V90Modem::reset,edprintf,0,.rodata.str1.4+0x4328,probe-mode QC masked warning
-V90Modem::reset,setDilDescriptor,0,this->dilDescriptor (this+0x14),descriptor pointer
-V90Modem::reset,setDilDescriptor,1,(qcFlag!=0)?1:0,DilType selector
-V90Modem::reset,V90Demodulator::reset,0,this->demodulator (this+0x4),child this pointer
-V90Modem::reset,V90Demodulator::reset,1,qcFlag (possibly masked to 0),effective quick-connect flag
-V90Modem::reset,dsplibs_debug_printf,0,.rodata.str1.4+0x4304,illegal modemSide message
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,modem_state_fields,0x000199a0,H,this-pointer method updates top-level modem state
+call,B1_ACTION,helper_calls,0x000199a0,H,see call list for helper interactions
+return,B2_RETURN,return_value_or_void,0x00019a7c,H,method return

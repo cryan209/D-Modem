@@ -1,7 +1,8 @@
-plane,node,edge_to,condition,action,details
-A,ENTRY,RATE_DERIVE,always,enter,head defaults and context capture
-B,RATE_DERIVE,RANGE_VALIDATE,always,derive,compute upstream index window from modem rates
-B,RANGE_VALIDATE,MASK_BUILD,post-clamp,normalize,clamp/repair index range
-B,MASK_BUILD,BULK_INIT,loop_done,build,construct upstream rate mask bits
-C,BULK_INIT,BULK_INIT,debug_enabled,call,optional dsplibs_debug_printf
-A,BULK_INIT,RETURN,always,return,epilogue after large constant stores
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x000298e0,H,function entry,V90Parameters_setToDefault_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x000298e0,H,entry complete,V90Parameters_setToDefault_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x0002a6e4,H,actions complete,V90Parameters_setToDefault_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x0002a6e4,H,return,V90Parameters_setToDefault_state_graph_edges.csv
+param,self_object,write,parameters_state_fields,0x000298e0,H,this-pointer method updates V.90 parameter state,V90Parameters_setToDefault_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x000298e0,H,see call list for helper interactions,V90Parameters_setToDefault_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x0002a6e4,H,method return,V90Parameters_setToDefault_state_graph_param_edges.csv

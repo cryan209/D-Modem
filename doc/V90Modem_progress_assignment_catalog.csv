@@ -1,6 +1,5 @@
-kind,offset_or_symbol,width,access,description
-field,this+0x49bc,32,read,modem side selector
-field,this+0x0000,32,read,modulator object pointer
-field,this+0x0004,32,read,demodulator object pointer
-global,dsplibs_debug_level,32,read,debug verbosity gate
-rodata,.rodata+0x4358,string,read,illegal-side debug format string
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x00019ad0|0x00019b8b,2
+control,branch_density,cond=3|jmp=3,2
+call,direct_calls,count=0,1
+param,key_fields,see_V90Modem_progress_state_graph_param_edges.csv,1

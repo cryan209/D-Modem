@@ -1,0 +1,7 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_SELECT_QUEUE,0x74c60,H,function entry
+B0_SELECT_QUEUE,queue_selected,B1_LEN_GATE,0x74c8c,H,source queue chosen
+B1_LEN_GATE,len_gt_0,B2_DECODE_LOOP,0x74c93,H,copy/decode path
+B1_LEN_GATE,len_le_0,B3_STORE_LEN_RET,0x74cd3,H,nothing queued
+B2_DECODE_LOOP,fallthrough,B3_STORE_LEN_RET,0x74ccd,H,decode complete
+B3_STORE_LEN_RET,ret,RET,0x74d12,H,return

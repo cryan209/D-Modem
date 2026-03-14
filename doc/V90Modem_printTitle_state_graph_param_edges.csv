@@ -1,12 +1,4 @@
-caller,callee,arg_index,source,notes
-V90Modem::printTitle,edprintf,0,.rodata.str1.4+0x416c,header stars
-V90Modem::printTitle,edprintf,0,.rodata.str1.4+0x41a8,private version line
-V90Modem::printTitle,edprintf,0,.rodata.str1.4+0x41e4,SL DSP group line
-V90Modem::printTitle,dsplibs_debug_printf,0,.rodata.str1.4+0x416c,debug stars (prolog/epilog)
-V90Modem::printTitle,dsplibs_debug_printf,0,.rodata.str1.1+0x105d,version format
-V90Modem::printTitle,dsplibs_debug_printf,1,.rodata.str1.1+0x107a,version date
-V90Modem::printTitle,dsplibs_debug_printf,2,.rodata.str1.1+0x1084,version number
-V90Modem::printTitle,edprintf,0,.rodata.str1.4+0x4220,description title
-V90Modem::printTitle,edprintf,0,.rodata.str1.1+0x1058,format "%s\\r\\n"
-V90Modem::printTitle,edprintf,1,.rodata.str1.4+0x4240,description body
-V90Modem::printTitle,edprintf,0,.rodata.str1.4+0x4284,components line
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,modem_state_fields,0x00019400,H,this-pointer method updates top-level modem state
+call,B1_ACTION,helper_calls,0x00019400,H,see call list for helper interactions
+return,B2_RETURN,return_value_or_void,0x000194d1,H,method return

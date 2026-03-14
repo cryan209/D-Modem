@@ -1,16 +1,8 @@
-plane,node,edge_to,condition,action,details
-A,ENTRY,PRINT_HEADER_1,always,call,"edprintf(stars)"
-A,PRINT_HEADER_1,PRINT_HEADER_2,always,call,"edprintf(private)"
-A,PRINT_HEADER_2,PRINT_HEADER_3,always,call,"edprintf(group-only)"
-C,PRINT_HEADER_3,DEBUG_PROLOG,debug_level>1,branch,
-C,PRINT_HEADER_3,PRINT_DESC_TITLE,debug_level<=1,branch,
-B,DEBUG_PROLOG,DEBUG_VERSION,debug_level>1,call,"debug_printf(stars)"
-C,DEBUG_PROLOG,PRINT_DESC_TITLE,debug_level<=1,branch,
-B,DEBUG_VERSION,DEBUG_PROLOG2,debug_level>1,call,"debug_printf(version,date,number)"
-C,DEBUG_VERSION,PRINT_DESC_TITLE,debug_level<=1,branch,
-B,DEBUG_PROLOG2,PRINT_DESC_TITLE,always,call,"debug_printf(stars)"
-A,PRINT_DESC_TITLE,PRINT_DESC_BODY,always,call,"edprintf(description title)"
-A,PRINT_DESC_BODY,PRINT_COMPONENTS,always,call,"edprintf(%s, modified QC...)"
-A,PRINT_COMPONENTS,RETURN,debug_level<=1,call,"edprintf(components)"
-B,PRINT_COMPONENTS,DEBUG_EPILOG,debug_level>1,branch,
-B,DEBUG_EPILOG,RETURN,always,call,"debug_printf(stars)"
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x00019400,H,function entry,V90Modem_printTitle_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00019400,H,entry complete,V90Modem_printTitle_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x000194d1,H,actions complete,V90Modem_printTitle_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x000194d1,H,return,V90Modem_printTitle_state_graph_edges.csv
+param,self_object,write,modem_state_fields,0x00019400,H,this-pointer method updates top-level modem state,V90Modem_printTitle_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00019400,H,see call list for helper interactions,V90Modem_printTitle_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x000194d1,H,method return,V90Modem_printTitle_state_graph_param_edges.csv

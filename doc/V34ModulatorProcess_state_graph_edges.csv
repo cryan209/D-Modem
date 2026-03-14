@@ -1,0 +1,7 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_ENTRY_LOAD,0x73390,H,function entry
+B0_ENTRY_LOAD,fallthrough,B1_HISTORY_PUSH,0x7344e,H,load done
+B1_HISTORY_PUSH,fallthrough,B2_MAC_LOOP,0x73485,H,history done
+B2_MAC_LOOP,done,B3_SATURATE_STORE,0x7357c,H,mac done
+B3_SATURATE_STORE,fallthrough,B4_RETURN,0x7360f,H,store done
+B4_RETURN,ret,RET,0x73615,H,return

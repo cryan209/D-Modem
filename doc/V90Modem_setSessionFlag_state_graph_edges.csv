@@ -1,8 +1,5 @@
-from,to,condition,kind,target
-ENTRY,CACHE_FLAG,always,flow,
-CACHE_FLAG,READ_SIDE,always,write,this+0x49b8
-READ_SIDE,TO_MODULATOR,side==0,branch,
-READ_SIDE,TO_DEMODULATOR,side==1,branch,
-READ_SIDE,RETURN,else,branch,
-TO_MODULATOR,RETURN,always,tailcall,_ZN12V90Modulator14setSessionFlagEj
-TO_DEMODULATOR,RETURN,always,call,_ZN14V90Demodulator14setSessionFlagEj
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_ENTRY,0x00019a80,H,function entry
+B0_ENTRY,fallthrough,B1_ACTION,0x00019a80,H,entry complete
+B1_ACTION,fallthrough,B2_RETURN,0x00019ac6,H,actions complete
+B2_RETURN,ret,RET,0x00019ac6,H,return

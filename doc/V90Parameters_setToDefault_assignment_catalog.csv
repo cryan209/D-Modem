@@ -1,13 +1,5 @@
 layer,state_hex,evidence_addresses,count
-control,D0_HEAD_DEFAULTS,0x298f7|0x29947,2
-control,D1_RATE_WINDOW_DERIVE,0x29971|0x29981|0x2999e,3
-control,D2_OVERRIDE_CLAMP,0x2998c|0x29998|0x2a69a,3
-control,D3_RANGE_CLAMP_2_14,0x299a1|0x299af|0x2a674|0x2a687,4
-control,D4_INVALID_RANGE_REPAIR,0x299bc|0x2a6ca|0x299d0,3
-control,D5_RATE_MASK_LOOP,0x299e0|0x299fb|0x29a02,3
-control,D6_BULK_DEFAULT_BLOCK,0x29a11|0x2a66c,2
-control,D7_NO_OVERRIDE_BOOTSTRAP,0x2a5a8|0x2a5af,2
-param,upstream_rate_mask_48,0x299fb,1
-param,pcm_rtd_default_4cc,0x2a57a,1
-param,bootstrap_flag_364,0x2a5af,1
-call,dsplibs_debug_printf,0x2a6c0|0x2a6d6,2
+control,ENTRY_TO_RET,0x000298e0|0x0002a6e4,2
+control,branch_density,cond=12|jmp=5,2
+call,direct_calls,count=2,1
+param,key_fields,see_V90Parameters_setToDefault_state_graph_param_edges.csv,1

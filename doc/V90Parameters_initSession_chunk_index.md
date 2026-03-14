@@ -1,13 +1,11 @@
 # V90Parameters_initSession Chunk Index
 
-- Symbol: `_ZN13V90Parameters11initSessionEv`
-- Demangled: `V90Parameters::initSession()`
-- Address range: `0x000279c0 - 0x000279d7`
-- Size: `0x18` bytes
-- Source object: `slmodemd/dsplibs.o`
+Source symbol: V90Parameters_initSession @ 0x000279c0 size 0x00000018
 
-## Chunks
-- `chunk_00.asm`: full function body
+| Chunk | First Address | Last Address | Lines |
+|---|---:|---:|---:|
+| chunk_00.asm | 0x000279c0 | 0x000279d7 | 13 |
 
 ## High-level role
-- Session-only reset of forced upstream-window control fields (`+0x4f8/+0x4fc`).
+
+- Initialize per-session parameter state.

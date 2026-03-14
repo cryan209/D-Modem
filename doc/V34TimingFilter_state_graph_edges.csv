@@ -1,0 +1,7 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_ENTRY_LOAD,0x72360,H,function entry
+B0_ENTRY_LOAD,fallthrough,B1_HALFBAUD_A,0x72407,H,load done
+B1_HALFBAUD_A,fallthrough,B2_HALFBAUD_B,0x724e4,H,stage a done
+B2_HALFBAUD_B,fallthrough,B3_HP_UPDATE,0x7257f,H,stage b done
+B3_HP_UPDATE,fallthrough,B4_RETURN,0x726a8,H,update done
+B4_RETURN,ret,RET,0x726b0,H,return

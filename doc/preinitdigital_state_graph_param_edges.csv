@@ -1,0 +1,6 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0x25e0_region,region_a_zero,0x597a0|0x59823,H,clear path
+param,ctx+0x0a00_region,region_b_zero,0x59830|0x59844,H,clear path
+call,B2_BACKEND_ZERO,memset_calls,0x59891|0x598cb,H,region memset
+param,ctx+0x359c,side_swap_selector,0x5993d,H,swap branch
+return,B5_RETURN,eax_status,0x59974,H,return

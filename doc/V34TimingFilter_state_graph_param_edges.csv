@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,history_slots,filter_state,0x72407|0x7257f,H,rolling history
+param,coeff_tables,accumulation_coeffs,0x724b7|0x725ef,H,table-driven math
+return,B4_RETURN,eax_timing_correction,0x726b0,H,return

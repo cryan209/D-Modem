@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ZERO_TAPS,0x78c10,H,function entry,V8_V21_reset_state_graph_edges.csv
+control,B0_ZERO_TAPS,done,B1_ZERO_COUNTERS,0x78c30,H,tap clear complete,V8_V21_reset_state_graph_edges.csv
+control,B1_ZERO_COUNTERS,fallthrough,B2_RETURN,0x78c48,H,counters reset,V8_V21_reset_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x78c48,H,return,V8_V21_reset_state_graph_edges.csv
+param,v8+0xe0c_window,write,tap_state_zero,0x78c22|0x78c2e,H,0x28 words cleared,V8_V21_reset_state_graph_param_edges.csv
+param,v8+0xde8_0xdec_0xdf0,write,counter_zero,0x78c34|0x78c42,H,zeroed counters,V8_V21_reset_state_graph_param_edges.csv
+return,B2_RETURN,write,void_return,0x78c48,H,return,V8_V21_reset_state_graph_param_edges.csv

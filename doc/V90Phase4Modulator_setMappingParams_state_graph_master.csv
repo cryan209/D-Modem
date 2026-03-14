@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x0002d120,H,function entry,V90Phase4Modulator_setMappingParams_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x0002d120,H,entry complete,V90Phase4Modulator_setMappingParams_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x0002d17f,H,actions complete,V90Phase4Modulator_setMappingParams_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x0002d17f,H,return,V90Phase4Modulator_setMappingParams_state_graph_edges.csv
+param,self_object,write,phase4mod_state_fields,0x0002d120,H,this-pointer method updates phase-4 modulator state,V90Phase4Modulator_setMappingParams_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x0002d120,H,see call list for helper interactions,V90Phase4Modulator_setMappingParams_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x0002d17f,H,method return,V90Phase4Modulator_setMappingParams_state_graph_param_edges.csv

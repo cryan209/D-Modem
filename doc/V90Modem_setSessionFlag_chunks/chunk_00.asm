@@ -29,6 +29,3 @@ Disassembly of section .text:
 			19abf: R_386_PC32	_ZN14V90Demodulator14setSessionFlagEj
    19ac3:	83 c4 0c             	add    esp,0xc
    19ac6:	c3                   	ret
-   19ac7:	90                   	nop
-   19ac8:	90                   	nop
-   19ac9:	8d b4 26 00 00 00 00 	lea    esi,[esi+eiz*1+0x0]

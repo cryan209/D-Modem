@@ -1,0 +1,12 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_SELECT_QUEUE,0x74c60,H,function entry,V8GetMessage_state_graph_edges.csv
+control,B0_SELECT_QUEUE,queue_selected,B1_LEN_GATE,0x74c8c,H,source queue chosen,V8GetMessage_state_graph_edges.csv
+control,B1_LEN_GATE,len_gt_0,B2_DECODE_LOOP,0x74c93,H,copy/decode path,V8GetMessage_state_graph_edges.csv
+control,B1_LEN_GATE,len_le_0,B3_STORE_LEN_RET,0x74cd3,H,nothing queued,V8GetMessage_state_graph_edges.csv
+control,B2_DECODE_LOOP,fallthrough,B3_STORE_LEN_RET,0x74ccd,H,decode complete,V8GetMessage_state_graph_edges.csv
+control,B3_STORE_LEN_RET,ret,RET,0x74d12,H,return,V8GetMessage_state_graph_edges.csv
+param,v8+0xdc4_v8+0xa44,write,source_select,0x74c7c|0x74cf0,H,queue root selection,V8GetMessage_state_graph_param_edges.csv
+param,seq+0x28,write,queued_len,0x74c8c|0x74c93,H,message symbol count,V8GetMessage_state_graph_param_edges.csv
+call,B2_DECODE_LOOP,write,charFlip,0x74cbc,H,symbol->byte decode,V8GetMessage_state_graph_param_edges.csv
+param,inout_len,write,cap_and_writeback,0x74ca0|0x74cd1,H,truncation/length update,V8GetMessage_state_graph_param_edges.csv
+return,B3_STORE_LEN_RET,write,eax_status,0x74cd3|0x74d12,H,-1 none/queued_len if truncated/0 success,V8GetMessage_state_graph_param_edges.csv

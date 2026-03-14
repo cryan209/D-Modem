@@ -1,0 +1,14 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_INPUT_SHIFT,0x74f10,H,function entry,V8agc_state_graph_edges.csv
+control,B0_INPUT_SHIFT,fallthrough,B1_FIR_STAGE,0x74fb0,H,shift done,V8agc_state_graph_edges.csv
+control,B1_FIR_STAGE,fallthrough,B2_ENERGY_GAIN_EST,0x75080,H,fir done,V8agc_state_graph_edges.csv
+control,B2_ENERGY_GAIN_EST,fallthrough,B3_SCALE_AND_CLAMP,0x7514b,H,estimate done,V8agc_state_graph_edges.csv
+control,B3_SCALE_AND_CLAMP,fallthrough,B4_ADAPT_STATE,0x75202,H,scale done,V8agc_state_graph_edges.csv
+control,B4_ADAPT_STATE,fallthrough,B5_RETURN,0x752e8,H,adapt done,V8agc_state_graph_edges.csv
+control,B5_RETURN,ret,RET,0x75375,H,return,V8agc_state_graph_edges.csv
+param,v8+0x114_ring_ptr,write,input_shift,0x74f33|0x74f72,H,input advance,V8agc_state_graph_param_edges.csv
+param,rodata_0x5420_0x5480,write,fir_coeff_bank,0x74f99|0x74fa0,H,bank select,V8agc_state_graph_param_edges.csv
+param,rodata_0x54e0,write,gain_lut,0x7510d,H,gain lookup,V8agc_state_graph_param_edges.csv
+param,v8+0x1a_0x1c_0x1e_0xac,write,adapt_fields,0x751aa|0x7529b,H,agc update,V8agc_state_graph_param_edges.csv
+call,B4_ADAPT_STATE,write,debug_prints,0x752fd|0x75327,H,verbose,V8agc_state_graph_param_edges.csv
+return,B5_RETURN,write,eax_status,0x75375,H,return,V8agc_state_graph_param_edges.csv

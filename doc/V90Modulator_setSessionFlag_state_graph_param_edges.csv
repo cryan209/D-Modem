@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,phase_state_fields,0x00019d30,H,this-pointer driven state transition method
+call,B1_ACTION,helper_calls,0x00019d30,H,see call list for invoked helpers
+return,B2_RETURN,void_or_status_return,0x00019d6f,H,method return

@@ -1,0 +1,9 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_STREAM_LOOP,0x74560,H,function entry
+B0_STREAM_LOOP,loop_threshold,B1_HANDSHAKE_STEP,0x7464f,H,threshold reached
+B0_STREAM_LOOP,stream_done,B2_STATUS_MAP,0x74680,H,input loop done
+B1_HANDSHAKE_STEP,continue_stream,B0_STREAM_LOOP,0x7465b,H,status !=2 or still samples
+B1_HANDSHAKE_STEP,done,B2_STATUS_MAP,0x74680,H,stream finished
+B2_STATUS_MAP,fallthrough,B3_STATUS_COMMIT,0x74731,H,status selected
+B3_STATUS_COMMIT,fallthrough,B4_RETURN,0x74750,H,cache updated
+B4_RETURN,ret,RET,0x7483a,H,return

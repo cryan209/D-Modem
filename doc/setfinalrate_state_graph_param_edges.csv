@@ -1,0 +1,6 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0xa9de_a9e0_a9e2,raw_codes,0x5ece3|0x5ed6e,H,decode inputs
+call,B0_ENTRY_BITS,bitreverse_calls,0x5ece3|0x5ed08|0x5ed6e,H,bit normalization
+param,ctx+0xaa84_aa90_aa94,final_rates,0x5ed47|0x5edb1,H,resolved rates
+param,ctx+0xaa96_aab0,rate_pointers,0x5eea0|0x5ef17,H,pointer slots
+return,B4_DEBUG_RETURN,eax_status,0x5f038,H,return

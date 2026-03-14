@@ -1,31 +1,34 @@
-# V90Modem::printTitle Branch Map
+# V90Modem_printTitle Branch And Flow Map
 
-## Entry behavior (always)
-- `edprintf("***************************************************\\r\\n")`
-- `edprintf("*******        This is a PRIVATE version         *******\\r\\n")`
-- `edprintf("*******     for the use of SL DSP group only     *******\\r\\n")`
+- Symbol: V90Modem_printTitle
+- Start: 0x00019400
+- End: 0x000194d1
+- Size: 0x000000d2 bytes
 
-## Branch A: `dsplibs_debug_level > 1` (early)
-- `dsplibs_debug_printf("***************************************************\\r\\n")`
-- Re-check debug level:
-- If still `>1`: `dsplibs_debug_printf("%s\\r\\n", "25-Mar-04", "2.98")`
-- Re-check debug level again:
-- If still `>1`: `dsplibs_debug_printf("***************************************************\\r\\n")`
-- Then falls through to common footer block.
+## Summary
 
-## Branch B: `dsplibs_debug_level <= 1` (early)
-- Skip Branch A and go directly to common footer block.
+- Conditional branches: 4
+- Unconditional jumps: 2
+- Direct calls: 9
+- Core role: Emit/prepare modem title and identification text.
 
-## Common footer block (always reached)
-- `edprintf("V90Modem Version Description:\\r\\n")`
-- `edprintf("%s\\r\\n", "Modified Quick Connect without Memory + Train Time + Constel Power")`
-- `edprintf("Components: Floreat, ADI, ACD, New BLL\\r\\n")`
+## Control Regions
 
-## Final tail
-- Final `dsplibs_debug_level` check:
-- If `>1`: one more `dsplibs_debug_printf("***************************************************\\r\\n")`
-- Else: return.
+| Block | Entry | Role |
+|---|---:|---|
+| B0_ENTRY | 0x00019400 | Entry and guard setup. |
+| B1_ACTION | 0x00019400 | Main method behavior. |
+| B2_RETURN | 0x000194d1 | Return tail. |
 
-## Notes
-- This function does not mutate object fields.
-- Debug level is checked multiple times; behavior can change if the global changes during execution.
+## External Calls
+
+- 			1940b: R_386_PC32	edprintf
+- 			19417: R_386_PC32	edprintf
+- 			19423: R_386_PC32	edprintf
+- 			19438: R_386_PC32	edprintf
+- 			1944d: R_386_PC32	edprintf
+- 			19459: R_386_PC32	edprintf
+- 			1947d: R_386_PC32	dsplibs_debug_printf
+- 			19489: R_386_PC32	dsplibs_debug_printf
+- 			194b0: R_386_PC32	dsplibs_debug_printf
+- 			194c9: R_386_PC32	dsplibs_debug_printf

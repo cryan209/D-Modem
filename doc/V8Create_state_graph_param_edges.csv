@@ -1,0 +1,6 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+call,B0_ALLOCATE,sysdep_malloc,0x73e30,H,allocation
+param,ctx+0xa44_0xa58,config_copy,0x73e3f|0x73e77,H,cfg words
+call,B3_INIT_HANDSHAKE,v8handshakinit,0x73ebc,H,bootstrap
+param,ctx+0xa42_0xdba_0xeb8,mode_and_counters,0x73eb2|0x73ecc,H,init values
+return,B4_RETURN,eax_ctx_ptr,0x74283,H,return pointer

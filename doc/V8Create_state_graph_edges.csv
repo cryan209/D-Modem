@@ -1,0 +1,8 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_ALLOCATE,0x73e20,H,function entry
+B0_ALLOCATE,ok,B1_COPY_CONFIG,0x73e3f,H,alloc ok
+B0_ALLOCATE,fail,B4_RETURN,0x73ed2,H,alloc fail
+B1_COPY_CONFIG,fallthrough,B2_VERBOSE_DUMP,0x73ee0,H,copy done
+B2_VERBOSE_DUMP,fallthrough,B3_INIT_HANDSHAKE,0x73ead,H,log path
+B3_INIT_HANDSHAKE,fallthrough,B4_RETURN,0x73ed2,H,init done
+B4_RETURN,ret,RET,0x74283,H,return

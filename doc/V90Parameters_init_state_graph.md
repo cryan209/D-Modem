@@ -1,14 +1,16 @@
-# V90Parameters_init State Graph
+# V90Parameters_init Control Graph (Address-Backed)
 
-## Nodes
-- ENTRY
-- DEFAULTS
-- OPTIONAL_FILE_LOAD
-- RUNTIME_OVERLAY
-- RETURN
+## Control Blocks
 
-## Edges
-- ENTRY -> DEFAULTS
-- DEFAULTS -> OPTIONAL_FILE_LOAD
-- OPTIONAL_FILE_LOAD -> RUNTIME_OVERLAY
-- RUNTIME_OVERLAY -> RETURN
+| Block | Entry |
+|---|---:|
+| B0_ENTRY | 0x0002a850 |
+| B1_ACTION | 0x0002a850 |
+| B2_RETURN | 0x0002a88e |
+
+~~~mermaid
+flowchart LR
+  S[START] --> B0[B0_ENTRY] --> B1[B1_ACTION] --> B2[B2_RETURN] --> R[RET]
+~~~
+
+Edge CSV: /root/D-Modem/doc/V90Parameters_init_state_graph_edges.csv

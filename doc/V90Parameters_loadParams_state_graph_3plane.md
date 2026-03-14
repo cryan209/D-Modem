@@ -1,13 +1,28 @@
-# V90Parameters_loadParams 3-Plane Graph
+# V90Parameters_loadParams 3-Plane Graph (Control/Params/Calls)
 
-## Plane A: Entry/Exit
-- Standard prologue and epilogue.
+References:
+- Control graph: /root/D-Modem/doc/V90Parameters_loadParams_state_graph.md
+- Control edge CSV: /root/D-Modem/doc/V90Parameters_loadParams_state_graph_edges.csv
+- Param edge CSV: /root/D-Modem/doc/V90Parameters_loadParams_state_graph_param_edges.csv
 
-## Plane B: Control Flow
-- Branch-free linear table execution.
-- No conditional jumps in function body.
+## Control Plane
 
-## Plane C: External Interactions
-- Repeated parser helper calls:
-- `Vparser_read_int` (`139`)
-- `Vparser_read_float` (`156`)
+~~~mermaid
+flowchart LR
+  S[START] --> B0[B0_ENTRY] --> B1[B1_ACTION] --> B2[B2_RETURN] --> R[RET]
+~~~
+
+## Parameter Plane
+
+~~~mermaid
+flowchart LR
+  P0[self] --> P1[parameter runtime fields]
+  P0 --> P2[lookup/default tables]
+~~~
+
+## Call Plane
+
+~~~mermaid
+flowchart LR
+  C0[V90Parameters_loadParams] --> C1[helper method calls]
+~~~

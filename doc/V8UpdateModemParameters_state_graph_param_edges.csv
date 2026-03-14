@@ -1,0 +1,7 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,v8+0xa44,source_select,0x74862|0x748e3,H,c54 vs cd4
+param,out_header_bytes,flag_fields,0x7488c|0x748ba|0x74900,H,header writes
+param,v8+0xebc_0xec0_0xec2,special_codes,0x7490c|0x74a00,H,special handling
+call,B2_SPECIAL_CODE_PATH,charFlip_calls,0x74a54|0x74a8e,H,byte encode
+param,sequence_word_scan,capability_masks,0x74ac0|0x74bf0,H,bit clearing
+return,B4_DIAG_AND_RETURN,eax_status,0x74c51,H,return

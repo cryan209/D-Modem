@@ -1,0 +1,7 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_ENTRY_VALIDATE,0x5def0,H,function entry
+B0_ENTRY_VALIDATE,valid,B1_RATE_DISPATCH,0x5df38,H,valid input
+B1_RATE_DISPATCH,match,B2_TABLE_BIND,0x5e060,H,rate match
+B1_RATE_DISPATCH,fallback,B3_DEBUG_AND_RETURN,0x5e005,H,fallback
+B2_TABLE_BIND,fallthrough,B3_DEBUG_AND_RETURN,0x5e005,H,bind done
+B3_DEBUG_AND_RETURN,ret,RET,0x5e1f8,H,return

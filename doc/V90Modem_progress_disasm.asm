@@ -61,7 +61,3 @@ Disassembly of section .text:
    19b84:	83 c4 0c             	add    esp,0xc
    19b87:	e9 fc ff ff ff       	jmp    19b88 <_ZN8V90Modem8progressEPiRjPfj+0xb8>
 			19b88: R_386_PC32	dsplibs_debug_printf
-   19b8c:	90                   	nop
-   19b8d:	90                   	nop
-   19b8e:	90                   	nop
-   19b8f:	90                   	nop

@@ -1,5 +1,4 @@
-caller,callee,arg_index,source,notes
-V90Modem::setSessionFlag,V90Modulator::setSessionFlag,0,this->modulator (this+0x0),child this pointer
-V90Modem::setSessionFlag,V90Modulator::setSessionFlag,1,flag,input session flag
-V90Modem::setSessionFlag,V90Demodulator::setSessionFlag,0,this->demodulator (this+0x4),child this pointer
-V90Modem::setSessionFlag,V90Demodulator::setSessionFlag,1,flag,input session flag
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,modem_state_fields,0x00019a80,H,this-pointer method updates top-level modem state
+call,B1_ACTION,helper_calls,0x00019a80,H,see call list for helper interactions
+return,B2_RETURN,return_value_or_void,0x00019ac6,H,method return

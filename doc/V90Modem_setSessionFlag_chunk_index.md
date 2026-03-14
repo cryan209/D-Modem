@@ -1,17 +1,11 @@
-# V90Modem::setSessionFlag Chunk Index
+# V90Modem_setSessionFlag Chunk Index
 
-- Symbol: `_ZN8V90Modem14setSessionFlagEj`
-- Demangled: `V90Modem::setSessionFlag(unsigned int flag)`
-- Address range: `0x00019a80` - `0x00019ac7`
-- Size: `0x47` bytes
-- Source object: `slmodemd/dsplibs.o`
+Source symbol: V90Modem_setSessionFlag @ 0x00019a80 size 0x00000047
 
-## Chunks
-- `chunk_00.asm`: full function (`0x19a80..0x19ac6`)
+| Chunk | First Address | Last Address | Lines |
+|---|---:|---:|---:|
+| chunk_00.asm | 0x00019a80 | 0x00019ac6 | 31 |
 
 ## High-level role
-- Stores session flag into modem object field `this+0x49b8`.
-- Dispatches flag to active side child object:
-- Side `0` -> `V90Modulator::setSessionFlag(flag)`.
-- Side `1` -> `V90Demodulator::setSessionFlag(flag)`.
-- Other side values -> no child update.
+
+- Set session flag and propagate to active side-specific engine.

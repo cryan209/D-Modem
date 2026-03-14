@@ -1,16 +1,16 @@
-# V90Parameters_loadModemParamsData State Graph
+# V90Parameters_loadModemParamsData Control Graph (Address-Backed)
 
-## Nodes
-- ENTRY
-- TEMP_PR
-- TEMP_PROBE
-- TEMP_CONN
-- TRN2D_FLAG
-- RETURN
+## Control Blocks
 
-## Edges
-- ENTRY -> TEMP_PR
-- TEMP_PR -> TEMP_PROBE
-- TEMP_PROBE -> TEMP_CONN
-- TEMP_CONN -> TRN2D_FLAG
-- TRN2D_FLAG -> RETURN
+| Block | Entry |
+|---|---:|
+| B0_ENTRY | 0x0002a6f0 |
+| B1_ACTION | 0x0002a6f0 |
+| B2_RETURN | 0x0002a847 |
+
+~~~mermaid
+flowchart LR
+  S[START] --> B0[B0_ENTRY] --> B1[B1_ACTION] --> B2[B2_RETURN] --> R[RET]
+~~~
+
+Edge CSV: /root/D-Modem/doc/V90Parameters_loadModemParamsData_state_graph_edges.csv

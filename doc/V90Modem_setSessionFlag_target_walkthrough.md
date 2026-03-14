@@ -1,24 +1,29 @@
-# V90Modem::setSessionFlag Target Walkthrough
+# V90Modem_setSessionFlag Target Walkthrough
+
+- Function: V90Modem_setSessionFlag
+- Range: 0x00019a80 .. 0x00019ac6
+- Disassembly: [V90Modem_setSessionFlag_disasm.asm](/root/D-Modem/doc/V90Modem_setSessionFlag_disasm.asm)
+- Pseudo-C: [V90Modem_setSessionFlag_pseudoc.c](/root/D-Modem/doc/V90Modem_setSessionFlag_pseudoc.c)
 
 ## Purpose
-Set modem session flag at parent level and propagate it to the active V.90 sub-engine.
 
-## Inputs
-- `this`: V90Modem instance.
-- `flag`: session flag value.
+Set session flag and propagate to active side-specific engine.
 
-## Key fields
-- `this+0x49b8`: parent session-flag cache (written always).
-- `this+0x49bc`: side selector.
-- `this+0x0`: modulator object pointer.
-- `this+0x4`: demodulator object pointer.
+## Signature (lifted)
 
-## External calls
-- `_ZN12V90Modulator14setSessionFlagEj`
-- `_ZN14V90Demodulator14setSessionFlagEj`
+~~~c
+void V90Modem_setSessionFlag_pseudoc(void *self, unsigned int flag)
+~~~
 
-## Behavior summary
-- Always cache `flag` in parent object.
-- Forward to modulator when side=0.
-- Forward to demodulator when side=1.
-- Ignore unknown side values.
+## Block-Level Walkthrough
+
+| Block | Entry | Behavior summary |
+|---|---:|---|
+| B0_ENTRY | 0x00019a80 | Entry and local state setup. |
+| B1_ACTION | 0x00019a80 | Main helper/state-machine behavior. |
+| B2_RETURN | 0x00019ac6 | Return tail. |
+
+## Direct Calls
+
+- 			19ab0: R_386_PC32	V90Modulator::setSessionFlag(unsigned int)
+- 			19abf: R_386_PC32	V90Demodulator::setSessionFlag(unsigned int)

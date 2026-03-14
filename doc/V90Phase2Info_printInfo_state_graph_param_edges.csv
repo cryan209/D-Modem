@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,v90_smallset_state_fields,0x0002aa10,H,this-pointer method updates/reads class-specific state
+call,B1_ACTION,helper_calls,0x0002aa10,H,see call list for helper interactions
+return,B2_RETURN,return_value_or_void,0x0002ac0b,H,method return

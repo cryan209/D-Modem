@@ -73,5 +73,3 @@ Disassembly of section .text:
    194c8:	e8 fc ff ff ff       	call   194c9 <_ZN8V90Modem10printTitleEv+0xc9>
 			194c9: R_386_PC32	dsplibs_debug_printf
    194cd:	e9 5e ff ff ff       	jmp    19430 <_ZN8V90Modem10printTitleEv+0x30>
-   194d2:	8d b4 26 00 00 00 00 	lea    esi,[esi+eiz*1+0x0]
-   194d9:	8d bc 27 00 00 00 00 	lea    edi,[edi+eiz*1+0x0]

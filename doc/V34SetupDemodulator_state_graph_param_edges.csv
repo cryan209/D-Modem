@@ -1,0 +1,5 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,arg_rate_carrier,dispatch_keys,0x5df38|0x5e06c,H,case keys
+param,demod+0x1ac_0x1be,table_slots,0x5e060|0x5e130,H,pointer writes
+call,B3_DEBUG_AND_RETURN,debug_print,0x5e005,H,verbose path
+return,B3_DEBUG_AND_RETURN,eax_status,0x5e1f8,H,return

@@ -1,0 +1,13 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY_GATES,0x71960,H,function entry,datapumpv34_state_graph_edges.csv
+control,B0_ENTRY_GATES,pass,B1_HANDSHAKE_STEP,0x719c0,H,guard pass,datapumpv34_state_graph_edges.csv
+control,B1_HANDSHAKE_STEP,fallthrough,B2_SIGNAL_IO,0x71a00,H,after handshake,datapumpv34_state_graph_edges.csv
+control,B2_SIGNAL_IO,fallthrough,B3_RENEG_MONITOR,0x71ae0,H,after io,datapumpv34_state_graph_edges.csv
+control,B3_RENEG_MONITOR,trigger,B4_REINIT_PATHS,0x71b4d,H,reinit path,datapumpv34_state_graph_edges.csv
+control,B3_RENEG_MONITOR,normal,B5_RETURN,0x71d2a,H,normal path,datapumpv34_state_graph_edges.csv
+control,B4_REINIT_PATHS,fallthrough,B5_RETURN,0x71d2a,H,reinit done,datapumpv34_state_graph_edges.csv
+control,B5_RETURN,ret,RET,0x71d63,H,return,datapumpv34_state_graph_edges.csv
+param,ctx+0x3594_0x3596,write,hs_state_words,0x719c3,H,handshake state read,datapumpv34_state_graph_param_edges.csv
+param,ctx+0x258_0x25a_0x25c,write,reneg_counters,0x71ae0|0x71b24,H,counter checks,datapumpv34_state_graph_param_edges.csv
+call,B4_REINIT_PATHS,write,v34handshakinit_rrn_calls,0x71b4d|0x71c95,H,reinit and indications,datapumpv34_state_graph_param_edges.csv
+return,B5_RETURN,write,eax_status,0x71d63,H,return,datapumpv34_state_graph_param_edges.csv

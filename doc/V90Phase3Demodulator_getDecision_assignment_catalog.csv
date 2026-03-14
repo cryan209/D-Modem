@@ -1,0 +1,5 @@
+layer,state_hex,evidence_addresses,count
+control,ENTRY_TO_RET,0x000258f0|0x00025923,2
+control,branch_density,cond=1|jmp=0,2
+call,direct_calls,count=2,1
+param,key_fields,see_V90Phase3Demodulator_getDecision_state_graph_param_edges.csv,1

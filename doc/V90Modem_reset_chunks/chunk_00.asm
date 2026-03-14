@@ -77,5 +77,3 @@ Disassembly of section .text:
    19a76:	e8 fc ff ff ff       	call   19a77 <_ZN8V90Modem5resetEj+0xd7>
 			19a77: R_386_PC32	edprintf
    19a7b:	eb ab                	jmp    19a28 <_ZN8V90Modem5resetEj+0x88>
-   19a7d:	90                   	nop
-   19a7e:	89 f6                	mov    esi,esi

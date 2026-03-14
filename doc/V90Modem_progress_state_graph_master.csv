@@ -1,9 +1,8 @@
-plane,node,edge_to,condition,action,details
-A,ENTRY,READ_SIDE,always,load,"read this and side(this+0x49bc)"
-A,READ_SIDE,SIDE_MODULATOR,side==0,branch,
-A,READ_SIDE,SIDE_DEMODULATOR,side==1,branch,
-A,READ_SIDE,SIDE_ILLEGAL,else,branch,
-B,SIDE_MODULATOR,RETURN,always,tailcall,"V90Modulator::progress(this->modulator, ...)"
-B,SIDE_DEMODULATOR,RETURN,always,tailcall,"V90Demodulator::progress(this->demodulator, ...)"
-C,SIDE_ILLEGAL,DEBUG_PRINT,debug_level>1,tailcall,"dsplibs_debug_printf(Illegal modemSide)"
-C,SIDE_ILLEGAL,RETURN,debug_level<=1,return,
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x00019ad0,H,function entry,V90Modem_progress_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00019ad0,H,entry complete,V90Modem_progress_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x00019b8b,H,actions complete,V90Modem_progress_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x00019b8b,H,return,V90Modem_progress_state_graph_edges.csv
+param,self_object,write,modem_state_fields,0x00019ad0,H,this-pointer method updates top-level modem state,V90Modem_progress_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00019ad0,H,see call list for helper interactions,V90Modem_progress_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x00019b8b,H,method return,V90Modem_progress_state_graph_param_edges.csv

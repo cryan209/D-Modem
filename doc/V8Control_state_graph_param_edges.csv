@@ -1,0 +1,6 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,cmd,dispatch,0x74451|0x7445f,H,command select
+param,v8+0xa44_0x9d6_0xdbe,cmd0_guards,0x74490|0x744ac,H,guard set
+param,v8+0x9d8_0x9d4_0xe64,cmd12_writes,0x744f0|0x74523,H,state edits
+call,B4_ERROR_OR_RETURN,debug_prints,0x744e2|0x7454c,H,verbose
+return,B4_ERROR_OR_RETURN,eax_status,0x74557,H,return

@@ -1,0 +1,6 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_ENTRY_NULLCHK,0x74290,H,function entry
+B0_ENTRY_NULLCHK,nonnull,B1_FREE,0x74296,H,ptr != 0
+B0_ENTRY_NULLCHK,null,B2_RETURN,0x74296,H,ptr == 0
+B1_FREE,fallthrough,B2_RETURN,0x74298,H,free then return
+B2_RETURN,ret,RET,0x742a0,H,return

@@ -1,4 +1,5 @@
-from,to,condition,kind,target
-ENTRY,PARSE_TABLE,always,flow,
-PARSE_TABLE,PARSE_TABLE,per_key_pull,call,Vparser_read_int|Vparser_read_float
-PARSE_TABLE,RETURN,always,return,
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_ENTRY,0x00027a00,H,function entry
+B0_ENTRY,fallthrough,B1_ACTION,0x00027a00,H,entry complete
+B1_ACTION,fallthrough,B2_RETURN,0x000298d5,H,actions complete
+B2_RETURN,ret,RET,0x000298d5,H,return

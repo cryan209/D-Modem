@@ -1,24 +1,30 @@
-# V90Parameters::loadModemParamsData Branch And Flow Map
+# V90Parameters_loadModemParamsData Branch And Flow Map
 
-- Symbol: `_ZN13V90Parameters19loadModemParamsDataEv`
-- Start: `0x0002a6f0`
-- End: `0x0002a848`
-- Size: `0x159` bytes
+- Symbol: V90Parameters_loadModemParamsData
+- Start: 0x0002a6f0
+- End: 0x0002a847
+- Size: 0x00000158 bytes
 
 ## Summary
-- Imports runtime modem-side knobs into the local V.90 parameter block.
-- Includes formatted debug logging and one-shot initialization semantics.
 
-## Branch Sites
-- `0x2a710`: `tempPR == 0` skips power-reduction conversion/print formatting.
-- `0x2a7d8`: if tempProbe bit is `1`, set `this+0x4`.
-- `0x2a7f6`: if `this+0x0c == -1`, initialize from modem parameter `+0x48`.
+- Conditional branches: 3
+- Unconditional jumps: 0
+- Direct calls: 6
+- Core role: Load parameter block from modem parameter container.
 
-## Direct Calls
-- `edprintf` (multiple callsites)
+## Control Regions
 
-## Key Field Effects
-- `this+0x380`: normalized power reduction (from modem `+0x40`).
-- `this+0x4`: temporary probe override (from modem flags bit1).
-- `this+0x0c`: connection type (one-shot init from modem `+0x48`).
-- `this+0x420`: `trn2d_mean_error_std_evaluation_enable` (from modem flags bit0).
+| Block | Entry | Role |
+|---|---:|---|
+| B0_ENTRY | 0x0002a6f0 | Entry and guard setup. |
+| B1_ACTION | 0x0002a6f0 | Main method behavior. |
+| B2_RETURN | 0x0002a847 | Return tail. |
+
+## External Calls
+
+- 			2a70a: R_386_PC32	edprintf
+- 			2a7b5: R_386_PC32	edprintf
+- 			2a7d2: R_386_PC32	edprintf
+- 			2a7ee: R_386_PC32	edprintf
+- 			2a813: R_386_PC32	edprintf
+- 			2a83e: R_386_PC32	edprintf

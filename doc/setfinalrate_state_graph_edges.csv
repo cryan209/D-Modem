@@ -1,0 +1,7 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_ENTRY_BITS,0x5ecb0,H,function entry
+B0_ENTRY_BITS,fallthrough,B1_TX_RATE_SELECT,0x5ed47,H,decode done
+B1_TX_RATE_SELECT,fallthrough,B2_RX_RATE_SELECT,0x5edb1,H,tx selected
+B2_RX_RATE_SELECT,fallthrough,B3_SCALE_POINTERS,0x5eea0,H,rx selected
+B3_SCALE_POINTERS,fallthrough,B4_DEBUG_RETURN,0x5ee38,H,pointers done
+B4_DEBUG_RETURN,ret,RET,0x5f038,H,return

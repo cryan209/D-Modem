@@ -1,0 +1,16 @@
+# V90Modulator_exitJdPhase Control Graph (Address-Backed)
+
+## Control Blocks
+
+| Block | Entry |
+|---|---:|
+| B0_ENTRY | 0x00019e50 |
+| B1_ACTION | 0x00019e50 |
+| B2_RETURN | 0x00019e93 |
+
+~~~mermaid
+flowchart LR
+  S[START] --> B0[B0_ENTRY] --> B1[B1_ACTION] --> B2[B2_RETURN] --> R[RET]
+~~~
+
+Edge CSV: /root/D-Modem/doc/V90Modulator_exitJdPhase_state_graph_edges.csv

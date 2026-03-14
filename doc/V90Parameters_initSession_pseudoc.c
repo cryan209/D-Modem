@@ -1,19 +1,14 @@
-/* Pseudo-C reconstruction of V90Parameters::initSession()
- * Symbol: _ZN13V90Parameters11initSessionEv
- * Range: 0x279c0..0x279d7
+/* Pseudo-C reconstruction of V90Parameters_initSession
+ * Range: 0x000279c0..0x000279d7
+ * Offset-oriented representation with unknown struct fields.
  */
 
 #include <stdint.h>
 
-typedef struct V90Parameters {
-    uint8_t pad_0000[0x4f8];
-    uint32_t forced_upstream_window_enable; /* +0x4f8 */
-    uint32_t forced_upstream_window_hi;     /* +0x4fc */
-} V90Parameters;
+typedef struct opaque_ctx opaque_ctx;
 
-void V90Parameters_initSession_pseudoc(V90Parameters *self)
+void V90Parameters_initSession_pseudoc(void *self)
 {
-    /* Reset per-session upstream window override to "disabled / full range". */
-    self->forced_upstream_window_enable = 0;
-    self->forced_upstream_window_hi = 0x0e;
+    // Helper wrapper reconstructed from control flow and call targets.
+    v90_params_helper_step(self);
 }

@@ -1,0 +1,6 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,seq_id_and_len,validate_and_clamp,0x742ca|0x74305,H,input validation
+call,B2_ENCODE_LOOP,charFlip,0x74328,H,byte transform
+param,seq_buffer_words,encoded_payload,0x74320|0x74335,H,word writes
+param,seq+0x1e_0x22_0x26_0x2a,trailer_fields,0x7433e|0x74389,H,control init
+return,B4_ERROR_OR_RETURN,eax_status,0x74437,H,return

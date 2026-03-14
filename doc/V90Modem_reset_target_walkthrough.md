@@ -1,29 +1,34 @@
-# V90Modem::reset Target Walkthrough
+# V90Modem_reset Target Walkthrough
+
+- Function: V90Modem_reset
+- Range: 0x000199a0 .. 0x00019a7c
+- Disassembly: [V90Modem_reset_disasm.asm](/root/D-Modem/doc/V90Modem_reset_disasm.asm)
+- Pseudo-C: [V90Modem_reset_pseudoc.c](/root/D-Modem/doc/V90Modem_reset_pseudoc.c)
 
 ## Purpose
-Reset the active V.90 subsystem and apply session-dependent reset policy.
 
-## Inputs
-- `this`: V90Modem instance.
-- `qcFlag`: quick-connect enable request.
+Reset top-level V.90 modem state for a new session.
 
-## Key fields
-- `this+0x49bc`: modem side selector.
-- `this+0x0`: modulator object pointer.
-- `this+0x4`: demodulator object pointer.
-- `this+0x14`: DIL descriptor pointer.
-- `this+0x49b4`: parameter/runtime block pointer.
-- `(*(this+0x49b4)+0x4)`: probe-mode-like gate used to mask QC.
+## Signature (lifted)
 
-## String constants used
-- `.rodata.str1.1+0x1098`: `"V90Modem Reset, qcFlag = %d\\r\\n"`
-- `.rodata.str1.4+0x4304`: `"V90Modem Reset: Illegal modemSide\\r\\n"`
-- `.rodata.str1.4+0x4328`: `"due to probe mode quick connect is masked !!!\\r\\n"`
+~~~c
+void V90Modem_reset_pseudoc(void *self, unsigned int flags)
+~~~
 
-## External calls
-- `V90Modem::printTitle()`
-- `V90Modulator::reset()`
-- `setDilDescriptor(tagV90DILdescriptor*, DilType)`
-- `V90Demodulator::reset(unsigned int)`
-- `edprintf`
-- `dsplibs_debug_printf`
+## Block-Level Walkthrough
+
+| Block | Entry | Behavior summary |
+|---|---:|---|
+| B0_ENTRY | 0x000199a0 | Entry and local state setup. |
+| B1_ACTION | 0x000199a0 | Main helper/state-machine behavior. |
+| B2_RETURN | 0x00019a7c | Return tail. |
+
+## Direct Calls
+
+- 			199c0: R_386_PC32	V90Modem::printTitle()
+- 			199f8: R_386_PC32	V90Modulator::reset()
+- 			19a0c: R_386_PC32	dsplibs_debug_printf
+- 			19a35: R_386_PC32	setDilDescriptor(tagV90DILdescriptor*, DilType)
+- 			19a50: R_386_PC32	V90Demodulator::reset(unsigned int)
+- 			19a69: R_386_PC32	dsplibs_debug_printf
+- 			19a77: R_386_PC32	edprintf

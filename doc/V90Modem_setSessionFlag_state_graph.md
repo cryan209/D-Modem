@@ -1,18 +1,16 @@
-# V90Modem::setSessionFlag State Graph
+# V90Modem_setSessionFlag Control Graph (Address-Backed)
 
-## Nodes
-- `ENTRY`
-- `CACHE_FLAG`
-- `READ_SIDE`
-- `TO_MODULATOR`
-- `TO_DEMODULATOR`
-- `RETURN`
+## Control Blocks
 
-## Edges
-- `ENTRY -> CACHE_FLAG`
-- `CACHE_FLAG -> READ_SIDE`
-- `READ_SIDE -> TO_MODULATOR` when `side == 0`
-- `READ_SIDE -> TO_DEMODULATOR` when `side == 1`
-- `READ_SIDE -> RETURN` otherwise
-- `TO_MODULATOR -> RETURN` (tail-call)
-- `TO_DEMODULATOR -> RETURN` (call then return)
+| Block | Entry |
+|---|---:|
+| B0_ENTRY | 0x00019a80 |
+| B1_ACTION | 0x00019a80 |
+| B2_RETURN | 0x00019ac6 |
+
+~~~mermaid
+flowchart LR
+  S[START] --> B0[B0_ENTRY] --> B1[B1_ACTION] --> B2[B2_RETURN] --> R[RET]
+~~~
+
+Edge CSV: /root/D-Modem/doc/V90Modem_setSessionFlag_state_graph_edges.csv

@@ -1,29 +1,33 @@
-# V90Parameters::loadModemParamsData Target Walkthrough
+# V90Parameters_loadModemParamsData Target Walkthrough
 
-- Function: `V90Parameters::loadModemParamsData()`
+- Function: V90Parameters_loadModemParamsData
+- Range: 0x0002a6f0 .. 0x0002a847
 - Disassembly: [V90Parameters_loadModemParamsData_disasm.asm](/root/D-Modem/doc/V90Parameters_loadModemParamsData_disasm.asm)
 - Pseudo-C: [V90Parameters_loadModemParamsData_pseudoc.c](/root/D-Modem/doc/V90Parameters_loadModemParamsData_pseudoc.c)
 
 ## Purpose
-- Overlay runtime modem knobs onto the already-loaded V.90 parameter block.
 
-## Data sources
-- `modem_params+0x40`: temporary power reduction raw value.
-- `modem_params+0x48`: temporary connection type.
-- `modem_params+0x50`: bitfield:
-  - `bit1` -> tempProbe flag (`this+0x4`)
-  - `bit0` -> `trn2d_mean_error_std_evaluation_enable` (`this+0x420`)
+Load parameter block from modem parameter container.
 
-## Execution flow
-1. Debug-print tempPR.
-2. If tempPR nonzero:
-- convert/scaled-store to `this+0x380`
-- print human-readable signed decimal form.
-3. Read/print tempProbe and set `this+0x4` when enabled.
-4. Read/print tempConnectionType.
-5. If `this+0x0c == -1`, set it from tempConnectionType.
-6. Update and print `this+0x420` from flags bit0.
+## Signature (lifted)
 
-## Notes
-- `this+0x0c` uses one-shot initialization semantics.
-- Function is otherwise side-effect free outside local parameter object and debug output.
+~~~c
+void V90Parameters_loadModemParamsData_pseudoc(void *self)
+~~~
+
+## Block-Level Walkthrough
+
+| Block | Entry | Behavior summary |
+|---|---:|---|
+| B0_ENTRY | 0x0002a6f0 | Entry and local state setup. |
+| B1_ACTION | 0x0002a6f0 | Main helper/state-machine behavior. |
+| B2_RETURN | 0x0002a847 | Return tail. |
+
+## Direct Calls
+
+- 			2a70a: R_386_PC32	edprintf
+- 			2a7b5: R_386_PC32	edprintf
+- 			2a7d2: R_386_PC32	edprintf
+- 			2a7ee: R_386_PC32	edprintf
+- 			2a813: R_386_PC32	edprintf
+- 			2a83e: R_386_PC32	edprintf

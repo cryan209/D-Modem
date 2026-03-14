@@ -1,37 +1,322 @@
-# V90Parameters::loadParams(char*) Target Walkthrough
+# V90Parameters_loadParams Target Walkthrough
 
-- Function: `V90Parameters::loadParams(char *cfg_path)`
+- Function: V90Parameters_loadParams
+- Range: 0x00027a00 .. 0x000298d5
 - Disassembly: [V90Parameters_loadParams_disasm.asm](/root/D-Modem/doc/V90Parameters_loadParams_disasm.asm)
 - Pseudo-C: [V90Parameters_loadParams_pseudoc.c](/root/D-Modem/doc/V90Parameters_loadParams_pseudoc.c)
 
 ## Purpose
-- Import V.90/V.92 tuning values from parser-backed key/value config.
 
-## Structural character
-- No control branches in-function.
-- Entire function is a fixed linear table of parser calls:
-- `139` integer keys (`Vparser_read_int`)
-- `156` float keys (`Vparser_read_float`)
+Load V.90 parameters from external configuration data.
 
-## Key span
-- Begins at `PROBING_MODE`.
-- Ends at `TEMP_FLOAT_PARAMETER4`.
+## Signature (lifted)
 
-## Main parameter families loaded
-1. Handshake/phase2 capability fields:
-- `PHASE2_INFO_*`, `DIGITAL_RATE_MASK`, `ANALOG_RATE_MASK`, codec/profile flags.
-2. Adaptive loop controls:
-- `AGC_*`, `BLL_*`, `EIA6_BLL_*`.
-3. Equalizer/DFE tuning:
-- `LINEAR_EQU_*`, `DFE_*`, EIA6/PBX/ISDN variants.
-4. Detection and verification thresholds:
-- SD detector, spectral verifier, mean-error thresholds.
-5. Retrain and renegotiation policy:
-- `ENABLE_RRN_*`, durations, counters, fallback thresholds.
-6. Debug and I/O hooks:
-- `WRITE_*_TO_FILE`, `LOAD_EQU_COEFS_FROM_FILE`, `DEBUG_*`, temp parameters.
+~~~c
+int V90Parameters_loadParams_pseudoc(void *self, char *path_or_buf)
+~~~
 
-## Practical interpretation
-- `setToDefault()` seeds a safe baseline.
-- `loadParams()` is the deterministic table overlay from external config.
-- `loadModemParamsData()` then applies runtime modem-side bits.
+## Block-Level Walkthrough
+
+| Block | Entry | Behavior summary |
+|---|---:|---|
+| B0_ENTRY | 0x00027a00 | Entry and local state setup. |
+| B1_ACTION | 0x00027a00 | Main helper/state-machine behavior. |
+| B2_RETURN | 0x000298d5 | Return tail. |
+
+## Direct Calls
+
+- 			27a29: R_386_PC32	Vparser_read_int
+- 			27a43: R_386_PC32	Vparser_read_int
+- 			27a5b: R_386_PC32	Vparser_read_int
+- 			27a73: R_386_PC32	Vparser_read_int
+- 			27a8b: R_386_PC32	Vparser_read_int
+- 			27aa1: R_386_PC32	Vparser_read_int
+- 			27abb: R_386_PC32	Vparser_read_int
+- 			27ad3: R_386_PC32	Vparser_read_int
+- 			27aeb: R_386_PC32	Vparser_read_int
+- 			27b03: R_386_PC32	Vparser_read_int
+- 			27b19: R_386_PC32	Vparser_read_int
+- 			27b33: R_386_PC32	Vparser_read_int
+- 			27b4b: R_386_PC32	Vparser_read_int
+- 			27b63: R_386_PC32	Vparser_read_int
+- 			27b7b: R_386_PC32	Vparser_read_int
+- 			27b91: R_386_PC32	Vparser_read_int
+- 			27bab: R_386_PC32	Vparser_read_float
+- 			27bc3: R_386_PC32	Vparser_read_int
+- 			27bdb: R_386_PC32	Vparser_read_int
+- 			27bf3: R_386_PC32	Vparser_read_int
+- 			27c09: R_386_PC32	Vparser_read_int
+- 			27c23: R_386_PC32	Vparser_read_int
+- 			27c3b: R_386_PC32	Vparser_read_float
+- 			27c56: R_386_PC32	Vparser_read_float
+- 			27c6e: R_386_PC32	Vparser_read_int
+- 			27c87: R_386_PC32	Vparser_read_int
+- 			27ca1: R_386_PC32	Vparser_read_float
+- 			27cbc: R_386_PC32	Vparser_read_float
+- 			27cd7: R_386_PC32	Vparser_read_float
+- 			27cf2: R_386_PC32	Vparser_read_float
+- 			27d0e: R_386_PC32	Vparser_read_float
+- 			27d28: R_386_PC32	Vparser_read_float
+- 			27d43: R_386_PC32	Vparser_read_float
+- 			27d5e: R_386_PC32	Vparser_read_float
+- 			27d79: R_386_PC32	Vparser_read_float
+- 			27d95: R_386_PC32	Vparser_read_float
+- 			27daf: R_386_PC32	Vparser_read_float
+- 			27dca: R_386_PC32	Vparser_read_float
+- 			27de5: R_386_PC32	Vparser_read_float
+- 			27e00: R_386_PC32	Vparser_read_float
+- 			27e1c: R_386_PC32	Vparser_read_float
+- 			27e36: R_386_PC32	Vparser_read_float
+- 			27e51: R_386_PC32	Vparser_read_float
+- 			27e6c: R_386_PC32	Vparser_read_float
+- 			27e87: R_386_PC32	Vparser_read_float
+- 			27ea3: R_386_PC32	Vparser_read_float
+- 			27ebd: R_386_PC32	Vparser_read_float
+- 			27ed8: R_386_PC32	Vparser_read_float
+- 			27ef3: R_386_PC32	Vparser_read_float
+- 			27f0e: R_386_PC32	Vparser_read_float
+- 			27f29: R_386_PC32	Vparser_read_float
+- 			27f44: R_386_PC32	Vparser_read_float
+- 			27f5f: R_386_PC32	Vparser_read_float
+- 			27f75: R_386_PC32	Vparser_read_float
+- 			27f8f: R_386_PC32	Vparser_read_float
+- 			27faa: R_386_PC32	Vparser_read_int
+- 			27fc5: R_386_PC32	Vparser_read_int
+- 			27fe0: R_386_PC32	Vparser_read_float
+- 			27ffc: R_386_PC32	Vparser_read_float
+- 			28016: R_386_PC32	Vparser_read_float
+- 			28031: R_386_PC32	Vparser_read_float
+- 			2804c: R_386_PC32	Vparser_read_float
+- 			28067: R_386_PC32	Vparser_read_float
+- 			28083: R_386_PC32	Vparser_read_float
+- 			2809d: R_386_PC32	Vparser_read_float
+- 			280b8: R_386_PC32	Vparser_read_float
+- 			280d3: R_386_PC32	Vparser_read_float
+- 			280ee: R_386_PC32	Vparser_read_float
+- 			2810a: R_386_PC32	Vparser_read_float
+- 			28124: R_386_PC32	Vparser_read_float
+- 			2813f: R_386_PC32	Vparser_read_float
+- 			2815a: R_386_PC32	Vparser_read_float
+- 			28175: R_386_PC32	Vparser_read_float
+- 			28191: R_386_PC32	Vparser_read_float
+- 			281ab: R_386_PC32	Vparser_read_float
+- 			281c6: R_386_PC32	Vparser_read_int
+- 			281e1: R_386_PC32	Vparser_read_int
+- 			281fc: R_386_PC32	Vparser_read_int
+- 			28218: R_386_PC32	Vparser_read_int
+- 			28232: R_386_PC32	Vparser_read_int
+- 			2824d: R_386_PC32	Vparser_read_float
+- 			28268: R_386_PC32	Vparser_read_int
+- 			28283: R_386_PC32	Vparser_read_int
+- 			2829f: R_386_PC32	Vparser_read_int
+- 			282b9: R_386_PC32	Vparser_read_float
+- 			282d4: R_386_PC32	Vparser_read_float
+- 			282ee: R_386_PC32	Vparser_read_int
+- 			28309: R_386_PC32	Vparser_read_float
+- 			28329: R_386_PC32	Vparser_read_float
+- 			2833f: R_386_PC32	Vparser_read_float
+- 			28354: R_386_PC32	Vparser_read_float
+- 			2836f: R_386_PC32	Vparser_read_float
+- 			2838a: R_386_PC32	Vparser_read_float
+- 			283a5: R_386_PC32	Vparser_read_float
+- 			283c0: R_386_PC32	Vparser_read_float
+- 			283db: R_386_PC32	Vparser_read_float
+- 			283f6: R_386_PC32	Vparser_read_float
+- 			2840f: R_386_PC32	Vparser_read_float
+- 			2842a: R_386_PC32	Vparser_read_float
+- 			28445: R_386_PC32	Vparser_read_float
+- 			2845f: R_386_PC32	Vparser_read_float
+- 			28479: R_386_PC32	Vparser_read_float
+- 			28495: R_386_PC32	Vparser_read_float
+- 			284b1: R_386_PC32	Vparser_read_float
+- 			284cc: R_386_PC32	Vparser_read_int
+- 			284e6: R_386_PC32	Vparser_read_int
+- 			28500: R_386_PC32	Vparser_read_float
+- 			2851c: R_386_PC32	Vparser_read_float
+- 			28538: R_386_PC32	Vparser_read_float
+- 			28553: R_386_PC32	Vparser_read_float
+- 			2856d: R_386_PC32	Vparser_read_float
+- 			28587: R_386_PC32	Vparser_read_int
+- 			285a3: R_386_PC32	Vparser_read_float
+- 			285bf: R_386_PC32	Vparser_read_float
+- 			285da: R_386_PC32	Vparser_read_float
+- 			285f4: R_386_PC32	Vparser_read_float
+- 			2860e: R_386_PC32	Vparser_read_int
+- 			2862a: R_386_PC32	Vparser_read_float
+- 			28646: R_386_PC32	Vparser_read_float
+- 			28661: R_386_PC32	Vparser_read_float
+- 			2867b: R_386_PC32	Vparser_read_float
+- 			28695: R_386_PC32	Vparser_read_float
+- 			286b1: R_386_PC32	Vparser_read_float
+- 			286cd: R_386_PC32	Vparser_read_float
+- 			286e8: R_386_PC32	Vparser_read_float
+- 			28702: R_386_PC32	Vparser_read_float
+- 			2871c: R_386_PC32	Vparser_read_float
+- 			28738: R_386_PC32	Vparser_read_float
+- 			28754: R_386_PC32	Vparser_read_float
+- 			2876f: R_386_PC32	Vparser_read_float
+- 			28789: R_386_PC32	Vparser_read_int
+- 			287a3: R_386_PC32	Vparser_read_float
+- 			287bf: R_386_PC32	Vparser_read_float
+- 			287db: R_386_PC32	Vparser_read_float
+- 			287f6: R_386_PC32	Vparser_read_float
+- 			28810: R_386_PC32	Vparser_read_float
+- 			2882a: R_386_PC32	Vparser_read_float
+- 			28846: R_386_PC32	Vparser_read_float
+- 			28862: R_386_PC32	Vparser_read_float
+- 			2887d: R_386_PC32	Vparser_read_float
+- 			28897: R_386_PC32	Vparser_read_int
+- 			288b1: R_386_PC32	Vparser_read_float
+- 			288cd: R_386_PC32	Vparser_read_int
+- 			288e9: R_386_PC32	Vparser_read_int
+- 			28904: R_386_PC32	Vparser_read_int
+- 			2891e: R_386_PC32	Vparser_read_int
+- 			28938: R_386_PC32	Vparser_read_int
+- 			28954: R_386_PC32	Vparser_read_int
+- 			28970: R_386_PC32	Vparser_read_int
+- 			2898b: R_386_PC32	Vparser_read_int
+- 			289a5: R_386_PC32	Vparser_read_float
+- 			289bf: R_386_PC32	Vparser_read_float
+- 			289db: R_386_PC32	Vparser_read_float
+- 			289f7: R_386_PC32	Vparser_read_int
+- 			28a12: R_386_PC32	Vparser_read_int
+- 			28a2c: R_386_PC32	Vparser_read_int
+- 			28a46: R_386_PC32	Vparser_read_float
+- 			28a62: R_386_PC32	Vparser_read_int
+- 			28a7e: R_386_PC32	Vparser_read_int
+- 			28a99: R_386_PC32	Vparser_read_int
+- 			28ab3: R_386_PC32	Vparser_read_float
+- 			28acd: R_386_PC32	Vparser_read_int
+- 			28ae9: R_386_PC32	Vparser_read_int
+- 			28b05: R_386_PC32	Vparser_read_int
+- 			28b20: R_386_PC32	Vparser_read_int
+- 			28b3a: R_386_PC32	Vparser_read_int
+- 			28b54: R_386_PC32	Vparser_read_float
+- 			28b70: R_386_PC32	Vparser_read_float
+- 			28b8c: R_386_PC32	Vparser_read_float
+- 			28ba7: R_386_PC32	Vparser_read_float
+- 			28bc1: R_386_PC32	Vparser_read_float
+- 			28bdb: R_386_PC32	Vparser_read_float
+- 			28bf7: R_386_PC32	Vparser_read_float
+- 			28c13: R_386_PC32	Vparser_read_float
+- 			28c2e: R_386_PC32	Vparser_read_float
+- 			28c48: R_386_PC32	Vparser_read_float
+- 			28c62: R_386_PC32	Vparser_read_float
+- 			28c7e: R_386_PC32	Vparser_read_float
+- 			28c9a: R_386_PC32	Vparser_read_float
+- 			28cb5: R_386_PC32	Vparser_read_float
+- 			28ccf: R_386_PC32	Vparser_read_int
+- 			28ce9: R_386_PC32	Vparser_read_int
+- 			28d05: R_386_PC32	Vparser_read_int
+- 			28d21: R_386_PC32	Vparser_read_int
+- 			28d3c: R_386_PC32	Vparser_read_int
+- 			28d56: R_386_PC32	Vparser_read_int
+- 			28d70: R_386_PC32	Vparser_read_int
+- 			28d8c: R_386_PC32	Vparser_read_int
+- 			28da8: R_386_PC32	Vparser_read_float
+- 			28dc3: R_386_PC32	Vparser_read_float
+- 			28ddd: R_386_PC32	Vparser_read_int
+- 			28df7: R_386_PC32	Vparser_read_float
+- 			28e13: R_386_PC32	Vparser_read_int
+- 			28e2f: R_386_PC32	Vparser_read_float
+- 			28e4a: R_386_PC32	Vparser_read_int
+- 			28e64: R_386_PC32	Vparser_read_int
+- 			28e7e: R_386_PC32	Vparser_read_int
+- 			28e9a: R_386_PC32	Vparser_read_float
+- 			28eb6: R_386_PC32	Vparser_read_float
+- 			28ed1: R_386_PC32	Vparser_read_float
+- 			28eeb: R_386_PC32	Vparser_read_float
+- 			28f05: R_386_PC32	Vparser_read_int
+- 			28f21: R_386_PC32	Vparser_read_int
+- 			28f3d: R_386_PC32	Vparser_read_float
+- 			28f58: R_386_PC32	Vparser_read_float
+- 			28f72: R_386_PC32	Vparser_read_float
+- 			28f8c: R_386_PC32	Vparser_read_float
+- 			28fa8: R_386_PC32	Vparser_read_int
+- 			28fc4: R_386_PC32	Vparser_read_int
+- 			28fdf: R_386_PC32	Vparser_read_float
+- 			28ff9: R_386_PC32	Vparser_read_float
+- 			29013: R_386_PC32	Vparser_read_float
+- 			2902f: R_386_PC32	Vparser_read_float
+- 			2904b: R_386_PC32	Vparser_read_int
+- 			29066: R_386_PC32	Vparser_read_int
+- 			29080: R_386_PC32	Vparser_read_int
+- 			2909a: R_386_PC32	Vparser_read_int
+- 			290b6: R_386_PC32	Vparser_read_int
+- 			290d2: R_386_PC32	Vparser_read_int
+- 			290ed: R_386_PC32	Vparser_read_int
+- 			29107: R_386_PC32	Vparser_read_float
+- 			29121: R_386_PC32	Vparser_read_int
+- 			2913d: R_386_PC32	Vparser_read_float
+- 			29159: R_386_PC32	Vparser_read_float
+- 			29174: R_386_PC32	Vparser_read_float
+- 			2918e: R_386_PC32	Vparser_read_int
+- 			291a8: R_386_PC32	Vparser_read_float
+- 			291c4: R_386_PC32	Vparser_read_int
+- 			291e0: R_386_PC32	Vparser_read_float
+- 			291fb: R_386_PC32	Vparser_read_float
+- 			29215: R_386_PC32	Vparser_read_float
+- 			2922f: R_386_PC32	Vparser_read_float
+- 			2924b: R_386_PC32	Vparser_read_float
+- 			29267: R_386_PC32	Vparser_read_float
+- 			29282: R_386_PC32	Vparser_read_int
+- 			2929c: R_386_PC32	Vparser_read_int
+- 			292b6: R_386_PC32	Vparser_read_int
+- 			292d2: R_386_PC32	Vparser_read_int
+- 			292ee: R_386_PC32	Vparser_read_int
+- 			29309: R_386_PC32	Vparser_read_int
+- 			29323: R_386_PC32	Vparser_read_int
+- 			2933d: R_386_PC32	Vparser_read_int
+- 			29359: R_386_PC32	Vparser_read_int
+- 			29375: R_386_PC32	Vparser_read_int
+- 			29390: R_386_PC32	Vparser_read_int
+- 			293aa: R_386_PC32	Vparser_read_int
+- 			293c4: R_386_PC32	Vparser_read_int
+- 			293e0: R_386_PC32	Vparser_read_int
+- 			293fc: R_386_PC32	Vparser_read_int
+- 			29417: R_386_PC32	Vparser_read_float
+- 			29431: R_386_PC32	Vparser_read_float
+- 			2944b: R_386_PC32	Vparser_read_float
+- 			29467: R_386_PC32	Vparser_read_int
+- 			29483: R_386_PC32	Vparser_read_int
+- 			2949e: R_386_PC32	Vparser_read_int
+- 			294b8: R_386_PC32	Vparser_read_int
+- 			294d2: R_386_PC32	Vparser_read_int
+- 			294ee: R_386_PC32	Vparser_read_int
+- 			2950a: R_386_PC32	Vparser_read_int
+- 			29525: R_386_PC32	Vparser_read_int
+- 			2953f: R_386_PC32	Vparser_read_int
+- 			29559: R_386_PC32	Vparser_read_int
+- 			29575: R_386_PC32	Vparser_read_int
+- 			29591: R_386_PC32	Vparser_read_float
+- 			295ac: R_386_PC32	Vparser_read_int
+- 			295c6: R_386_PC32	Vparser_read_int
+- 			295e0: R_386_PC32	Vparser_read_int
+- 			295fc: R_386_PC32	Vparser_read_int
+- 			29618: R_386_PC32	Vparser_read_int
+- 			29633: R_386_PC32	Vparser_read_int
+- 			2964d: R_386_PC32	Vparser_read_int
+- 			29667: R_386_PC32	Vparser_read_int
+- 			29683: R_386_PC32	Vparser_read_int
+- 			2969f: R_386_PC32	Vparser_read_int
+- 			296ba: R_386_PC32	Vparser_read_int
+- 			296d4: R_386_PC32	Vparser_read_int
+- 			296ee: R_386_PC32	Vparser_read_int
+- 			2970a: R_386_PC32	Vparser_read_int
+- 			29726: R_386_PC32	Vparser_read_int
+- 			29741: R_386_PC32	Vparser_read_int
+- 			2975b: R_386_PC32	Vparser_read_int
+- 			29775: R_386_PC32	Vparser_read_int
+- 			29791: R_386_PC32	Vparser_read_int
+- 			297ad: R_386_PC32	Vparser_read_int
+- 			297c8: R_386_PC32	Vparser_read_int
+- 			297e2: R_386_PC32	Vparser_read_int
+- 			297fc: R_386_PC32	Vparser_read_int
+- 			29818: R_386_PC32	Vparser_read_int
+- 			29834: R_386_PC32	Vparser_read_int
+- 			2984f: R_386_PC32	Vparser_read_int
+- 			29869: R_386_PC32	Vparser_read_int
+- 			29883: R_386_PC32	Vparser_read_float
+- 			29899: R_386_PC32	Vparser_read_float
+- 			298b5: R_386_PC32	Vparser_read_float
+- 			298ca: R_386_PC32	Vparser_read_float

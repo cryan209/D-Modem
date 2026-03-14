@@ -1,12 +1,28 @@
-# V90Parameters_init 3-Plane Graph
+# V90Parameters_init 3-Plane Graph (Control/Params/Calls)
 
-## Plane A: Entry/Exit
-- Entry and return are simple wrappers around three helper phases.
+References:
+- Control graph: /root/D-Modem/doc/V90Parameters_init_state_graph.md
+- Control edge CSV: /root/D-Modem/doc/V90Parameters_init_state_graph_edges.csv
+- Param edge CSV: /root/D-Modem/doc/V90Parameters_init_state_graph_param_edges.csv
 
-## Plane B: Control Flow
-- One branch: config path present/absent for `loadParams`.
+## Control Plane
 
-## Plane C: External Interactions
-- `setToDefault`
-- `loadParams` (optional)
-- `loadModemParamsData`
+~~~mermaid
+flowchart LR
+  S[START] --> B0[B0_ENTRY] --> B1[B1_ACTION] --> B2[B2_RETURN] --> R[RET]
+~~~
+
+## Parameter Plane
+
+~~~mermaid
+flowchart LR
+  P0[self] --> P1[parameter runtime fields]
+  P0 --> P2[lookup/default tables]
+~~~
+
+## Call Plane
+
+~~~mermaid
+flowchart LR
+  C0[V90Parameters_init] --> C1[helper method calls]
+~~~

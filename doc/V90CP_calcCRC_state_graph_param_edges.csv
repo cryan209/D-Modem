@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,cp_bits_state_fields,0x000512d0,H,this-pointer method updates/reads CP or bits-to-symbol state
+call,B1_ACTION,helper_calls,0x000512d0,H,see call list for helper interactions
+return,B2_RETURN,return_value_or_void,0x00051509,H,method return

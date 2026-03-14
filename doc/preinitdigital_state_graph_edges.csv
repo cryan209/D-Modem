@@ -1,0 +1,9 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_ENTRY_CLEAR,0x59760,H,function entry
+B0_ENTRY_CLEAR,fallthrough,B1_FRONTEND_ZERO,0x597a0,H,entry done
+B1_FRONTEND_ZERO,fallthrough,B2_BACKEND_ZERO,0x59830,H,frontend done
+B2_BACKEND_ZERO,fallthrough,B3_POINTER_WIRING,0x598d0,H,backend done
+B3_POINTER_WIRING,side_65,B4_SIDE_SWAP,0x5993d,H,swap path
+B3_POINTER_WIRING,other,B5_RETURN,0x59974,H,direct return
+B4_SIDE_SWAP,fallthrough,B5_RETURN,0x59974,H,swap done
+B5_RETURN,ret,RET,0x59974,H,return

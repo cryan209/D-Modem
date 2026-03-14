@@ -1,14 +1,28 @@
-# V90Parameters_setToDefault 3-Plane Graph
+# V90Parameters_setToDefault 3-Plane Graph (Control/Params/Calls)
 
-## Plane A: Entry/Exit
-- Enter function, seed head defaults, return after full object initialization.
+References:
+- Control graph: /root/D-Modem/doc/V90Parameters_setToDefault_state_graph.md
+- Control edge CSV: /root/D-Modem/doc/V90Parameters_setToDefault_state_graph_edges.csv
+- Param edge CSV: /root/D-Modem/doc/V90Parameters_setToDefault_state_graph_param_edges.csv
 
-## Plane B: Control Flow
-- Branching exists only in rate-window logic:
-- optional forced-window clamp (`+0x4f8/+0x4fc`)
-- clamp to `[2,14]`
-- invalid-range repair (`min > max`)
-- mask loop over idx `14..2`
+## Control Plane
 
-## Plane C: External Interactions
-- Debug-only call: `dsplibs_debug_printf`.
+~~~mermaid
+flowchart LR
+  S[START] --> B0[B0_ENTRY] --> B1[B1_ACTION] --> B2[B2_RETURN] --> R[RET]
+~~~
+
+## Parameter Plane
+
+~~~mermaid
+flowchart LR
+  P0[self] --> P1[parameter runtime fields]
+  P0 --> P2[lookup/default tables]
+~~~
+
+## Call Plane
+
+~~~mermaid
+flowchart LR
+  C0[V90Parameters_setToDefault] --> C1[helper method calls]
+~~~

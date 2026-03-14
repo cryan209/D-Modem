@@ -1,0 +1,5 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,ctx+0x3594_0x3596,hs_state_words,0x719c3,H,handshake state read
+param,ctx+0x258_0x25a_0x25c,reneg_counters,0x71ae0|0x71b24,H,counter checks
+call,B4_REINIT_PATHS,v34handshakinit_rrn_calls,0x71b4d|0x71c95,H,reinit and indications
+return,B5_RETURN,eax_status,0x71d63,H,return

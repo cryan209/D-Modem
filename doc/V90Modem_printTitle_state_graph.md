@@ -1,29 +1,16 @@
-# V90Modem::printTitle State Graph
+# V90Modem_printTitle Control Graph (Address-Backed)
 
-## Nodes
-- `ENTRY`
-- `PRINT_HEADER_1`
-- `PRINT_HEADER_2`
-- `PRINT_HEADER_3`
-- `DEBUG_PROLOG`
-- `DEBUG_VERSION`
-- `DEBUG_PROLOG2`
-- `PRINT_DESC_TITLE`
-- `PRINT_DESC_BODY`
-- `PRINT_COMPONENTS`
-- `DEBUG_EPILOG`
-- `RETURN`
+## Control Blocks
 
-## Edges
-- `ENTRY -> PRINT_HEADER_1 -> PRINT_HEADER_2 -> PRINT_HEADER_3`
-- `PRINT_HEADER_3 -> DEBUG_PROLOG` when `debug_level > 1`
-- `PRINT_HEADER_3 -> PRINT_DESC_TITLE` when `debug_level <= 1`
-- `DEBUG_PROLOG -> DEBUG_VERSION` when `debug_level > 1`
-- `DEBUG_PROLOG -> PRINT_DESC_TITLE` when `debug_level <= 1`
-- `DEBUG_VERSION -> DEBUG_PROLOG2` when `debug_level > 1`
-- `DEBUG_VERSION -> PRINT_DESC_TITLE` when `debug_level <= 1`
-- `DEBUG_PROLOG2 -> PRINT_DESC_TITLE`
-- `PRINT_DESC_TITLE -> PRINT_DESC_BODY -> PRINT_COMPONENTS`
-- `PRINT_COMPONENTS -> DEBUG_EPILOG` when `debug_level > 1`
-- `PRINT_COMPONENTS -> RETURN` when `debug_level <= 1`
-- `DEBUG_EPILOG -> RETURN`
+| Block | Entry |
+|---|---:|
+| B0_ENTRY | 0x00019400 |
+| B1_ACTION | 0x00019400 |
+| B2_RETURN | 0x000194d1 |
+
+~~~mermaid
+flowchart LR
+  S[START] --> B0[B0_ENTRY] --> B1[B1_ACTION] --> B2[B2_RETURN] --> R[RET]
+~~~
+
+Edge CSV: /root/D-Modem/doc/V90Modem_printTitle_state_graph_edges.csv

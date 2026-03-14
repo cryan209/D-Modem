@@ -1,8 +1,8 @@
-plane,node,edge_to,condition,action,details
-A,ENTRY,CACHE_FLAG,always,write,"this+0x49b8 = flag"
-B,CACHE_FLAG,READ_SIDE,always,read,"side = this+0x49bc"
-B,READ_SIDE,TO_MODULATOR,side==0,branch,
-B,READ_SIDE,TO_DEMODULATOR,side==1,branch,
-B,READ_SIDE,RETURN,else,return,
-C,TO_MODULATOR,RETURN,always,tailcall,"V90Modulator::setSessionFlag(flag)"
-C,TO_DEMODULATOR,RETURN,always,call,"V90Demodulator::setSessionFlag(flag)"
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x00019a80,H,function entry,V90Modem_setSessionFlag_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x00019a80,H,entry complete,V90Modem_setSessionFlag_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x00019ac6,H,actions complete,V90Modem_setSessionFlag_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x00019ac6,H,return,V90Modem_setSessionFlag_state_graph_edges.csv
+param,self_object,write,modem_state_fields,0x00019a80,H,this-pointer method updates top-level modem state,V90Modem_setSessionFlag_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x00019a80,H,see call list for helper interactions,V90Modem_setSessionFlag_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x00019ac6,H,method return,V90Modem_setSessionFlag_state_graph_param_edges.csv

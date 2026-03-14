@@ -1,0 +1,10 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY_LOAD,0x72360,H,function entry,V34TimingFilter_state_graph_edges.csv
+control,B0_ENTRY_LOAD,fallthrough,B1_HALFBAUD_A,0x72407,H,load done,V34TimingFilter_state_graph_edges.csv
+control,B1_HALFBAUD_A,fallthrough,B2_HALFBAUD_B,0x724e4,H,stage a done,V34TimingFilter_state_graph_edges.csv
+control,B2_HALFBAUD_B,fallthrough,B3_HP_UPDATE,0x7257f,H,stage b done,V34TimingFilter_state_graph_edges.csv
+control,B3_HP_UPDATE,fallthrough,B4_RETURN,0x726a8,H,update done,V34TimingFilter_state_graph_edges.csv
+control,B4_RETURN,ret,RET,0x726b0,H,return,V34TimingFilter_state_graph_edges.csv
+param,history_slots,write,filter_state,0x72407|0x7257f,H,rolling history,V34TimingFilter_state_graph_param_edges.csv
+param,coeff_tables,write,accumulation_coeffs,0x724b7|0x725ef,H,table-driven math,V34TimingFilter_state_graph_param_edges.csv
+return,B4_RETURN,write,eax_timing_correction,0x726b0,H,return,V34TimingFilter_state_graph_param_edges.csv

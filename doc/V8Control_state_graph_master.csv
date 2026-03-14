@@ -1,0 +1,15 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_CMD_DISPATCH,0x74440,H,function entry,V8Control_state_graph_edges.csv
+control,B0_CMD_DISPATCH,cmd0,B1_CMD0_GATED_ARM,0x74490,H,cmd0,V8Control_state_graph_edges.csv
+control,B0_CMD_DISPATCH,cmd1,B2_CMD1_FORCE_STATE,0x744f0,H,cmd1,V8Control_state_graph_edges.csv
+control,B0_CMD_DISPATCH,cmd2,B3_CMD2_FINALIZE,0x7450a,H,cmd2,V8Control_state_graph_edges.csv
+control,B0_CMD_DISPATCH,other,B4_ERROR_OR_RETURN,0x7452e,H,invalid,V8Control_state_graph_edges.csv
+control,B1_CMD0_GATED_ARM,fallthrough,B4_ERROR_OR_RETURN,0x74489,H,return tail,V8Control_state_graph_edges.csv
+control,B2_CMD1_FORCE_STATE,fallthrough,B4_ERROR_OR_RETURN,0x74508,H,return tail,V8Control_state_graph_edges.csv
+control,B3_CMD2_FINALIZE,fallthrough,B4_ERROR_OR_RETURN,0x7452c,H,return tail,V8Control_state_graph_edges.csv
+control,B4_ERROR_OR_RETURN,ret,RET,0x74557,H,return,V8Control_state_graph_edges.csv
+param,cmd,write,dispatch,0x74451|0x7445f,H,command select,V8Control_state_graph_param_edges.csv
+param,v8+0xa44_0x9d6_0xdbe,write,cmd0_guards,0x74490|0x744ac,H,guard set,V8Control_state_graph_param_edges.csv
+param,v8+0x9d8_0x9d4_0xe64,write,cmd12_writes,0x744f0|0x74523,H,state edits,V8Control_state_graph_param_edges.csv
+call,B4_ERROR_OR_RETURN,write,debug_prints,0x744e2|0x7454c,H,verbose,V8Control_state_graph_param_edges.csv
+return,B4_ERROR_OR_RETURN,write,eax_status,0x74557,H,return,V8Control_state_graph_param_edges.csv

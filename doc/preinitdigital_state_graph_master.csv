@@ -1,0 +1,14 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY_CLEAR,0x59760,H,function entry,preinitdigital_state_graph_edges.csv
+control,B0_ENTRY_CLEAR,fallthrough,B1_FRONTEND_ZERO,0x597a0,H,entry done,preinitdigital_state_graph_edges.csv
+control,B1_FRONTEND_ZERO,fallthrough,B2_BACKEND_ZERO,0x59830,H,frontend done,preinitdigital_state_graph_edges.csv
+control,B2_BACKEND_ZERO,fallthrough,B3_POINTER_WIRING,0x598d0,H,backend done,preinitdigital_state_graph_edges.csv
+control,B3_POINTER_WIRING,side_65,B4_SIDE_SWAP,0x5993d,H,swap path,preinitdigital_state_graph_edges.csv
+control,B3_POINTER_WIRING,other,B5_RETURN,0x59974,H,direct return,preinitdigital_state_graph_edges.csv
+control,B4_SIDE_SWAP,fallthrough,B5_RETURN,0x59974,H,swap done,preinitdigital_state_graph_edges.csv
+control,B5_RETURN,ret,RET,0x59974,H,return,preinitdigital_state_graph_edges.csv
+param,ctx+0x25e0_region,write,region_a_zero,0x597a0|0x59823,H,clear path,preinitdigital_state_graph_param_edges.csv
+param,ctx+0x0a00_region,write,region_b_zero,0x59830|0x59844,H,clear path,preinitdigital_state_graph_param_edges.csv
+call,B2_BACKEND_ZERO,write,memset_calls,0x59891|0x598cb,H,region memset,preinitdigital_state_graph_param_edges.csv
+param,ctx+0x359c,write,side_swap_selector,0x5993d,H,swap branch,preinitdigital_state_graph_param_edges.csv
+return,B5_RETURN,write,eax_status,0x59974,H,return,preinitdigital_state_graph_param_edges.csv

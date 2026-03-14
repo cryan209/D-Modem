@@ -1,27 +1,37 @@
-# V90Modem::printTitle Target Walkthrough
+# V90Modem_printTitle Target Walkthrough
+
+- Function: V90Modem_printTitle
+- Range: 0x00019400 .. 0x000194d1
+- Disassembly: [V90Modem_printTitle_disasm.asm](/root/D-Modem/doc/V90Modem_printTitle_disasm.asm)
+- Pseudo-C: [V90Modem_printTitle_pseudoc.c](/root/D-Modem/doc/V90Modem_printTitle_pseudoc.c)
 
 ## Purpose
-Emit version/title diagnostics for the V.90 modem module.
 
-## External dependencies
-- `edprintf` (primary output path)
-- `dsplibs_debug_printf` (verbose/debug path)
-- `dsplibs_debug_level` (verbosity gate)
+Emit/prepare modem title and identification text.
 
-## String constants used
-- `.rodata.str1.4+0x416c` : `"***************************************************\\r\\n"`
-- `.rodata.str1.4+0x41a8` : `"*******        This is a PRIVATE version         *******\\r\\n"`
-- `.rodata.str1.4+0x41e4` : `"*******     for the use of SL DSP group only     *******\\r\\n"`
-- `.rodata.str1.4+0x4220` : `"V90Modem Version Description:\\r\\n"`
-- `.rodata.str1.4+0x4240` : `"Modified Quick Connect without Memory + Train Time + Constel Power"`
-- `.rodata.str1.4+0x4284` : `"Components: Floreat, ADI, ACD, New BLL\\r\\n"`
-- `.rodata.str1.1+0x1058` : `"%s\\r\\n"`
-- `.rodata.str1.1+0x105d` : `"V90Modem Version: %s  (%s)\\r\\n"`
-- `.rodata.str1.1+0x107a` : `"25-Mar-04"`
-- `.rodata.str1.1+0x1084` : `"2.98"`
+## Signature (lifted)
 
-## Control pattern
-- Print three headline lines unconditionally.
-- If debug level is high, print extra top-line star banner and version tuple.
-- Print description/component lines unconditionally.
-- If debug level remains high, print closing star banner.
+~~~c
+void V90Modem_printTitle_pseudoc(void *self)
+~~~
+
+## Block-Level Walkthrough
+
+| Block | Entry | Behavior summary |
+|---|---:|---|
+| B0_ENTRY | 0x00019400 | Entry and local state setup. |
+| B1_ACTION | 0x00019400 | Main helper/state-machine behavior. |
+| B2_RETURN | 0x000194d1 | Return tail. |
+
+## Direct Calls
+
+- 			1940b: R_386_PC32	edprintf
+- 			19417: R_386_PC32	edprintf
+- 			19423: R_386_PC32	edprintf
+- 			19438: R_386_PC32	edprintf
+- 			1944d: R_386_PC32	edprintf
+- 			19459: R_386_PC32	edprintf
+- 			1947d: R_386_PC32	dsplibs_debug_printf
+- 			19489: R_386_PC32	dsplibs_debug_printf
+- 			194b0: R_386_PC32	dsplibs_debug_printf
+- 			194c9: R_386_PC32	dsplibs_debug_printf

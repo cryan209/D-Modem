@@ -1,0 +1,9 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_SEQ_SELECT,0x742b0,H,function entry
+B0_SEQ_SELECT,valid,B1_VALIDATE_LEN,0x742dc,H,seq valid
+B0_SEQ_SELECT,invalid,B4_ERROR_OR_RETURN,0x74397,H,seq invalid
+B1_VALIDATE_LEN,valid,B2_ENCODE_LOOP,0x74319,H,len valid
+B1_VALIDATE_LEN,invalid,B4_ERROR_OR_RETURN,0x74421,H,len invalid
+B2_ENCODE_LOOP,fallthrough,B3_TRAILER_INIT,0x7433e,H,encode done
+B3_TRAILER_INIT,fallthrough,B4_ERROR_OR_RETURN,0x7438f,H,trailer done
+B4_ERROR_OR_RETURN,ret,RET,0x74437,H,return

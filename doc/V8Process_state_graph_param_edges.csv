@@ -1,0 +1,9 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,v8+0x220_0x21c,tx_ring_pop,0x745bb|0x745cd,H,queued symbol ring pop
+param,v8+0xdba,shape_state,0x745d9|0x74607,H,shaping integrator update
+param,v8+0x118_0x21c,input_ring_push,0x7460e|0x74634,H,input history ring push
+call,B1_HANDSHAKE_STEP,v8handshak,0x74652,H,handshake tick
+param,v8+0x9d4_0x9d6_0x9d8_0xa44,status_mapping_inputs,0x74680|0x747fd,H,map to outward status id
+param,v8+0xeb8,status_cache,0x74731|0x7474a,H,cached status update
+call,B3_STATUS_COMMIT,dsplibs_debug_printf,0x7477d,H,log status transition
+return,B4_RETURN,eax_status,0x74750,H,return status enum

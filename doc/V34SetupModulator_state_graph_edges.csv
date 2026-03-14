@@ -1,0 +1,7 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_ENTRY_VALIDATE,0x72d50,H,function entry
+B0_ENTRY_VALIDATE,valid,B1_PRIMARY_RATE_DISPATCH,0x72da2,H,valid input
+B1_PRIMARY_RATE_DISPATCH,selected,B2_SECONDARY_RATE_DISPATCH,0x72ef0,H,primary selected
+B2_SECONDARY_RATE_DISPATCH,selected,B3_TABLE_AND_MEMSET,0x72f64,H,secondary selected
+B3_TABLE_AND_MEMSET,fallthrough,B4_DEBUG_AND_RETURN,0x73305,H,config done
+B4_DEBUG_AND_RETURN,ret,RET,0x7338e,H,return

@@ -1,21 +1,16 @@
-# V90Modem::progress State Graph
+# V90Modem_progress Control Graph (Address-Backed)
 
-## Nodes
-- `ENTRY`
-- `READ_SIDE`
-- `SIDE_MODULATOR`
-- `SIDE_DEMODULATOR`
-- `SIDE_ILLEGAL`
-- `DEBUG_PRINT`
-- `RETURN`
+## Control Blocks
 
-## Edges
-- `ENTRY -> READ_SIDE`
-- `READ_SIDE -> SIDE_MODULATOR` when `side == 0`
-- `READ_SIDE -> SIDE_DEMODULATOR` when `side == 1`
-- `READ_SIDE -> SIDE_ILLEGAL` otherwise
-- `SIDE_MODULATOR -> RETURN` (tail-call to modulator progress)
-- `SIDE_DEMODULATOR -> RETURN` (tail-call to demodulator progress)
-- `SIDE_ILLEGAL -> DEBUG_PRINT` when `dsplibs_debug_level > 1`
-- `SIDE_ILLEGAL -> RETURN` when `dsplibs_debug_level <= 1`
-- `DEBUG_PRINT -> RETURN` (tail-call to debug printf)
+| Block | Entry |
+|---|---:|
+| B0_ENTRY | 0x00019ad0 |
+| B1_ACTION | 0x00019ad0 |
+| B2_RETURN | 0x00019b8b |
+
+~~~mermaid
+flowchart LR
+  S[START] --> B0[B0_ENTRY] --> B1[B1_ACTION] --> B2[B2_RETURN] --> R[RET]
+~~~
+
+Edge CSV: /root/D-Modem/doc/V90Modem_progress_state_graph_edges.csv

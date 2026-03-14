@@ -1,16 +1,8 @@
-plane,node,edge_to,condition,action,details
-C,ENTRY,DEBUG_LOG_RESET,debug_level>1,call,"debug_printf(reset,qcFlag)"
-C,ENTRY,PRINT_TITLE,debug_level<=1,branch,
-C,DEBUG_LOG_RESET,PRINT_TITLE,always,flow,
-A,PRINT_TITLE,READ_SIDE,always,call,"V90Modem::printTitle"
-A,READ_SIDE,SIDE_MOD_RESET,side==0,branch,
-A,READ_SIDE,SIDE_DEM_GATE,side==1,branch,
-A,READ_SIDE,SIDE_ILLEGAL,else,branch,
-A,SIDE_MOD_RESET,RETURN,always,tailcall,"V90Modulator::reset"
-B,SIDE_DEM_GATE,MASK_QC,probe_gate!=0,branch,"force qcFlag=0"
-B,SIDE_DEM_GATE,SET_DIL,probe_gate==0,branch,
-C,MASK_QC,SET_DIL,always,call,"edprintf(masked quick connect)"
-B,SET_DIL,SIDE_DEM_RESET,always,call,"setDilDescriptor(dilType)"
-A,SIDE_DEM_RESET,RETURN,always,tailcall,"V90Demodulator::reset(qcFlag)"
-C,SIDE_ILLEGAL,RETURN,debug_level>1,tailcall,"debug_printf(illegal modemSide)"
-C,SIDE_ILLEGAL,RETURN,debug_level<=1,return,
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x000199a0,H,function entry,V90Modem_reset_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x000199a0,H,entry complete,V90Modem_reset_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x00019a7c,H,actions complete,V90Modem_reset_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x00019a7c,H,return,V90Modem_reset_state_graph_edges.csv
+param,self_object,write,modem_state_fields,0x000199a0,H,this-pointer method updates top-level modem state,V90Modem_reset_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x000199a0,H,see call list for helper interactions,V90Modem_reset_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x00019a7c,H,method return,V90Modem_reset_state_graph_param_edges.csv

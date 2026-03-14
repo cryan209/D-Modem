@@ -1,0 +1,5 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_ZERO_TAPS,0x78c10,H,function entry
+B0_ZERO_TAPS,done,B1_ZERO_COUNTERS,0x78c30,H,tap clear complete
+B1_ZERO_COUNTERS,fallthrough,B2_RETURN,0x78c48,H,counters reset
+B2_RETURN,ret,RET,0x78c48,H,return

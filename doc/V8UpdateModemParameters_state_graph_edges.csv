@@ -1,0 +1,8 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_SELECT_SOURCE,0x74840,H,function entry
+B0_SELECT_SOURCE,fallthrough,B1_HEADER_FLAGS,0x748b0,H,source selected
+B1_HEADER_FLAGS,special,B2_SPECIAL_CODE_PATH,0x74a00,H,special path
+B1_HEADER_FLAGS,normal,B3_CAPABILITY_SCAN,0x74ac0,H,normal path
+B2_SPECIAL_CODE_PATH,fallthrough,B3_CAPABILITY_SCAN,0x74aae,H,special done
+B3_CAPABILITY_SCAN,fallthrough,B4_DIAG_AND_RETURN,0x74af7,H,scan done
+B4_DIAG_AND_RETURN,ret,RET,0x74c51,H,return

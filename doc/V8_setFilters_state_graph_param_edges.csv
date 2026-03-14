@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,args_f0_f1_f2_f3,inputs,0x78c50|0x78c72,H,incoming filter pointers
+param,v8+0xdd8_0xddc_0xde0_0xde4,store_slots,0x78c58|0x78c76,H,pointer slot writes
+return,B1_RETURN,void_return,0x78c7c,H,return

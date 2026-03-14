@@ -1,12 +1,28 @@
-# V90Modem::setSessionFlag 3-Plane Graph
+# V90Modem_setSessionFlag 3-Plane Graph (Control/Params/Calls)
 
-## Plane A: Parent state
-- Writes session flag cache at `this+0x49b8`.
+References:
+- Control graph: /root/D-Modem/doc/V90Modem_setSessionFlag_state_graph.md
+- Control edge CSV: /root/D-Modem/doc/V90Modem_setSessionFlag_state_graph_edges.csv
+- Param edge CSV: /root/D-Modem/doc/V90Modem_setSessionFlag_state_graph_param_edges.csv
 
-## Plane B: Dispatch
-- Uses `this+0x49bc` side selector to choose target child.
+## Control Plane
 
-## Plane C: Child propagation
-- Side 0 -> modulator setter.
-- Side 1 -> demodulator setter.
-- Other -> no-op.
+~~~mermaid
+flowchart LR
+  S[START] --> B0[B0_ENTRY] --> B1[B1_ACTION] --> B2[B2_RETURN] --> R[RET]
+~~~
+
+## Parameter Plane
+
+~~~mermaid
+flowchart LR
+  P0[self] --> P1[modem runtime fields]
+  P0 --> P2[sub-engine pointers]
+~~~
+
+## Call Plane
+
+~~~mermaid
+flowchart LR
+  C0[V90Modem_setSessionFlag] --> C1[helper method calls]
+~~~

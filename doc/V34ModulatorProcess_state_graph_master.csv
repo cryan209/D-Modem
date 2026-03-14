@@ -1,0 +1,10 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY_LOAD,0x73390,H,function entry,V34ModulatorProcess_state_graph_edges.csv
+control,B0_ENTRY_LOAD,fallthrough,B1_HISTORY_PUSH,0x7344e,H,load done,V34ModulatorProcess_state_graph_edges.csv
+control,B1_HISTORY_PUSH,fallthrough,B2_MAC_LOOP,0x73485,H,history done,V34ModulatorProcess_state_graph_edges.csv
+control,B2_MAC_LOOP,done,B3_SATURATE_STORE,0x7357c,H,mac done,V34ModulatorProcess_state_graph_edges.csv
+control,B3_SATURATE_STORE,fallthrough,B4_RETURN,0x7360f,H,store done,V34ModulatorProcess_state_graph_edges.csv
+control,B4_RETURN,ret,RET,0x73615,H,return,V34ModulatorProcess_state_graph_edges.csv
+param,history_and_indices,write,mac_inputs,0x7344e|0x73485,H,inner loop data,V34ModulatorProcess_state_graph_param_edges.csv
+param,output_samples,write,saturated_store,0x7357c|0x735f5,H,output path,V34ModulatorProcess_state_graph_param_edges.csv
+return,B4_RETURN,write,eax_status,0x73615,H,return,V34ModulatorProcess_state_graph_param_edges.csv

@@ -1,22 +1,26 @@
-# V90Modem::setSessionFlag Branch Map
+# V90Modem_setSessionFlag Branch And Flow Map
 
-## Entry
-- Loads `this` and input `flag`.
-- Reads `side = *(this + 0x49bc)`.
-- Writes `*(this + 0x49b8) = flag` (always).
+- Symbol: V90Modem_setSessionFlag
+- Start: 0x00019a80
+- End: 0x00019ac6
+- Size: 0x00000047 bytes
 
-## Branches
-1. `side == 0`
-- Loads `mod = *(this + 0x0)`.
-- Tail-call/jump to `V90Modulator::setSessionFlag(mod, flag)`.
+## Summary
 
-2. `side == 1`
-- Loads `dem = *(this + 0x4)`.
-- Calls `V90Demodulator::setSessionFlag(dem, flag)` and returns.
+- Conditional branches: 2
+- Unconditional jumps: 1
+- Direct calls: 1
+- Core role: Set session flag and propagate to active side-specific engine.
 
-3. `side != 0 && side != 1`
-- Returns immediately.
+## Control Regions
 
-## Notes
-- Parent-level session flag is always updated regardless of side value.
-- Invalid side does not trigger any debug logging in this function.
+| Block | Entry | Role |
+|---|---:|---|
+| B0_ENTRY | 0x00019a80 | Entry and guard setup. |
+| B1_ACTION | 0x00019a80 | Main method behavior. |
+| B2_RETURN | 0x00019ac6 | Return tail. |
+
+## External Calls
+
+- 			19ab0: R_386_PC32	V90Modulator::setSessionFlag(unsigned int)
+- 			19abf: R_386_PC32	V90Demodulator::setSessionFlag(unsigned int)

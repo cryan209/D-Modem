@@ -1,0 +1,10 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_CMD_DISPATCH,0x74440,H,function entry
+B0_CMD_DISPATCH,cmd0,B1_CMD0_GATED_ARM,0x74490,H,cmd0
+B0_CMD_DISPATCH,cmd1,B2_CMD1_FORCE_STATE,0x744f0,H,cmd1
+B0_CMD_DISPATCH,cmd2,B3_CMD2_FINALIZE,0x7450a,H,cmd2
+B0_CMD_DISPATCH,other,B4_ERROR_OR_RETURN,0x7452e,H,invalid
+B1_CMD0_GATED_ARM,fallthrough,B4_ERROR_OR_RETURN,0x74489,H,return tail
+B2_CMD1_FORCE_STATE,fallthrough,B4_ERROR_OR_RETURN,0x74508,H,return tail
+B3_CMD2_FINALIZE,fallthrough,B4_ERROR_OR_RETURN,0x7452c,H,return tail
+B4_ERROR_OR_RETURN,ret,RET,0x74557,H,return

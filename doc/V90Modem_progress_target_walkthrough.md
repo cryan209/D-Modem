@@ -1,30 +1,30 @@
-# V90Modem::progress Target Walkthrough
+# V90Modem_progress Target Walkthrough
+
+- Function: V90Modem_progress
+- Range: 0x00019ad0 .. 0x00019b8b
+- Disassembly: [V90Modem_progress_disasm.asm](/root/D-Modem/doc/V90Modem_progress_disasm.asm)
+- Pseudo-C: [V90Modem_progress_pseudoc.c](/root/D-Modem/doc/V90Modem_progress_pseudoc.c)
 
 ## Purpose
-Dispatch modem processing to the active V.90 sub-engine based on a runtime side selector.
 
-## Inputs
-- `this`: V90Modem instance.
-- `int *pcm` (or symbol buffer pointer).
-- `unsigned int &n` (sample/symbol count reference).
-- `float *diag` (or metrics buffer).
-- `unsigned int flags_or_mode`.
+Top-level V.90 modem progress dispatcher for current processing side/state.
 
-## Key field
-- `this+0x49bc`: modem side selector.
-- Observed values:
-- `0`: use modulator object at `this+0x0`.
-- `1`: use demodulator object at `this+0x4`.
+## Signature (lifted)
 
-## Control flow
-- Read side selector.
-- If side is modulator, forward call to `V90Modulator::progress`.
-- If side is demodulator, forward call to `V90Demodulator::progress`.
-- Otherwise log an illegal-side diagnostic when debug level is enabled.
+~~~c
+int V90Modem_progress_pseudoc(void *self, int *io, unsigned int *nsamp, float *f, unsigned int mode)
+~~~
 
-## External references
-- `_ZN12V90Modulator8progressEPiRjPfj`
-- `_ZN14V90Demodulator8progressEPiRjPfj`
-- `dsplibs_debug_level`
-- `dsplibs_debug_printf`
-- Debug string: `"V90Modem progress: Illegal modemSide"`
+## Block-Level Walkthrough
+
+| Block | Entry | Behavior summary |
+|---|---:|---|
+| B0_ENTRY | 0x00019ad0 | Entry and local state setup. |
+| B1_ACTION | 0x00019ad0 | Main helper/state-machine behavior. |
+| B2_RETURN | 0x00019b8b | Return tail. |
+
+## Direct Calls
+
+- 			19b3c: R_386_PC32	V90Modulator::progress(int*, unsigned int&, float*, unsigned int)
+- 			19b66: R_386_PC32	V90Demodulator::progress(int*, unsigned int&, float*, unsigned int)
+- 			19b88: R_386_PC32	dsplibs_debug_printf

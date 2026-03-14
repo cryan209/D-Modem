@@ -1,0 +1,17 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_STREAM_LOOP,0x74560,H,function entry,V8Process_state_graph_edges.csv
+control,B0_STREAM_LOOP,loop_threshold,B1_HANDSHAKE_STEP,0x7464f,H,threshold reached,V8Process_state_graph_edges.csv
+control,B0_STREAM_LOOP,stream_done,B2_STATUS_MAP,0x74680,H,input loop done,V8Process_state_graph_edges.csv
+control,B1_HANDSHAKE_STEP,continue_stream,B0_STREAM_LOOP,0x7465b,H,status !=2 or still samples,V8Process_state_graph_edges.csv
+control,B1_HANDSHAKE_STEP,done,B2_STATUS_MAP,0x74680,H,stream finished,V8Process_state_graph_edges.csv
+control,B2_STATUS_MAP,fallthrough,B3_STATUS_COMMIT,0x74731,H,status selected,V8Process_state_graph_edges.csv
+control,B3_STATUS_COMMIT,fallthrough,B4_RETURN,0x74750,H,cache updated,V8Process_state_graph_edges.csv
+control,B4_RETURN,ret,RET,0x7483a,H,return,V8Process_state_graph_edges.csv
+param,v8+0x220_0x21c,write,tx_ring_pop,0x745bb|0x745cd,H,queued symbol ring pop,V8Process_state_graph_param_edges.csv
+param,v8+0xdba,write,shape_state,0x745d9|0x74607,H,shaping integrator update,V8Process_state_graph_param_edges.csv
+param,v8+0x118_0x21c,write,input_ring_push,0x7460e|0x74634,H,input history ring push,V8Process_state_graph_param_edges.csv
+call,B1_HANDSHAKE_STEP,write,v8handshak,0x74652,H,handshake tick,V8Process_state_graph_param_edges.csv
+param,v8+0x9d4_0x9d6_0x9d8_0xa44,write,status_mapping_inputs,0x74680|0x747fd,H,map to outward status id,V8Process_state_graph_param_edges.csv
+param,v8+0xeb8,write,status_cache,0x74731|0x7474a,H,cached status update,V8Process_state_graph_param_edges.csv
+call,B3_STATUS_COMMIT,write,dsplibs_debug_printf,0x7477d,H,log status transition,V8Process_state_graph_param_edges.csv
+return,B4_RETURN,write,eax_status,0x74750,H,return status enum,V8Process_state_graph_param_edges.csv

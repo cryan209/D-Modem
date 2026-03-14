@@ -1,7 +1,5 @@
 layer,state_hex,evidence_addresses,count
-control,S0_DEFAULTS,0x2a85b,1
-control,S1_OPTIONAL_FILE_PARSE,0x2a865|0x2a876|0x2a87d,3
-control,S2_RUNTIME_OVERLAY,0x2a871|0x2a88a,2
-call,setToDefault,0x2a85b,1
-call,loadParams,0x2a87d,1
-call,loadModemParamsData,0x2a871|0x2a88a,2
+control,ENTRY_TO_RET,0x0002a850|0x0002a88e,2
+control,branch_density,cond=1|jmp=2,2
+call,direct_calls,count=2,1
+param,key_fields,see_V90Parameters_init_state_graph_param_edges.csv,1

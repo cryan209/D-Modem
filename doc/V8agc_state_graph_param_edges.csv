@@ -1,0 +1,7 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,v8+0x114_ring_ptr,input_shift,0x74f33|0x74f72,H,input advance
+param,rodata_0x5420_0x5480,fir_coeff_bank,0x74f99|0x74fa0,H,bank select
+param,rodata_0x54e0,gain_lut,0x7510d,H,gain lookup
+param,v8+0x1a_0x1c_0x1e_0xac,adapt_fields,0x751aa|0x7529b,H,agc update
+call,B4_ADAPT_STATE,debug_prints,0x752fd|0x75327,H,verbose
+return,B5_RETURN,eax_status,0x75375,H,return

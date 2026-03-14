@@ -1,0 +1,8 @@
+from_state,dispatch_target,to_state,evidence_addr,confidence,notes
+START,entry,B0_INPUT_SHIFT,0x74f10,H,function entry
+B0_INPUT_SHIFT,fallthrough,B1_FIR_STAGE,0x74fb0,H,shift done
+B1_FIR_STAGE,fallthrough,B2_ENERGY_GAIN_EST,0x75080,H,fir done
+B2_ENERGY_GAIN_EST,fallthrough,B3_SCALE_AND_CLAMP,0x7514b,H,estimate done
+B3_SCALE_AND_CLAMP,fallthrough,B4_ADAPT_STATE,0x75202,H,scale done
+B4_ADAPT_STATE,fallthrough,B5_RETURN,0x752e8,H,adapt done
+B5_RETURN,ret,RET,0x75375,H,return

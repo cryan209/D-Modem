@@ -1,0 +1,11 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY_SELECT,0x583f0,H,function entry,initV34_state_graph_edges.csv
+control,B0_ENTRY_SELECT,fallthrough,B1_TABLE_CLEAR,0x5846a,H,select done,initV34_state_graph_edges.csv
+control,B1_TABLE_CLEAR,fallthrough,B2_RATE_PROFILE_INIT,0x58556,H,clear done,initV34_state_graph_edges.csv
+control,B2_RATE_PROFILE_INIT,fallthrough,B3_SIDE_DEPENDENT_FIXUPS,0x586bb,H,profile done,initV34_state_graph_edges.csv
+control,B3_SIDE_DEPENDENT_FIXUPS,fallthrough,B4_RETURN,0x58713,H,fixup done,initV34_state_graph_edges.csv
+control,B4_RETURN,ret,RET,0x58714,H,return,initV34_state_graph_edges.csv
+param,ctx+0x359c,write,side_selector,0x58464|0x586db,H,branch selector,initV34_state_graph_param_edges.csv
+param,ctx+0xaaxx,write,profile_fields,0x58556|0x58670,H,constants,initV34_state_graph_param_edges.csv
+param,clear_loops,write,state_windows,0x5846a|0x585c0,H,bulk init,initV34_state_graph_param_edges.csv
+return,B4_RETURN,write,eax_status,0x58714,H,return,initV34_state_graph_param_edges.csv

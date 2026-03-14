@@ -1,12 +1,28 @@
-# V90Parameters_loadModemParamsData 3-Plane Graph
+# V90Parameters_loadModemParamsData 3-Plane Graph (Control/Params/Calls)
 
-## Plane A: Entry/Exit
-- Enter, overlay runtime knobs, return.
+References:
+- Control graph: /root/D-Modem/doc/V90Parameters_loadModemParamsData_state_graph.md
+- Control edge CSV: /root/D-Modem/doc/V90Parameters_loadModemParamsData_state_graph_edges.csv
+- Param edge CSV: /root/D-Modem/doc/V90Parameters_loadModemParamsData_state_graph_param_edges.csv
 
-## Plane B: Control Flow
-- Optional power-reduction conversion branch.
-- Optional temp-probe assignment branch.
-- One-shot connection-type initialization branch.
+## Control Plane
 
-## Plane C: External Interactions
-- Debug print helper only: `edprintf`.
+~~~mermaid
+flowchart LR
+  S[START] --> B0[B0_ENTRY] --> B1[B1_ACTION] --> B2[B2_RETURN] --> R[RET]
+~~~
+
+## Parameter Plane
+
+~~~mermaid
+flowchart LR
+  P0[self] --> P1[parameter runtime fields]
+  P0 --> P2[lookup/default tables]
+~~~
+
+## Call Plane
+
+~~~mermaid
+flowchart LR
+  C0[V90Parameters_loadModemParamsData] --> C1[helper method calls]
+~~~

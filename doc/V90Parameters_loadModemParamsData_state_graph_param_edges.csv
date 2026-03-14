@@ -1,9 +1,4 @@
-source,parameter,access,notes
-TEMP_PR,modem_params+0x40,read,temp power-reduction source
-TEMP_PR,this+0x380,write,normalized power-reduction field
-TEMP_PROBE,modem_params+0x50.bit1,read,temp probe flag
-TEMP_PROBE,this+0x4,write,temp probe enable
-TEMP_CONN,modem_params+0x48,read,temp connection type
-TEMP_CONN,this+0x0c,write,one-shot initialization if unset
-TRN2D_FLAG,modem_params+0x50.bit0,read,trn2d std-eval enable source
-TRN2D_FLAG,this+0x420,write,trn2d std-eval enable
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,parameters_state_fields,0x0002a6f0,H,this-pointer method updates V.90 parameter state
+call,B1_ACTION,helper_calls,0x0002a6f0,H,see call list for helper interactions
+return,B2_RETURN,return_value_or_void,0x0002a847,H,method return

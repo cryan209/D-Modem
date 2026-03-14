@@ -1,0 +1,8 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x0002c290,H,function entry,V90Phase3Modulator_generateSymbol_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x0002c290,H,entry complete,V90Phase3Modulator_generateSymbol_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x0002c2bc,H,actions complete,V90Phase3Modulator_generateSymbol_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x0002c2bc,H,return,V90Phase3Modulator_generateSymbol_state_graph_edges.csv
+param,self_object,write,phase3mod_state_fields,0x0002c290,H,this-pointer method updates phase-3 modulator state,V90Phase3Modulator_generateSymbol_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x0002c290,H,see call list for helper interactions,V90Phase3Modulator_generateSymbol_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x0002c2bc,H,method return,V90Phase3Modulator_generateSymbol_state_graph_param_edges.csv

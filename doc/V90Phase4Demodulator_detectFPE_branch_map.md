@@ -1,0 +1,27 @@
+# V90Phase4Demodulator_detectFPE Branch And Flow Map
+
+- Symbol: V90Phase4Demodulator_detectFPE
+- Start: 0x00025d60
+- End: 0x00025dd2
+- Size: 0x00000073 bytes
+
+## Summary
+
+- Conditional branches: 1
+- Unconditional jumps: 0
+- Direct calls: 3
+- Core role: Evaluate incoming symbol against FPE detection logic.
+
+## Control Regions
+
+| Block | Entry | Role |
+|---|---:|---|
+| B0_ENTRY | 0x00025d60 | Entry and guard setup. |
+| B1_ACTION | 0x00025d60 | Main method behavior. |
+| B2_RETURN | 0x00025dd2 | Return tail. |
+
+## External Calls
+
+- 			25d7b: R_386_PC32	V90RDetector::detectRf(short)
+- 			25da2: R_386_PC32	edprintf
+- 			25dae: R_386_PC32	edprintf

@@ -1,18 +1,31 @@
-# V90Parameters::init Target Walkthrough
+# V90Parameters_init Target Walkthrough
 
-- Function: `V90Parameters::init()`
+- Function: V90Parameters_init
+- Range: 0x0002a850 .. 0x0002a88e
 - Disassembly: [V90Parameters_init_disasm.asm](/root/D-Modem/doc/V90Parameters_init_disasm.asm)
 - Pseudo-C: [V90Parameters_init_pseudoc.c](/root/D-Modem/doc/V90Parameters_init_pseudoc.c)
 
 ## Purpose
-- Rebuild full V.90 parameter state from defaults, optional config file, and modem runtime knobs.
 
-## Sequence
-1. Call `setToDefault()`.
-2. Read `this->modem_params->v90_config_path` (`+0x78`).
-3. If non-null, call `loadParams(path)`.
-4. Always call `loadModemParamsData()`.
+Initialize parameter object and finalize derived values.
 
-## Why this order matters
-- File-based keys layer on top of canonical defaults.
-- Runtime modem-side values (temp probe/PR/connection type bits) are applied last.
+## Signature (lifted)
+
+~~~c
+int V90Parameters_init_pseudoc(void *self)
+~~~
+
+## Block-Level Walkthrough
+
+| Block | Entry | Behavior summary |
+|---|---:|---|
+| B0_ENTRY | 0x0002a850 | Entry and local state setup. |
+| B1_ACTION | 0x0002a850 | Main helper/state-machine behavior. |
+| B2_RETURN | 0x0002a88e | Return tail. |
+
+## Direct Calls
+
+- 			2a85c: R_386_PC32	V90Parameters::setToDefault()
+- 			2a872: R_386_PC32	V90Parameters::loadModemParamsData()
+- 			2a87e: R_386_PC32	V90Parameters::loadParams(char*)
+- 			2a88b: R_386_PC32	V90Parameters::loadModemParamsData()

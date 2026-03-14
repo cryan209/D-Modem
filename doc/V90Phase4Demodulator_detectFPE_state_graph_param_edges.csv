@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,self_object,phase4demod_state_fields,0x00025d60,H,this-pointer method updates phase-4 demodulator state
+call,B1_ACTION,helper_calls,0x00025d60,H,see call list for helper interactions
+return,B2_RETURN,return_value_or_void,0x00025dd2,H,method return

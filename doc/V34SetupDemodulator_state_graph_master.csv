@@ -1,0 +1,11 @@
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY_VALIDATE,0x5def0,H,function entry,V34SetupDemodulator_state_graph_edges.csv
+control,B0_ENTRY_VALIDATE,valid,B1_RATE_DISPATCH,0x5df38,H,valid input,V34SetupDemodulator_state_graph_edges.csv
+control,B1_RATE_DISPATCH,match,B2_TABLE_BIND,0x5e060,H,rate match,V34SetupDemodulator_state_graph_edges.csv
+control,B1_RATE_DISPATCH,fallback,B3_DEBUG_AND_RETURN,0x5e005,H,fallback,V34SetupDemodulator_state_graph_edges.csv
+control,B2_TABLE_BIND,fallthrough,B3_DEBUG_AND_RETURN,0x5e005,H,bind done,V34SetupDemodulator_state_graph_edges.csv
+control,B3_DEBUG_AND_RETURN,ret,RET,0x5e1f8,H,return,V34SetupDemodulator_state_graph_edges.csv
+param,arg_rate_carrier,write,dispatch_keys,0x5df38|0x5e06c,H,case keys,V34SetupDemodulator_state_graph_param_edges.csv
+param,demod+0x1ac_0x1be,write,table_slots,0x5e060|0x5e130,H,pointer writes,V34SetupDemodulator_state_graph_param_edges.csv
+call,B3_DEBUG_AND_RETURN,write,debug_print,0x5e005,H,verbose path,V34SetupDemodulator_state_graph_param_edges.csv
+return,B3_DEBUG_AND_RETURN,write,eax_status,0x5e1f8,H,return,V34SetupDemodulator_state_graph_param_edges.csv

@@ -1,16 +1,28 @@
-# V90Modem::progress 3-Plane Graph
+# V90Modem_progress 3-Plane Graph (Control/Params/Calls)
 
-## Plane A: Dispatch
-- Read side selector at `this+0x49bc`.
-- Side `0` => modulator path.
-- Side `1` => demodulator path.
-- Other => illegal-side path.
+References:
+- Control graph: /root/D-Modem/doc/V90Modem_progress_state_graph.md
+- Control edge CSV: /root/D-Modem/doc/V90Modem_progress_state_graph_edges.csv
+- Param edge CSV: /root/D-Modem/doc/V90Modem_progress_state_graph_param_edges.csv
 
-## Plane B: Data/Pointer routing
-- Modulator object pointer at `this+0x0`.
-- Demodulator object pointer at `this+0x4`.
-- All non-`this` parameters are forwarded unchanged.
+## Control Plane
 
-## Plane C: Diagnostics
-- Illegal-side handling is silent by default.
-- Logs only when `dsplibs_debug_level > 1`.
+~~~mermaid
+flowchart LR
+  S[START] --> B0[B0_ENTRY] --> B1[B1_ACTION] --> B2[B2_RETURN] --> R[RET]
+~~~
+
+## Parameter Plane
+
+~~~mermaid
+flowchart LR
+  P0[self] --> P1[modem runtime fields]
+  P0 --> P2[sub-engine pointers]
+~~~
+
+## Call Plane
+
+~~~mermaid
+flowchart LR
+  C0[V90Modem_progress] --> C1[helper method calls]
+~~~

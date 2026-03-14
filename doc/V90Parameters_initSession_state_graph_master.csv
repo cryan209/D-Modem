@@ -1,4 +1,8 @@
-plane,node,edge_to,condition,action,details
-A,ENTRY,RESET,always,enter,prologue
-B,RESET,RETURN,always,assign,write +0x4f8 and +0x4fc
-A,RESET,RETURN,always,return,epilogue
+plane,from_state,via_target,to_state,evidence_addr,confidence,notes,source
+control,START,entry,B0_ENTRY,0x000279c0,H,function entry,V90Parameters_initSession_state_graph_edges.csv
+control,B0_ENTRY,fallthrough,B1_ACTION,0x000279c0,H,entry complete,V90Parameters_initSession_state_graph_edges.csv
+control,B1_ACTION,fallthrough,B2_RETURN,0x000279d7,H,actions complete,V90Parameters_initSession_state_graph_edges.csv
+control,B2_RETURN,ret,RET,0x000279d7,H,return,V90Parameters_initSession_state_graph_edges.csv
+param,self_object,write,parameters_state_fields,0x000279c0,H,this-pointer method updates V.90 parameter state,V90Parameters_initSession_state_graph_param_edges.csv
+call,B1_ACTION,write,helper_calls,0x000279c0,H,see call list for helper interactions,V90Parameters_initSession_state_graph_param_edges.csv
+return,B2_RETURN,write,return_value_or_void,0x000279d7,H,method return,V90Parameters_initSession_state_graph_param_edges.csv

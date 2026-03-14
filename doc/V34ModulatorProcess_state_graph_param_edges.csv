@@ -1,0 +1,4 @@
+layer,from_state,to_state,evidence_addr,confidence,notes
+param,history_and_indices,mac_inputs,0x7344e|0x73485,H,inner loop data
+param,output_samples,saturated_store,0x7357c|0x735f5,H,output path
+return,B4_RETURN,eax_status,0x73615,H,return

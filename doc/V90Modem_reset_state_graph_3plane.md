@@ -1,16 +1,28 @@
-# V90Modem::reset 3-Plane Graph
+# V90Modem_reset 3-Plane Graph (Control/Params/Calls)
 
-## Plane A: Role dispatch
-- Determine modem side from `this+0x49bc`.
-- Side 0 => modulator reset.
-- Side 1 => demodulator reset path.
-- Invalid side => debug-only warning.
+References:
+- Control graph: /root/D-Modem/doc/V90Modem_reset_state_graph.md
+- Control edge CSV: /root/D-Modem/doc/V90Modem_reset_state_graph_edges.csv
+- Param edge CSV: /root/D-Modem/doc/V90Modem_reset_state_graph_param_edges.csv
 
-## Plane B: Policy/gating
-- Probe-mode gate (`(*(this+0x49b4)+0x4)`) can force `qcFlag = 0`.
-- Effective QC drives `DilType` passed to `setDilDescriptor`.
+## Control Plane
 
-## Plane C: Diagnostics
-- Optional reset-entry log.
-- Optional invalid-side log.
-- Probe-mode QC masking warning via `edprintf`.
+~~~mermaid
+flowchart LR
+  S[START] --> B0[B0_ENTRY] --> B1[B1_ACTION] --> B2[B2_RETURN] --> R[RET]
+~~~
+
+## Parameter Plane
+
+~~~mermaid
+flowchart LR
+  P0[self] --> P1[modem runtime fields]
+  P0 --> P2[sub-engine pointers]
+~~~
+
+## Call Plane
+
+~~~mermaid
+flowchart LR
+  C0[V90Modem_reset] --> C1[helper method calls]
+~~~

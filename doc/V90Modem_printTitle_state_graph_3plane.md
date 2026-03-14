@@ -1,13 +1,28 @@
-# V90Modem::printTitle 3-Plane Graph
+# V90Modem_printTitle 3-Plane Graph (Control/Params/Calls)
 
-## Plane A: Mandatory title output
-- Prints three top banner lines.
-- Prints description title/body/components block.
+References:
+- Control graph: /root/D-Modem/doc/V90Modem_printTitle_state_graph.md
+- Control edge CSV: /root/D-Modem/doc/V90Modem_printTitle_state_graph_edges.csv
+- Param edge CSV: /root/D-Modem/doc/V90Modem_printTitle_state_graph_param_edges.csv
 
-## Plane B: Debug enrichments
-- Optional prolog stars.
-- Optional version/date print (`25-Mar-04`, `2.98`).
-- Optional epilog stars.
+## Control Plane
 
-## Plane C: Gating
-- All optional debug prints are guarded by repeated checks of `dsplibs_debug_level > 1`.
+~~~mermaid
+flowchart LR
+  S[START] --> B0[B0_ENTRY] --> B1[B1_ACTION] --> B2[B2_RETURN] --> R[RET]
+~~~
+
+## Parameter Plane
+
+~~~mermaid
+flowchart LR
+  P0[self] --> P1[modem runtime fields]
+  P0 --> P2[sub-engine pointers]
+~~~
+
+## Call Plane
+
+~~~mermaid
+flowchart LR
+  C0[V90Modem_printTitle] --> C1[helper method calls]
+~~~
