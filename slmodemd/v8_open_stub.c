@@ -2841,7 +2841,7 @@ static int v8_open_rx_consume_samples(struct v8_open_engine *engine,
 		demod_sample = v8_open_rx_agc_scale_sample(engine, fir_sample);
 		v8_open_rx_agc_track(engine, fir_sample, demod_sample);
 
-		engine->rx_bit_window[engine->rx_bit_window_len++] = demod_sample;
+		engine->rx_bit_window[engine->rx_bit_window_len++] = samples[i];
 		if (engine->rx_bit_window_len < V8OPEN_DEMOD_STAGE_SAMPLES)
 			continue;
 
