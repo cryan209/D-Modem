@@ -291,9 +291,12 @@ static void v8_shim_seed_open_runtime(struct v8_blob_wrapper *blob,
 	qc_index = blob->dp_runtime->qc_index;
 
 	flags0 = (unsigned char)(flags0 & (unsigned char)~0x02U);
-	if (originator &&
-	    cfg->target_dp_id == (unsigned)DP_V92 &&
-	    cfg->advertise.v90)
+	if (cfg->advertise.v90 &&
+	    (originator ||
+	     cfg->advertise.access_digital) &&
+	    (cfg->target_dp_id == (unsigned)DP_V92 ||
+	     cfg->target_dp_id == (unsigned)DP_V90 ||
+	     cfg->target_dp_id == (unsigned)DP_V90_NO_V8BIS))
 		flags0 = (unsigned char)(flags0 | 0x08U);
 	else
 		flags0 = (unsigned char)(flags0 & (unsigned char)~0x08U);
@@ -312,9 +315,10 @@ static void v8_shim_seed_open_runtime(struct v8_blob_wrapper *blob,
 		flags1 = (unsigned char)(flags1 & (unsigned char)~0x40U);
 
 	flags2 = (unsigned char)(flags2 & (unsigned char)~(0x10U | 0x40U));
-	if (originator &&
-	    cfg->target_dp_id == (unsigned)DP_V92 &&
-	    cfg->advertise.quick_connect)
+	if ((originator &&
+	     cfg->target_dp_id == (unsigned)DP_V92 &&
+	     cfg->advertise.quick_connect) ||
+	    cfg->advertise.access_digital)
 		flags2 = (unsigned char)(flags2 | 0x10U);
 
 	if (!qc_index)
@@ -733,9 +737,11 @@ int dp_v8_shim_init(void)
 {
 	struct dp_operations *current;
 	const char *mode;
+	int requested_open_stub;
 
 	mode = getenv("SLMODEMD_V8_OPEN_STUB");
-	use_open_stub = mode && mode[0] && strcmp(mode, "0") != 0;
+	requested_open_stub = mode && mode[0] && strcmp(mode, "0") != 0;
+	use_open_stub = requested_open_stub;
 
 	current = modem_dp_get_ops(DP_V8);
 	if (!current) {
@@ -749,6 +755,23 @@ int dp_v8_shim_init(void)
 
 	if (current == &v8_shim_ops)
 		return 0;
+
+	/*
+	 * Blob replacement policy: if proprietary DP_V8 exists, normally use
+	 * it.  However, when digital-side mode is active the blob's V.8
+	 * engine cannot negotiate V.90/V.92 on the answer side (its
+	 * rebuildJMSequence requires the REMOTE CM to indicate digital access,
+	 * which an analog caller will never set).  In that case the open stub
+	 * is required for correct digital capability advertisement.
+	 */
+	if (requested_open_stub &&
+	    !v8_shim_env_enabled("SLMODEMD_V8_ACCESS_DIGITAL", 0)) {
+		use_open_stub = 0;
+		V8SHIM_DBG("SLMODEMD_V8_OPEN_STUB requested but proprietary DP_V8 is present; forcing blob path\n");
+	} else if (v8_shim_env_enabled("SLMODEMD_V8_ACCESS_DIGITAL", 0)) {
+		use_open_stub = 1;
+		V8SHIM_DBG("SLMODEMD_V8_ACCESS_DIGITAL active; forcing open stub for digital-side V.8 negotiation\n");
+	}
 
 	real_v8_ops = current;
 	modem_dp_deregister(DP_V8, current);

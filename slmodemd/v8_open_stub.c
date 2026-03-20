@@ -30,7 +30,8 @@
 #define V8OPEN_CI_DETECT_FRAMES 48U
 #define V8OPEN_CI_WAIT_TIMEOUT_MS 3000U
 #define V8OPEN_ANSAM_AM_DIVISOR 5U
-#define V8OPEN_CM_WAIT_TAIL_MS 800U
+#define V8OPEN_CM_WAIT_TAIL_MS 2400U
+#define V8OPEN_CM_WAIT_TAIL_AFTER_FIRST_VALID_MS 2400U
 #define V8OPEN_CJ_WAIT_MS 900U
 #define V8OPEN_CJ_ECHO_GUARD_MS 120U
 #define V8OPEN_CJ_COLLECT_MIN_MS 420U
@@ -1107,6 +1108,15 @@ static unsigned v8_open_phase_budget(const struct v8_open_engine *engine,
 		unsigned wait_tail;
 
 		wait_tail = v8_open_samples_from_ms(engine, V8OPEN_CM_WAIT_TAIL_MS);
+		if (!engine->cm_detected && engine->cm_confirm_valid_count > 0U) {
+			unsigned confirm_tail;
+
+			confirm_tail = v8_open_samples_from_ms(
+				engine,
+				V8OPEN_CM_WAIT_TAIL_AFTER_FIRST_VALID_MS);
+			if (confirm_tail > wait_tail)
+				wait_tail = confirm_tail;
+		}
 		/*
 		 * If CM search is active when we enter/are in WAIT_FOR_CM, keep the
 		 * phase alive through the active detector/collector deadline so we
@@ -2287,10 +2297,17 @@ static void v8_open_rx_start_collect(struct v8_open_engine *engine,
 			 * Mirror blob answer receive-entry behavior: when moving
 			 * from detector/search into CM/CJ collection, re-run the
 			 * V.21 receive init path (v8_V21_Init(...,0,1) analogue).
+			 *
+			 * FSK init sets use_alt_bank base=1 (via rx_c22c/rx_c22e).
+			 * Reset demod profile to 0 so the first collection attempt
+			 * uses the correct alt bank (980/1180 Hz for V.21 ch1).
+			 * Without this, an odd profile carried from SEARCH mode
+			 * would flip the bank selection to the wrong frequencies.
 			 */
-			if (force_v21_reinit)
+			if (force_v21_reinit) {
 				v8_open_v21_workspace_init_fsk(engine);
-			else
+				engine->rx_demod_profile = 0U;
+			} else
 				v8_open_v21_workspace_init(engine);
 		if (preserve_demod_state) {
 			engine->rx_mark_ticks = preserved_mark_ticks;
@@ -2362,7 +2379,7 @@ static int v8_open_cm_sequence_valid(struct v8_open_engine *engine)
 	unsigned cap_matches;
 	unsigned pcm_usable;
 	unsigned high_speed;
-	unsigned short sig[7];
+	unsigned short sig[3];
 	unsigned sig_len;
 	unsigned short call_word;
 	unsigned short proto_word;
@@ -2424,12 +2441,8 @@ cm_validated:
 		engine->matched_proto_word :
 		v8_open_find_rx_token(engine, 0x00a1U, 0U);
 	sig[0] = call_word;
-	sig[1] = v8_open_find_rx_token(engine, 0x0141U, 0U);
-	sig[2] = v8_open_find_rx_token(engine, 0x0141U, 1U);
-	sig[3] = v8_open_find_rx_token(engine, 0x0141U, 2U);
-	sig[4] = v8_open_find_rx_token(engine, 0x0161U, 0U);
-	sig[5] = proto_word;
-	sig[6] = (unsigned short)((engine->remote_v34 ? 0x0001U : 0U) |
+	sig[1] = proto_word;
+	sig[2] = (unsigned short)((engine->remote_v34 ? 0x0001U : 0U) |
 				  (engine->remote_v32 ? 0x0002U : 0U) |
 				  (engine->remote_pcm_present ? 0x0004U : 0U) |
 				  (engine->remote_access_present ? 0x0008U : 0U) |
@@ -2723,32 +2736,7 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 				  engine->rx_c242);
 		}
 	}
-		if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM) {
-			if (engine->cm_collect_index == 0U) {
-				if (word == 0x0000U) {
-					engine->rx_invert_bits ^= 1U;
-					word ^= 0x03ffU;
-					V8OPEN_DBG("cm-stub: preamble polarity adjust raw=%03x norm=%03x invert=%u\n",
-						  (unsigned)raw_word,
-						  (unsigned)word,
-						  engine->rx_invert_bits);
-				}
-				if (word != 0x03ffU &&
-				    word != 0x000fU) {
-					/*
-					 * Keep CM decode as a sliding window even if lock
-					 * lands just after preamble; seed one preamble word
-					 * and continue with the current payload candidate.
-					 */
-					engine->rx_seq_b[0] = 0x03ffU;
-					engine->cm_collect_index = 1U;
-					engine->rx_seq_b_count = 1U;
-					V8OPEN_DBG("cm-stub: start gate bypass raw=%03x norm=%03x, seeding preamble and continuing\n",
-						  (unsigned)raw_word,
-						  (unsigned)word);
-				}
-			}
-
+	if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CM) {
 		if (engine->cm_collect_index < V8OPEN_CM_WORDS) {
 			engine->rx_seq_b[engine->cm_collect_index++] = word;
 		} else {
@@ -2774,95 +2762,10 @@ static int v8_open_rx_push_bit(struct v8_open_engine *engine, unsigned bit)
 				       engine->rx_seq_b,
 				       engine->cm_best_count * sizeof(engine->cm_best_seq[0]));
 			}
-			if (engine->cm_collect_pass >= 4U &&
-			    (engine->cm_even_words * 2U) >= engine->cm_collect_pass) {
-			/*
-			 * V.8 CM words are odd-valued (LSB=1). A run of even words
-			 * often means polarity is wrong in this lock hypothesis.
-			 * Flip word polarity first, then nudge the 10-bit boundary
-			 * by -1 bit to recover from residual framing slip without
-			 * forcing a full preamble relock.
-			 */
-			engine->rx_invert_bits ^= 1U;
-			V8OPEN_DBG("cm-stub: parity drift pass=%u even=%u raw=%03x norm=%03x, toggling polarity invert=%u and nudging bit-phase -1\n",
-				  engine->cm_collect_pass,
-				  engine->cm_even_words,
-				  (unsigned)raw_word,
-				  (unsigned)word,
-				  engine->rx_invert_bits);
-			/*
-			 * Pull the next 10-bit boundary one bit earlier:
-			 * with rx_bits_to_word=1, the next emit happens after 9 bits.
-			 */
-			engine->rx_bits_to_word = 1U;
-			/*
-			 * Avoid re-entering the strict idx=0 preamble gate right
-			 * after a framing nudge; seed one preamble word and keep
-			 * sliding so payload-like words can be parsed.
-			 */
-			memset(engine->rx_seq_b, 0, sizeof(engine->rx_seq_b));
-			engine->rx_seq_b[0] = 0x03ffU;
-			engine->cm_collect_index = 1U;
-			engine->cm_collect_pass = 0U;
-			engine->cm_even_words = 0U;
-			engine->rx_seq_b_count = 1U;
-			return 0;
-		}
-		if (engine->cm_collect_index >= V8OPEN_CM_STALL_WORDS &&
-		    engine->cm_collect_pass <= 1U) {
-			engine->cm_framing_stalls++;
-			v8_open_cm_advance_phase_scan(engine);
-			V8OPEN_DBG("cm-stub: framing stall #%u idx=%u pass=%u raw=%03x norm=%03x runs=%u/%u/%u, phase-scan skip=%u, re-locking preamble search\n",
-				  engine->cm_framing_stalls,
-				  engine->cm_collect_index,
-				  engine->cm_collect_pass,
-				  (unsigned)raw_word,
-				  (unsigned)word,
-				  engine->rx_c23e,
-				  engine->rx_c240,
-				  engine->rx_c242,
-				  engine->rx_lock_skip_bits);
-			engine->rx_word_sync = 0U;
-			engine->rx_align_locked = 0U;
-			engine->rx_skip_samples = 0U;
-			engine->rx_bit_window_len = 0U;
-			engine->rx_sequence_len = 0U;
-			engine->rx_probe_bits = 0U;
-			engine->rx_probe_words_logged = 0U;
-			engine->rx_bits_to_word = 0U;
-			engine->cm_collect_index = 0U;
-			engine->cm_collect_pass = 0U;
-			engine->cm_even_words = 0U;
-			engine->rx_seq_b_count = 0U;
-			memset(engine->rx_seq_b, 0, sizeof(engine->rx_seq_b));
-			return 0;
-		}
-
 		if (engine->rx_seq_b_count >= 5U) {
 			v8_open_parse_rx_sequence(engine);
 			if (v8_open_cm_sequence_valid(engine))
 				return 1;
-			if (engine->cm_collect_pass >= V8OPEN_CM_INVALID_RELOCK_WORDS &&
-			    !v8_open_cm_sequence_valid(engine)) {
-				v8_open_cm_advance_phase_scan(engine);
-				V8OPEN_DBG("cm-stub: invalid CM window pass=%u, advancing phase-scan skip=%u and re-locking\n",
-					  engine->cm_collect_pass,
-					  engine->rx_lock_skip_bits);
-				engine->rx_word_sync = 0U;
-				engine->rx_align_locked = 0U;
-				engine->rx_skip_samples = 0U;
-				engine->rx_bit_window_len = 0U;
-				engine->rx_sequence_len = 0U;
-				engine->rx_probe_bits = 0U;
-				engine->rx_probe_words_logged = 0U;
-				engine->rx_bits_to_word = 0U;
-				engine->cm_collect_index = 0U;
-				engine->cm_collect_pass = 0U;
-				engine->cm_even_words = 0U;
-				engine->rx_seq_b_count = 0U;
-				memset(engine->rx_seq_b, 0, sizeof(engine->rx_seq_b));
-				return 0;
-			}
 		}
 	} else if (engine->rx_collect_mode == V8_OPEN_RX_COLLECT_CJ) {
 		unsigned cj_valid;
@@ -3825,12 +3728,19 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 	}
 
 	/*
-	 * Keep ANS_SEND_ANSAM conservative (handoff_ready gate), but once we
-	 * are in ANS_WAIT_FOR_CM allow explicit detector trip to start collect.
+	 * Start CM collection when the energy detector confirms signal.
+	 *
+	 * The blob uses DFT energy + phase-reversal detection (states 0x19
+	 * → 0x2d) before starting V.21 demod — it never requires V.21
+	 * diversity as a precondition.  Match that: allow detector_tripped
+	 * (sustained energy above threshold) to trigger collection in ANY
+	 * answer-side phase, not just ANS_WAIT_FOR_CM.  The diversity gate
+	 * (handoff_ready) is kept as a fast path for when demod bits are
+	 * already balanced.
 	 */
 	if (engine->ans_det_06 &&
 	    (v8_open_handoff_ready(engine, avg_abs, peak_abs) ||
-	     (detector_tripped && engine->phase == V8_OPEN_PHASE_ANS_WAIT_FOR_CM))) {
+	     detector_tripped)) {
 		engine->cm_predetecting = 0U;
 		engine->cm_predetect_deadline = 0U;
 		engine->cm_signature = signature;
@@ -3867,6 +3777,27 @@ static void v8_open_observe_cm(struct v8_open_engine *engine,
 			return;
 		}
 
+		/*
+		 * Stage2 deadline expired without diversity.  The blob's
+		 * equivalent (state 0x2d) transitions straight into V.21
+		 * demod based on DFT energy alone — it does not cycle
+		 * profiles.  If the detector has accumulated enough hits,
+		 * trust the energy evidence and start collection.  Only
+		 * rearm and cycle profiles as a last resort.
+		 */
+		if (engine->cm_seen_count >= 4U) {
+			V8OPEN_DBG("cm-stub: stage2 deadline no-diversity but good energy hits=%u avg=%u peak=%u bits=%u/%u, starting collector\n",
+				  engine->cm_seen_count,
+				  avg_abs,
+				  peak_abs,
+				  engine->rx_dbg_bit0,
+				  engine->rx_dbg_bit1);
+			engine->cm_predetecting = 0U;
+			engine->cm_predetect_deadline = 0U;
+			engine->cm_signature = signature;
+			v8_open_cm_collect_start(engine, samples, cnt);
+			return;
+		}
 		V8OPEN_DBG("cm-stub: stage2 deadline no-diversity avg=%u peak=%u bits=%u/%u runs=%u/%u/%u, rearming detector\n",
 			  avg_abs,
 			  peak_abs,
@@ -4378,9 +4309,9 @@ static void v8_open_prepare_jm_shim(struct v8_open_engine *engine)
 
 	if (jm->data_supported &&
 	    (rx_call == 0x0107U || rx_call == 0x0109U)) {
-		jm->call_function_code = rx_call;
+		jm->call_function_code = 0x0107U;
 		engine->have_call_match = 1U;
-		engine->matched_call_word = rx_call;
+		engine->matched_call_word = 0x0107U;
 	} else if (jm->data_supported) {
 		/*
 		 * Proprietary caller expects DATA call-function (0x0107) for
@@ -4578,39 +4509,16 @@ static void v8_open_transition(struct v8_open_engine *engine,
 
 		carry_active = engine->cm_collecting ||
 			(engine->cm_predetecting && engine->cm_seen_count > 0U);
-		/*
-		 * Blob behavior is more deterministic around CM wait entry; stale
-		 * ANS_SEND_ANSAM detector/collector carry frequently causes false
-		 * immediate handoff and preamble-only windows. Start WAIT_FOR_CM
-		 * with a fresh receiver state.
-		 */
-		carry_active = 0U;
-		if (carry_active &&
-		    v8_open_stage2_monobit(engine, V8OPEN_CM_STAGE2_MONO_BITS_CARRY)) {
-			V8OPEN_DBG("cm-stub: entering WAIT_FOR_CM, dropping stale mono stage2 hits=%u bits=%u/%u runs=%u/%u/%u prof=%u\n",
-				  engine->cm_seen_count,
-				  engine->rx_dbg_bit0,
-				  engine->rx_dbg_bit1,
-				  engine->rx_c23e,
-				  engine->rx_c240,
-				  engine->rx_c242,
-				  engine->rx_demod_profile);
-			carry_active = 0U;
-		}
+		/* Keep CM detector/collector context continuous across phase edge. */
 		if (carry_active) {
 			unsigned pred_remain;
 			unsigned coll_remain;
-			unsigned stage2_wait_cap;
 
 			pred_remain = 0U;
 			if (engine->cm_predetect_deadline > engine->samples_in_phase)
 				pred_remain = engine->cm_predetect_deadline - engine->samples_in_phase;
 			else if (engine->cm_predetect_deadline)
 				pred_remain = 1U;
-			stage2_wait_cap =
-				v8_open_samples_from_ms(engine, V8OPEN_CM_STAGE2_WAIT_CAP_MS);
-			if (pred_remain > stage2_wait_cap)
-				pred_remain = stage2_wait_cap;
 
 			coll_remain = 0U;
 			if (engine->cm_collect_deadline > engine->samples_in_phase)
@@ -4618,44 +4526,14 @@ static void v8_open_transition(struct v8_open_engine *engine,
 			else if (engine->cm_collect_deadline)
 				coll_remain = 1U;
 
-			if (!pred_remain && !coll_remain) {
-				V8OPEN_DBG("cm-stub: entering WAIT_FOR_CM, dropping stale carry with no deadline hits=%u pred=%u collect=%u runs=%u/%u/%u bits=%u/%u prof=%u\n",
-					  engine->cm_seen_count,
-					  engine->cm_predetecting,
-					  engine->cm_collecting,
-					  engine->rx_c23e,
-					  engine->rx_c240,
-					  engine->rx_c242,
-					  engine->rx_dbg_bit0,
-					  engine->rx_dbg_bit1,
-					  engine->rx_demod_profile);
-				carry_active = 0U;
-			} else {
-				engine->cm_predetect_deadline = pred_remain;
-				engine->cm_collect_deadline = coll_remain;
-				V8OPEN_DBG("cm-stub: entering WAIT_FOR_CM, carrying active state hits=%u pred=%u collect=%u remain_pred=%u remain_collect=%u runs=%u/%u/%u bits=%u/%u prof=%u\n",
-					  engine->cm_seen_count,
-					  engine->cm_predetecting,
-					  engine->cm_collecting,
-					  pred_remain,
-					  coll_remain,
-					  engine->rx_c23e,
-					  engine->rx_c240,
-					  engine->rx_c242,
-					  engine->rx_dbg_bit0,
-					  engine->rx_dbg_bit1,
-					  engine->rx_demod_profile);
-			}
-		}
-		if (!carry_active) {
-		/*
-		 * Entering WAIT_FOR_CM should start with a fresh detector window.
-		 * Carrying stale ANS_SEND_ANSAM collector state causes immediate
-		 * fallback without giving this phase a real chance to decode CM.
-		 */
-		if (engine->cm_predetecting || engine->cm_collecting) {
-			V8OPEN_DBG("cm-stub: entering WAIT_FOR_CM, resetting collector state hits=%u runs=%u/%u/%u bits=%u/%u prof=%u\n",
+			engine->cm_predetect_deadline = pred_remain;
+			engine->cm_collect_deadline = coll_remain;
+			V8OPEN_DBG("cm-stub: entering WAIT_FOR_CM, carrying active state hits=%u pred=%u collect=%u remain_pred=%u remain_collect=%u runs=%u/%u/%u bits=%u/%u prof=%u\n",
 				  engine->cm_seen_count,
+				  engine->cm_predetecting,
+				  engine->cm_collecting,
+				  pred_remain,
+				  coll_remain,
 				  engine->rx_c23e,
 				  engine->rx_c240,
 				  engine->rx_c242,
@@ -4663,155 +4541,108 @@ static void v8_open_transition(struct v8_open_engine *engine,
 				  engine->rx_dbg_bit1,
 				  engine->rx_demod_profile);
 		}
-		engine->cm_seen_count = 0U;
-		engine->cm_predetecting = 0U;
-		engine->cm_predetect_deadline = 0U;
-		engine->cm_collecting = 0U;
-		engine->cm_collect_deadline = 0U;
-		engine->cm_collect_index = 0U;
-		engine->cm_collect_pass = 0U;
-		engine->cm_even_words = 0U;
-		engine->cm_force_suppress_count = 0U;
-			engine->cm_signature = 0U;
-			engine->cm_best_pass = 0U;
-			engine->cm_best_count = 0U;
-			memset(engine->cm_best_seq, 0, sizeof(engine->cm_best_seq));
-			engine->rx_demod_profile = 0U;
-			engine->rx_phase_scan_index = 0U;
-			engine->rx_lock_skip_bits = 0U;
-			engine->rx_orient_flip = 0U;
-			v8_open_rx_reset_collect(engine);
-			v8_open_answer_predetector_arm(engine);
-			engine->cm_predetecting = 1U;
-		engine->cm_predetect_deadline = 0U;
+		if (!carry_active) {
+			/*
+			 * No in-flight collector to carry: arm detector, but do not
+			 * clear demod/orientation history on phase edge.
+			 */
+			if (!engine->cm_predetecting && !engine->cm_collecting) {
+				v8_open_answer_predetector_arm(engine);
+				engine->cm_predetecting = 1U;
+				engine->cm_predetect_deadline = 0U;
+			}
 		}
 	}
 
 		if (next_phase == V8_OPEN_PHASE_ANS_SEND_JM &&
 		    !engine->cm_detected) {
-			if (v8_open_try_salvage_best_cm(engine)) {
-			engine->cm_detected = 1U;
-			engine->cm_guard_budget = 0U;
-			engine->cm_predetecting = 0U;
-			engine->cm_predetect_deadline = 0U;
-			engine->cm_collecting = 0U;
-			engine->cm_collect_deadline = 0U;
-				engine->ans_cm_timeout_fallback = 0U;
-				V8OPEN_DBG("cm-stub: timeout salvage promoted CM, continuing with JM\n");
-			} else {
-			unsigned weak_window;
 			unsigned short raw12;
 			unsigned runs0;
 			unsigned runs1;
-		unsigned runs2;
-		unsigned mark_run;
-		unsigned delim_run;
-		unsigned word_sync;
-		unsigned bits_to_word;
-		unsigned emits;
-		unsigned hist_fill;
-		unsigned phase_off;
-		unsigned agc_gain;
-		unsigned agc_env;
-		unsigned agc_metric;
-		unsigned agc_level;
-		unsigned sym0;
-		unsigned sym1;
-		unsigned tick0;
-		unsigned tick1;
-		unsigned sat_count;
+			unsigned runs2;
+			unsigned mark_run;
+			unsigned delim_run;
+			unsigned word_sync;
+			unsigned bits_to_word;
+			unsigned emits;
+			unsigned hist_fill;
+			unsigned phase_off;
+			unsigned agc_gain;
+			unsigned agc_env;
+			unsigned agc_metric;
+			unsigned agc_level;
+			unsigned sym0;
+			unsigned sym1;
+			unsigned tick0;
+			unsigned tick1;
+			unsigned sat_count;
 			unsigned low_energy;
 			unsigned bit0_count;
 			unsigned bit1_count;
 
-			weak_window = (engine->cm_best_count >= 4U &&
-				       engine->cm_best_pass >= 2U) ? 1U : 0U;
-			if (weak_window &&
-			    engine->cm_force_suppress_count < V8OPEN_CM_FORCE_SUPPRESS_MAX) {
-				engine->cm_force_suppress_count++;
-				V8OPEN_DBG("cm-stub: timeout salvage inconclusive (pass=%u words=%u tokens=%u), extending CM recovery %u/%u\n",
-					  engine->cm_best_pass,
-					  engine->cm_best_count,
-					  engine->rx_token_count,
-					  engine->cm_force_suppress_count,
-					  V8OPEN_CM_FORCE_SUPPRESS_MAX);
-				v8_open_cm_recovery_rearm(engine, 1U);
-				next_phase = V8_OPEN_PHASE_ANS_WAIT_FOR_CM;
-				goto cm_retry_wait;
-			}
-
 			raw12 = (unsigned short)(engine->rx_c23a & 0x0fffU);
-		runs0 = engine->rx_c23e;
-		runs1 = engine->rx_c240;
-		runs2 = engine->rx_c242;
-		mark_run = engine->rx_c244;
-		delim_run = engine->rx_c246;
-		word_sync = engine->rx_word_sync;
-		bits_to_word = engine->rx_bits_to_word;
-		emits = engine->rx_emit_total;
-		hist_fill = engine->rx_demod_hist_fill;
-		phase_off = engine->rx_phase_offset;
-		agc_gain = engine->rx_agc_gain_q15;
-		agc_env = engine->rx_agc_env;
-		agc_metric = engine->rx_agc_metric;
-		agc_level = engine->rx_agc_level;
-		sym0 = engine->rx_c230;
-		sym1 = engine->rx_c232;
-		tick0 = engine->rx_space_ticks;
-		tick1 = engine->rx_mark_ticks;
-		sat_count = engine->ans_rx_ac;
-		low_energy = engine->rx_dbg_low_energy;
-		bit0_count = engine->rx_dbg_bit0;
-		bit1_count = engine->rx_dbg_bit1;
-		engine->cm_predetecting = 0U;
-		engine->cm_predetect_deadline = 0U;
-		engine->cm_collecting = 0U;
-		engine->cm_collect_deadline = 0U;
-		engine->cm_collect_pass = 0U;
-		engine->cm_even_words = 0U;
-		engine->cm_guard_budget = 0U;
-		engine->cm_detected = 0U;
-		v8_open_rx_reset_collect(engine);
-		V8OPEN_DBG("cm-stub: timeout fallback after %u candidate(s); no valid CM, entering legacy fallback (raw=%03x runs=%u/%u/%u mark=%u delim=%u sync=%u bits=%u emits=%u hist=%u phase=%u agc=%u env=%u metric=%u level=%u sym=%u/%u ticks=%u/%u sat=%u demod=%u/%u/%u prof=%u)\n",
-			  engine->cm_seen_count,
-			  raw12,
-			  runs0,
-			  runs1,
-			  runs2,
-			  mark_run,
-			  delim_run,
-			  word_sync,
-			  bits_to_word,
-			  emits,
-			  hist_fill,
-			  phase_off,
-			  agc_gain,
-			  agc_env,
-			  agc_metric,
-			  agc_level,
-			  sym0,
-			  sym1,
-			  tick0,
-			  tick1,
-			  sat_count,
-			  low_energy,
-			  bit0_count,
-			  bit1_count,
-			  engine->rx_demod_profile);
-			/*
-			 * No synthetic CM promotion: when CM does not decode, follow
-			 * timeout fallback path instead of fabricating capabilities.
-			 *
-			 * V.8 8.2.2 no-CM timeout path:
-			 * insert a 75 ms no-signal gap before fallback handoff.
-			 */
-				engine->ans_cm_timeout_fallback = 1U;
-				next_phase = V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM;
-				}
-			} else if (next_phase == V8_OPEN_PHASE_ANS_SEND_JM) {
+			runs0 = engine->rx_c23e;
+			runs1 = engine->rx_c240;
+			runs2 = engine->rx_c242;
+			mark_run = engine->rx_c244;
+			delim_run = engine->rx_c246;
+			word_sync = engine->rx_word_sync;
+			bits_to_word = engine->rx_bits_to_word;
+			emits = engine->rx_emit_total;
+			hist_fill = engine->rx_demod_hist_fill;
+			phase_off = engine->rx_phase_offset;
+			agc_gain = engine->rx_agc_gain_q15;
+			agc_env = engine->rx_agc_env;
+			agc_metric = engine->rx_agc_metric;
+			agc_level = engine->rx_agc_level;
+			sym0 = engine->rx_c230;
+			sym1 = engine->rx_c232;
+			tick0 = engine->rx_space_ticks;
+			tick1 = engine->rx_mark_ticks;
+			sat_count = engine->ans_rx_ac;
+			low_energy = engine->rx_dbg_low_energy;
+			bit0_count = engine->rx_dbg_bit0;
+			bit1_count = engine->rx_dbg_bit1;
+			engine->cm_predetecting = 0U;
+			engine->cm_predetect_deadline = 0U;
+			engine->cm_collecting = 0U;
+			engine->cm_collect_deadline = 0U;
+			engine->cm_collect_pass = 0U;
+			engine->cm_even_words = 0U;
+			engine->cm_guard_budget = 0U;
+			engine->cm_detected = 0U;
+			v8_open_rx_reset_collect(engine);
+			V8OPEN_DBG("cm-stub: timeout fallback after %u candidate(s); no valid CM, entering legacy fallback (raw=%03x runs=%u/%u/%u mark=%u delim=%u sync=%u bits=%u emits=%u hist=%u phase=%u agc=%u env=%u metric=%u level=%u sym=%u/%u ticks=%u/%u sat=%u demod=%u/%u/%u prof=%u)\n",
+				  engine->cm_seen_count,
+				  raw12,
+				  runs0,
+				  runs1,
+				  runs2,
+				  mark_run,
+				  delim_run,
+				  word_sync,
+				  bits_to_word,
+				  emits,
+				  hist_fill,
+				  phase_off,
+				  agc_gain,
+				  agc_env,
+				  agc_metric,
+				  agc_level,
+				  sym0,
+				  sym1,
+				  tick0,
+				  tick1,
+				  sat_count,
+				  low_energy,
+				  bit0_count,
+				  bit1_count,
+				  engine->rx_demod_profile);
+			engine->ans_cm_timeout_fallback = 1U;
+			next_phase = V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM;
+		} else if (next_phase == V8_OPEN_PHASE_ANS_SEND_JM) {
 			engine->ans_cm_timeout_fallback = 0U;
 		}
-cm_retry_wait:
 		if (next_phase == V8_OPEN_PHASE_ANS_WAIT_FOR_CJ)
 			engine->ans_cj_timeout_fallback = 0U;
 	if (next_phase == V8_OPEN_PHASE_ANS_POST_CJ_CONFIRM &&

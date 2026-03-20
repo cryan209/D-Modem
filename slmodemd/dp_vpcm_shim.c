@@ -70,6 +70,43 @@ static struct dp_operations *real_v34_ops;
 static struct dp_operations *real_v90_ops;
 static struct dp_operations *real_v92_ops;
 static struct vpcm_shim_state *vpcm_shim_states;
+static int vpcm_digital_side;
+
+/*
+ * VPCMXF_Create interposer via symbol weakening.
+ *
+ * The blob's vpcm_create() hardcodes side=0 (Analog) when calling
+ * VPCMXF_Create(). When operating as a digital PCM endpoint (ISP side
+ * over VoIP), we need side=1 (Digital) so the V.90/V.92 modem engine
+ * runs the correct PCM codec path.
+ *
+ * dsplibs.o has been patched with objcopy:
+ *   --weaken-symbol=VPCMXF_Create  (makes the blob's definition weak)
+ *   --add-symbol __blob_VPCMXF_Create=.text:0xfcf0,global,function
+ *                                    (alias to call the original code)
+ *
+ * This strong definition overrides the blob's weak one for ALL callers,
+ * including the intra-object call from vpcm_create() within dsplibs.o.
+ *
+ * Prototype inferred from VPCMXF_Create disassembly: 5 args passed on
+ * the x86-32 stack, forwarded to VPcmFloModem constructor.
+ */
+extern void *__blob_VPCMXF_Create(int side, void *v34_obj,
+				  void *dp_runtime, unsigned frag_ms,
+				  int session_type);
+
+void *VPCMXF_Create(int side, void *v34_obj,
+		    void *dp_runtime, unsigned frag_ms,
+		    int session_type)
+{
+	if (vpcm_digital_side) {
+		VPCMSHIM_DBG("VPCMXF_Create: overriding side %d -> 1 (Digital)\n",
+			    side);
+		side = 1;
+	}
+	return __blob_VPCMXF_Create(side, v34_obj, dp_runtime,
+				    frag_ms, session_type);
+}
 
 static struct dp_operations *vpcm_shim_real_ops(enum DP_ID id)
 {
@@ -339,6 +376,25 @@ static struct dp *vpcm_shim_create(struct modem *m, enum DP_ID id,
 	if (!vpcm_shim_stub_allowed(id))
 		stub_mode = VPCMSHIM_STUB_DISABLED;
 
+	/*
+	 * When digital side mode is active, seed dp_runtime->flags2 bit 4
+	 * before the blob's vpcm_create runs. For V.92 (id == 0x5c) the
+	 * blob preserves this bit; for V.90 it clears it, but the
+	 * __wrap_VPCMXF_Create override ensures the VPcmFloModem is still
+	 * created with side=1 regardless.
+	 */
+	if (vpcm_digital_side) {
+		struct vpcm_runtime_prefix *runtime;
+
+		runtime = (struct vpcm_runtime_prefix *)
+			modem_get_param(m, MDMPRM_DPRUNTIME);
+		if (runtime) {
+			runtime->flags2 |= 0x10U;
+			VPCMSHIM_DBG("create: seeded dp_runtime flags2 bit4 for digital side (flags2=0x%02x)\n",
+				    runtime->flags2);
+		}
+	}
+
 	if (stub_mode != VPCMSHIM_STUB_DISABLED)
 		inner = vpcm_shim_create_stub(m, id, op);
 	else if (real_ops->create)
@@ -368,7 +424,7 @@ static struct dp *vpcm_shim_create(struct modem *m, enum DP_ID id,
 	state->srate = srate;
 	state->max_frag = max_frag;
 	state->frag_ms = frag_ms;
-	state->vpcmx_side = 0;
+	state->vpcmx_side = vpcm_digital_side ? 1 : 0;
 	state->session_type = vpcm_shim_session_type(id);
 	state->last_ret = 0;
 	state->use_stub = (stub_mode != VPCMSHIM_STUB_DISABLED);
@@ -567,6 +623,16 @@ static struct dp_operations vpcm_shim_ops = {
 	.hangup = vpcm_shim_hangup,
 };
 
+static int vpcm_shim_get_digital_side(void)
+{
+	const char *value = getenv("SLMODEMD_VPCM_DIGITAL_SIDE");
+
+	if (!value || vpcm_shim_env_false(value))
+		return 0;
+
+	return 1;
+}
+
 int dp_vpcm_shim_init(void)
 {
 	real_v34_ops = modem_dp_get_ops(DP_V34);
@@ -575,6 +641,8 @@ int dp_vpcm_shim_init(void)
 
 	if (!real_v34_ops || !real_v90_ops || !real_v92_ops)
 		return -1;
+
+	vpcm_digital_side = vpcm_shim_get_digital_side();
 
 	modem_dp_deregister(DP_V34, real_v34_ops);
 	modem_dp_deregister(DP_V90, real_v90_ops);
@@ -587,7 +655,8 @@ int dp_vpcm_shim_init(void)
 	if (modem_dp_register(DP_V92, &vpcm_shim_ops) < 0)
 		return -1;
 
-	VPCMSHIM_DBG("installed shim around proprietary VPCM ops for DP_V34/DP_V90/DP_V92 (stub=%s)\n",
-		    vpcm_shim_stub_mode_name(vpcm_shim_get_stub_mode()));
+	VPCMSHIM_DBG("installed shim around proprietary VPCM ops for DP_V34/DP_V90/DP_V92 (stub=%s digital_side=%s)\n",
+		    vpcm_shim_stub_mode_name(vpcm_shim_get_stub_mode()),
+		    vpcm_digital_side ? "yes" : "no");
 	return 0;
 }
